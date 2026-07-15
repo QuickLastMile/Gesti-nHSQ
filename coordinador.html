@@ -8,6 +8,22 @@
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
+  <!-- Gate de PIN -->
+  <div id="gate" class="gate hidden">
+    <div class="gate__card">
+      <div class="brand-mark" aria-hidden="true" style="margin:0 auto;background:var(--brand);border-color:var(--brand)">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 1 1 12 0v2m-9 0h6a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-5a3 3 0 0 1 3-3Z" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h2>Acceso coordinador</h2>
+      <p>Ingresa el PIN para ver y exportar registros.</p>
+      <div class="field">
+        <input id="pin" type="password" inputmode="numeric" placeholder="PIN" enterkeyhint="go">
+      </div>
+      <button id="pinBtn" class="btn btn--primary btn--block" type="button" style="margin-top:12px">Entrar</button>
+      <div id="pinErr" class="gate__err"></div>
+    </div>
+  </div>
+
   <div id="demoBanner" class="demo-banner hidden">Modo demostración · datos de ejemplo, no se genera archivo real</div>
 
   <header class="app-header">
@@ -35,6 +51,11 @@
           </div>
           <div class="card__body">
             <div class="field">
+              <span class="label">Formulario</span>
+              <select id="filtroFormulario"></select>
+              <span class="hint-inline">Solo un formulario a la vez (preoperacional o limpieza tienen columnas distintas).</span>
+            </div>
+            <div class="field">
               <span class="label">Fecha inicial</span>
               <input id="fechaInicio" type="date">
             </div>
@@ -43,14 +64,10 @@
               <input id="fechaFin" type="date">
             </div>
             <div class="field">
-              <span class="label">Formulario(s)</span>
-              <select id="filtroFormularios" multiple size="4"></select>
-              <span class="hint-inline">Deja sin seleccionar para incluir todos.</span>
-            </div>
-            <div class="field">
-              <span class="label">Proyecto(s)</span>
-              <select id="filtroProyectos" multiple size="5"></select>
-              <span class="hint-inline">Ctrl/Cmd para elegir varios.</span>
+              <span class="label">Proyecto</span>
+              <input id="proyectoBusca" list="proyDatalist" autocomplete="off" placeholder="Escribe para buscar… (vacío = todos)">
+              <datalist id="proyDatalist"></datalist>
+              <span class="hint-inline">Escribe parte del nombre y elige de la lista. Déjalo vacío para incluir todos.</span>
             </div>
           </div>
         </section>
@@ -62,8 +79,8 @@
         </div>
         <div class="card__body">
           <p class="hint-inline" style="margin-top:0">
-            Genera un archivo CSV con todos los registros del rango seleccionado. El archivo se guarda en tu Drive,
-            en <b>Registros HSQ / Exportables HSQ</b>, y aquí aparecerá el enlace para abrirlo.
+            Genera un archivo CSV con los registros del formulario y rango seleccionados. Se guarda en tu Drive,
+            en <b>Registros HSQ / Exportables HSQ</b>, y podrás abrirlo o descargarlo directamente.
           </p>
           <div id="result" class="hidden" style="margin:16px 0"></div>
           <button id="exportar" class="btn btn--primary btn--block" type="button">
@@ -80,9 +97,28 @@
   <script src="assets/api.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
+    let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
+
+    /* ---------- PIN gate ---------- */
+    (function gate() {
+      const pin = (window.HSQ_CONFIG && HSQ_CONFIG.COORD_PIN) || '';
+      if (!pin) return; // sin PIN configurado
+      if (sessionStorage.getItem('hsq_coord_ok') === '1') return;
+      $('gate').classList.remove('hidden');
+      const intentar = () => {
+        if ($('pin').value === String(pin)) {
+          sessionStorage.setItem('hsq_coord_ok', '1');
+          $('gate').classList.add('hidden');
+        } else {
+          $('pinErr').textContent = 'PIN incorrecto.';
+          $('pin').value = '';
+        }
+      };
+      $('pinBtn').addEventListener('click', intentar);
+      $('pin').addEventListener('keydown', (e) => { if (e.key === 'Enter') intentar(); });
+    })();
 
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
-
     $('exportar').addEventListener('click', generarExportable);
     init();
 
@@ -92,24 +128,34 @@
       $('fechaFin').value = today;
       try {
         const data = await HSQ_API.call('getBootstrap');
-        fillSelect($('filtroFormularios'), data.formularios, 'id_formulario', 'nombre_formulario');
-        fillSelect($('filtroProyectos'), data.proyectos, 'proyecto_id', 'proyecto');
+        $('filtroFormulario').innerHTML = (data.formularios || []).map((f) =>
+          `<option value="${escapeHtml(f.id_formulario)}">${escapeHtml(f.nombre_formulario)}</option>`).join('');
+        proyectosMap = {};
+        $('proyDatalist').innerHTML = (data.proyectos || []).map((p) => {
+          proyectosMap[String(p.proyecto).toLowerCase()] = p.proyecto_id;
+          proyectosMap[String(p.proyecto_id)] = p.proyecto_id;
+          return `<option value="${escapeHtml(p.proyecto)}">`;
+        }).join('');
       } catch (err) {
         showStatus(err.message, 'error');
       }
     }
 
-    function fillSelect(select, rows, valueKey, labelKey) {
-      select.innerHTML = (rows || []).map((r) =>
-        `<option value="${escapeHtml(r[valueKey])}">${escapeHtml(r[labelKey])}</option>`).join('');
+    function resolverProyecto() {
+      const txt = $('proyectoBusca').value.trim();
+      if (!txt) return [];
+      const id = proyectosMap[txt.toLowerCase()] || proyectosMap[txt];
+      return id ? [String(id)] : [txt]; // si no coincide exacto, se envía el texto tal cual
     }
 
     async function generarExportable() {
+      const formId = $('filtroFormulario').value;
+      if (!formId) return showStatus('Selecciona un formulario.', 'error');
       const filtros = {
         fechaInicio: $('fechaInicio').value,
         fechaFin: $('fechaFin').value,
-        proyectos: selected($('filtroProyectos')),
-        formularios: selected($('filtroFormularios')),
+        formularios: [formId],
+        proyectos: resolverProyecto(),
       };
       if (!filtros.fechaInicio || !filtros.fechaFin) return showStatus('Selecciona el rango de fechas.', 'error');
 
@@ -119,7 +165,7 @@
       try {
         const resp = await HSQ_API.call('generarExportable', filtros);
         showResult(resp);
-        showStatus(`✓ Exportable generado: ${resp.filas} fila(s), ${resp.columnas} columna(s).`, 'ok');
+        showStatus(`✓ Exportable generado: ${resp.filas} fila(s), ${resp.columnas} columna(s).`, resp.filas ? 'ok' : 'warn');
       } catch (err) {
         showStatus(err.message, 'error');
       } finally {
@@ -129,6 +175,11 @@
 
     function showResult(resp) {
       const box = $('result');
+      const dl = resp.downloadUrl && resp.downloadUrl !== '#'
+        ? `<a class="btn btn--primary btn--block" style="margin-top:10px" href="${escapeHtml(resp.downloadUrl)}">
+             <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+             Descargar CSV directo
+           </a>` : '';
       box.innerHTML = `
         <div class="person show" style="background:var(--info-soft);border-color:#cfe1f4">
           <div class="person__name" style="font-size:15px">${escapeHtml(resp.nombre)}</div>
@@ -136,26 +187,15 @@
             <div class="person__item"><b>Filas</b><span>${escapeHtml(resp.filas)}</span></div>
             <div class="person__item"><b>Columnas</b><span>${escapeHtml(resp.columnas)}</span></div>
           </div>
-          <a class="btn btn--dark btn--block" style="margin-top:12px" href="${escapeHtml(resp.url)}" target="_blank" rel="noopener">
-            Abrir archivo en Drive
-          </a>
+          <a class="btn btn--ghost btn--block" style="margin-top:12px" href="${escapeHtml(resp.url)}" target="_blank" rel="noopener">Abrir en Drive</a>
+          ${dl}
         </div>`;
       box.classList.remove('hidden');
     }
 
-    function selected(select) { return Array.from(select.selectedOptions).map((o) => o.value); }
-    function setLoading(loading) {
-      $('exportar').disabled = loading;
-      $('exportar').style.opacity = loading ? '.7' : '';
-    }
-    function showStatus(message, type) {
-      const n = $('status');
-      n.className = `status show status--${type}`;
-      n.textContent = message;
-    }
-    function escapeHtml(v) {
-      return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    }
+    function setLoading(loading) { $('exportar').disabled = loading; $('exportar').style.opacity = loading ? '.7' : ''; }
+    function showStatus(message, type) { const n = $('status'); n.className = `status show status--${type}`; n.textContent = message; }
+    function escapeHtml(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   </script>
 </body>
 </html>

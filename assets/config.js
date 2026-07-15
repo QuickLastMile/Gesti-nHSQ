@@ -12,4 +12,8 @@ window.HSQ_CONFIG = {
   API_URL: 'https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec',
   APP_NAME: 'Gestión HSQ Motos',
   SUBTITLE: 'Registro operativo de motos',
+
+  // 🔒 PIN para entrar a la página del Coordinador (exportables).
+  // Cámbialo por el que quieras. Déjalo en '' (vacío) para desactivar el PIN.
+  COORD_PIN: '1234',
 };

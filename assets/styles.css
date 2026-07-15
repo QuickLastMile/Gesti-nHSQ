@@ -379,3 +379,80 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .role-card__cta svg { width: 18px; height: 18px; }
 .launch__foot { text-align: center; margin-top: 30px; font-size: 13px; color: var(--muted); }
 .launch__foot a { font-weight: 700; }
+
+/* ============================================================
+   Checklist diario del mensajero
+   ============================================================ */
+.checklist { display: grid; gap: 10px; }
+.checkitem {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left;
+  min-height: var(--tap);
+  padding: 13px 14px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.checkitem:hover { border-color: var(--accent); }
+.checkitem.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 167, 157, .15); }
+.checkitem.done { cursor: default; background: var(--success-soft); border-color: #bfe6cd; }
+.checkitem__ico { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; }
+.checkitem__ico svg { width: 20px; height: 20px; }
+.checkitem.pending .checkitem__ico { background: var(--warning-soft); color: var(--warning); }
+.checkitem.done .checkitem__ico { background: var(--success); color: #fff; }
+.checkitem__body { flex: 1; min-width: 0; }
+.checkitem__title { font-weight: 800; line-height: 1.25; }
+.checkitem__status { font-size: 13px; color: var(--muted); }
+.checkitem.done .checkitem__status { color: var(--success); font-weight: 700; }
+.checkitem__chev { flex: 0 0 auto; color: var(--muted); }
+.checkitem__chev svg { width: 20px; height: 20px; }
+.checkitem.done .checkitem__chev { display: none; }
+.field-note { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+.auto-tag { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark); }
+
+/* ============================================================
+   Modal comprobante
+   ============================================================ */
+.modal {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(11, 43, 69, .55);
+  display: none; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.modal.show { display: flex; }
+.modal__card {
+  background: #fff; border-radius: 18px;
+  width: 100%; max-width: 460px; max-height: 92vh; overflow: auto;
+  box-shadow: var(--shadow-lg);
+}
+.modal__head { text-align: center; padding: 26px 22px 6px; }
+.modal__check { width: 66px; height: 66px; margin: 0 auto 12px; border-radius: 999px; background: var(--success-soft); color: var(--success); display: grid; place-items: center; }
+.modal__check svg { width: 36px; height: 36px; }
+.modal__head h2 { margin: 0 0 6px; color: var(--brand); font-size: 21px; }
+.modal__head p { margin: 0; color: var(--muted); font-size: 14px; }
+.modal__body { padding: 10px 22px 22px; }
+.comprobante { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 6px 14px; margin-top: 4px; }
+.comprobante__row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.comprobante__row:first-child { border-top: 0; }
+.comprobante__row b { color: var(--muted); font-weight: 700; }
+.comprobante__row span { font-weight: 700; text-align: right; overflow-wrap: anywhere; }
+.comprobante__reg { padding: 9px 0; border-top: 1px solid var(--line); }
+.comprobante__reg .t { font-weight: 800; color: var(--brand); }
+.comprobante__reg .h { font-size: 13px; color: var(--success); font-weight: 700; }
+.modal__actions { display: grid; gap: 10px; margin-top: 16px; }
+
+/* ============================================================
+   Gate de PIN (coordinador)
+   ============================================================ */
+.gate {
+  position: fixed; inset: 0; z-index: 50;
+  background: linear-gradient(120deg, var(--bg-grad-1), var(--bg-grad-2));
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.gate__card { background: #fff; border-radius: 18px; padding: 28px 24px; width: 100%; max-width: 360px; box-shadow: var(--shadow-lg); text-align: center; }
+.gate__card h2 { margin: 6px 0 4px; color: var(--brand); }
+.gate__card p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+.gate__card .field { text-align: left; }
+.gate__err { color: var(--danger); font-weight: 700; font-size: 13px; min-height: 18px; margin-top: 10px; }

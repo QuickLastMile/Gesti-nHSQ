@@ -60,6 +60,15 @@
         encontrado: true,
         activo: true,
         mensaje: 'Activo habilitado para registro.',
+        requierePlaca: false,
+        formulariosRequeridos: [
+          { id_formulario: 'PREOPERACIONAL', nombre_formulario: 'Registro diario preoperacional' },
+          { id_formulario: 'LIMPIEZA_MOTO', nombre_formulario: 'Limpieza y desinfección de la moto' },
+        ],
+        estadoDiario: {
+          PREOPERACIONAL: { hecho: false },
+          LIMPIEZA_MOTO: { hecho: false },
+        },
         datos: {
           cedula: payload.cedula,
           nombre: 'EJEMPLO COLABORADOR',
@@ -69,6 +78,9 @@
           placa_moto: 'ABC12D',
         },
       });
+    }
+    if (action === 'registrarPlaca') {
+      return wait({ ok: true, placa_moto: String(payload.placa || '').toUpperCase() });
     }
     if (action === 'cargarFormulario') {
       const id = payload.id_formulario;
@@ -91,10 +103,30 @@
       return wait({ formulario: { id_formulario: id }, preguntas, opciones });
     }
     if (action === 'guardarRegistro') {
-      return wait({ ok: true, idRegistro: 'DEMO-' + Date.now(), estado: 'OK', alertas: [], archivoDiaUrl: '#' });
+      const idForm = payload.id_formulario;
+      const otro = idForm === 'PREOPERACIONAL' ? 'LIMPIEZA_MOTO' : 'PREOPERACIONAL';
+      const hora = new Date().toTimeString().slice(0, 8);
+      // En demo, el segundo registro completa el día.
+      const completo = window.__demoDone === true;
+      const estadoDiario = {};
+      estadoDiario[idForm] = { hecho: true, idRegistro: 'DEMO-' + idForm, hora: hora };
+      estadoDiario[otro] = window.__demoDone ? { hecho: true, idRegistro: 'DEMO-' + otro, hora: hora } : { hecho: false };
+      window.__demoDone = true;
+      return wait({
+        ok: true, idRegistro: 'DEMO-' + idForm, estado: 'OK', alertas: [], archivoDiaUrl: '#',
+        estadoDiario: estadoDiario, completo: completo,
+        comprobante: {
+          nombre: 'EJEMPLO COLABORADOR', cedula: '1017654321', placa_moto: 'ABC12D',
+          proyecto: 'Proyecto de ejemplo', ciudad: 'MEDELLÍN',
+          fecha: new Date().toISOString().slice(0, 10), completo: completo,
+          registros: Object.keys(estadoDiario).filter((k) => estadoDiario[k].hecho).map((k) => ({
+            id_formulario: k, formulario: k, hora: estadoDiario[k].hora, idRegistro: estadoDiario[k].idRegistro,
+          })),
+        },
+      });
     }
     if (action === 'generarExportable') {
-      return wait({ ok: true, filas: 12, columnas: 20, url: '#', nombre: 'Exportable_HSQ_DEMO.csv' });
+      return wait({ ok: true, filas: 12, columnas: 20, formulario: (payload.formularios || ['DEMO'])[0], url: '#', downloadUrl: '#', nombre: 'Exportable_DEMO.csv' });
     }
     return Promise.reject(new Error('Acción demo no soportada: ' + action));
   }

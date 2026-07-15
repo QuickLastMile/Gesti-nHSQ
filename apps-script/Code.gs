@@ -42,6 +42,7 @@ function handleApi_(e) {
     switch (action) {
       case 'getBootstrap': result = getBootstrap(); break;
       case 'buscarActivo': result = buscarActivo(payload.cedula); break;
+      case 'registrarPlaca': result = registrarPlaca(payload.cedula, payload.placa); break;
       case 'cargarFormulario': result = cargarFormulario(payload.id_formulario); break;
       case 'guardarRegistro': result = guardarRegistro(payload); break;
       case 'generarExportable': result = generarExportable(payload); break;
@@ -103,12 +104,88 @@ function buscarActivo(cedula) {
   }
 
   const activo = isActive_(found.activo_para_registro);
-  return {
+  const resp = {
     encontrado: true,
     activo,
     mensaje: activo ? 'Activo habilitado para registro.' : 'La persona no esta activa para registro.',
     datos: found,
+    requierePlaca: !String(found.placa_moto || '').trim(),
   };
+  if (activo) {
+    resp.formulariosRequeridos = getFormularios_().map(function (f) {
+      return { id_formulario: f.id_formulario, nombre_formulario: f.nombre_formulario };
+    });
+    resp.estadoDiario = getEstadoDiario_(found);
+  }
+  return resp;
+}
+
+/**
+ * Guarda por primera vez la placa del colaborador en Matriz_Activos.
+ * Despues de esto, buscarActivo ya no volvera a pedirla.
+ */
+function registrarPlaca(cedula, placa) {
+  const key = normalizeId_(cedula);
+  if (!key) throw new Error('Digite una cedula valida.');
+  const placaClean = String(placa || '').trim().toUpperCase();
+  if (!placaClean) throw new Error('Digite una placa valida.');
+
+  const sheet = getAdminSpreadsheet_().getSheetByName('Matriz_Activos');
+  if (!sheet) throw new Error('No existe la hoja Matriz_Activos.');
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function (h) { return String(h).trim(); });
+  const cedIdx = headers.indexOf('cedula');
+  const placaIdx = headers.indexOf('placa_moto');
+  if (cedIdx === -1 || placaIdx === -1) throw new Error('Faltan columnas cedula o placa_moto en Matriz_Activos.');
+
+  for (let i = 1; i < values.length; i++) {
+    if (normalizeId_(values[i][cedIdx]) === key) {
+      sheet.getRange(i + 1, placaIdx + 1).setValue(placaClean);
+      return { ok: true, placa_moto: placaClean };
+    }
+  }
+  throw new Error('No se encontro la cedula en Matriz_Activos.');
+}
+
+/**
+ * Devuelve, para cada formulario activo, si esa persona ya lo registro HOY.
+ * { ID_FORM: { hecho: true/false, idRegistro, hora } }
+ */
+function getEstadoDiario_(persona) {
+  const tz = getConfig_().TIMEZONE || 'America/Bogota';
+  const fecha = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const cedulaKey = normalizeId_(persona.cedula);
+  const estado = {};
+  getFormularios_().forEach(function (f) { estado[f.id_formulario] = { hecho: false }; });
+
+  const dayFolder = findDayFolder_(fecha);
+  if (!dayFolder) return estado;
+
+  Object.keys(estado).forEach(function (idForm) {
+    const files = dayFolder.getFilesByName(fecha + '_' + idForm);
+    while (files.hasNext()) {
+      const file = files.next();
+      if (file.getMimeType() !== MimeType.GOOGLE_SHEETS) continue;
+      const sheet = SpreadsheetApp.openById(file.getId()).getSheetByName('Respuestas');
+      if (!sheet || sheet.getLastRow() < 2) continue;
+      const values = sheet.getDataRange().getValues();
+      const headers = values.shift().map(String);
+      const cedIdx = headers.indexOf('cedula');
+      const idRegIdx = headers.indexOf('id_registro');
+      const horaIdx = headers.indexOf('hora_registro');
+      for (let i = 0; i < values.length; i++) {
+        if (normalizeId_(values[i][cedIdx]) === cedulaKey) {
+          estado[idForm] = {
+            hecho: true,
+            idRegistro: values[i][idRegIdx],
+            hora: horaIdx !== -1 ? String(values[i][horaIdx]) : '',
+          };
+          break;
+        }
+      }
+    }
+  });
+  return estado;
 }
 
 function cargarFormulario(idFormulario) {
@@ -135,6 +212,11 @@ function guardarRegistro(payload) {
     const activoResp = buscarActivo(payload.cedula);
     if (!activoResp.encontrado || !activoResp.activo) {
       throw new Error(activoResp.mensaje || 'Cedula no habilitada.');
+    }
+
+    const estadoPrevio = getEstadoDiario_(activoResp.datos);
+    if (estadoPrevio[payload.id_formulario] && estadoPrevio[payload.id_formulario].hecho) {
+      throw new Error('Ya realizaste este registro hoy. Solo se permite un registro diario por tipo.');
     }
 
     const formData = cargarFormulario(payload.id_formulario);
@@ -192,12 +274,42 @@ function guardarRegistro(payload) {
     });
 
     sheet.appendRow(row);
+    SpreadsheetApp.flush();
+
+    const estadoDiario = getEstadoDiario_(activoResp.datos);
+    const requeridos = getFormularios_();
+    const completo = requeridos.every(function (f) {
+      return estadoDiario[f.id_formulario] && estadoDiario[f.id_formulario].hecho;
+    });
+    const comprobante = {
+      nombre: activoResp.datos.nombre || '',
+      cedula: String(payload.cedula || ''),
+      placa_moto: activoResp.datos.placa_moto || '',
+      proyecto: activoResp.datos.proyecto || '',
+      ciudad: activoResp.datos.ciudad || '',
+      fecha: fecha,
+      completo: completo,
+      registros: requeridos
+        .filter(function (f) { return estadoDiario[f.id_formulario] && estadoDiario[f.id_formulario].hecho; })
+        .map(function (f) {
+          return {
+            id_formulario: f.id_formulario,
+            formulario: f.nombre_formulario,
+            hora: estadoDiario[f.id_formulario].hora,
+            idRegistro: estadoDiario[f.id_formulario].idRegistro,
+          };
+        }),
+    };
+
     return {
       ok: true,
       idRegistro,
       estado: fixed.estado_registro,
       alertas,
       archivoDiaUrl: dailySpreadsheet.getUrl(),
+      estadoDiario: estadoDiario,
+      completo: completo,
+      comprobante: comprobante,
     };
   } finally {
     lock.releaseLock();
@@ -210,63 +322,97 @@ function generarExportable(filtros) {
   const fin = parseDate_(filtros.fechaFin);
   if (!inicio || !fin || inicio > fin) throw new Error('Rango de fechas invalido.');
 
+  const formularios = (filtros.formularios || []).map(String).filter(Boolean);
+  if (formularios.length !== 1) {
+    throw new Error('Selecciona un solo formulario para exportar (Preoperacional o Limpieza, no ambos): tienen columnas diferentes.');
+  }
+  const formId = formularios[0];
   const proyectos = new Set((filtros.proyectos || []).map(String).filter(Boolean));
-  const formularios = new Set((filtros.formularios || []).map(String).filter(Boolean));
-  const rows = [];
-  const allHeaders = [];
+
+  // Columnas que NO deben aparecer en el exportable del coordinador.
+  const OCULTAR = ['respuestas_json', 'evidencias_json', 'timestamp', 'usuario'];
+
+  const matched = [];        // filas como objetos { header: valor }
+  const evidenceIds = [];    // id_pregunta de cada evidencia (columnas separadas)
+  let baseHeaderOrder = null;
 
   for (let d = new Date(inicio); d <= fin; d.setDate(d.getDate() + 1)) {
     const fecha = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
     const dayFolder = findDayFolder_(fecha);
     if (!dayFolder) continue;
 
-    const files = dayFolder.getFilesByType(MimeType.GOOGLE_SHEETS);
+    const files = dayFolder.getFilesByName(fecha + '_' + formId);
     while (files.hasNext()) {
       const file = files.next();
-      const ss = SpreadsheetApp.openById(file.getId());
-      const sheet = ss.getSheetByName('Respuestas');
+      if (file.getMimeType() !== MimeType.GOOGLE_SHEETS) continue;
+      const sheet = SpreadsheetApp.openById(file.getId()).getSheetByName('Respuestas');
       if (!sheet || sheet.getLastRow() < 2) continue;
 
       const values = sheet.getDataRange().getValues();
       const headers = values.shift().map(String);
-      headers.forEach((h) => {
-        if (allHeaders.indexOf(h) === -1) allHeaders.push(h);
-      });
+      if (!baseHeaderOrder) baseHeaderOrder = headers.slice();
 
       const formIdx = headers.indexOf('id_formulario');
       const projectIdIdx = headers.indexOf('proyecto_id');
       const projectIdx = headers.indexOf('proyecto');
 
       values.forEach((row) => {
-        const formOk = !formularios.size || formularios.has(String(row[formIdx] || ''));
+        if (String(row[formIdx] || '') !== formId) return;
         const projectOk =
           !proyectos.size ||
           proyectos.has(String(row[projectIdIdx] || '')) ||
           proyectos.has(String(row[projectIdx] || ''));
-        if (formOk && projectOk) {
-          rows.push({ headers, row });
-        }
+        if (!projectOk) return;
+
+        const obj = {};
+        headers.forEach((h, i) => { obj[h] = row[i]; });
+        matched.push(obj);
+
+        (safeParseJson_(obj.evidencias_json) || []).forEach((ev) => {
+          if (ev && ev.id_pregunta && evidenceIds.indexOf(ev.id_pregunta) === -1) {
+            evidenceIds.push(ev.id_pregunta);
+          }
+        });
       });
     }
   }
 
-  const csvRows = [allHeaders];
-  rows.forEach((item) => {
-    csvRows.push(allHeaders.map((h) => item.row[item.headers.indexOf(h)] || ''));
+  // Encabezados de salida: base sin columnas ocultas + una columna por evidencia.
+  const baseHeaders = (baseHeaderOrder || []).filter((h) => OCULTAR.indexOf(h) === -1);
+  const evidenceHeaders = evidenceIds.map((id) => 'Evidencia ' + id);
+  const outHeaders = baseHeaders.concat(evidenceHeaders);
+
+  const csvRows = [outHeaders];
+  matched.forEach((obj) => {
+    const baseVals = baseHeaders.map((h) => (obj[h] !== undefined ? obj[h] : ''));
+    const evMap = {};
+    (safeParseJson_(obj.evidencias_json) || []).forEach((ev) => {
+      if (ev && ev.id_pregunta) evMap[ev.id_pregunta] = ev.url || '';
+    });
+    const evVals = evidenceIds.map((id) => evMap[id] || '');
+    csvRows.push(baseVals.concat(evVals));
   });
 
-  const csv = csvRows.map((r) => r.map(csvEscape_).join(',')).join('\n');
+  // BOM UTF-8 + CRLF para que Excel muestre bien las tildes y las columnas.
+  const csv = '\uFEFF' + csvRows.map((r) => r.map(csvEscape_).join(',')).join('\r\n');
   const exportFolder = getOrCreateFolder_(getRootFolder_(), HSQ_EXPORT_FOLDER);
-  const name = 'Exportable_HSQ_' + Utilities.formatDate(new Date(), tz, 'yyyyMMdd_HHmmss') + '.csv';
-  const file = exportFolder.createFile(Utilities.newBlob(csv, 'text/csv', name));
+  const name = 'Exportable_' + formId + '_' + Utilities.formatDate(new Date(), tz, 'yyyyMMdd_HHmmss') + '.csv';
+  const file = exportFolder.createFile(Utilities.newBlob(csv, 'text/csv; charset=utf-8', name));
 
   return {
     ok: true,
-    filas: rows.length,
-    columnas: allHeaders.length,
+    filas: matched.length,
+    columnas: outHeaders.length,
+    formulario: formId,
     url: file.getUrl(),
+    downloadUrl: 'https://drive.google.com/uc?export=download&id=' + file.getId(),
     nombre: name,
   };
+}
+
+function safeParseJson_(value) {
+  if (!value) return null;
+  try { return JSON.parse(value); } catch (e) { return null; }
 }
 
 function getAdminSpreadsheet_() {

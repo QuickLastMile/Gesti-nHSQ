@@ -49,29 +49,51 @@
       </div>
     </section>
 
-    <!-- Paso 2: Tipo de registro -->
-    <section id="cardTipo" class="card hidden">
+    <!-- Registro de placa (solo la primera vez) -->
+    <section id="cardPlaca" class="card hidden">
       <div class="card__head">
-        <span class="step-dot">2</span>
+        <span class="step-dot">!</span>
         <div>
-          <p class="card__title">Tipo de registro</p>
-          <p class="card__sub">Elige qué vas a diligenciar</p>
+          <p class="card__title">Registra tu placa</p>
+          <p class="card__sub">Solo te la pediremos esta vez</p>
         </div>
       </div>
       <div class="card__body">
+        <p class="field-note">No tenemos la placa de tu moto. Escríbela una vez y quedará guardada para siempre.</p>
         <div class="field">
-          <select id="formulario"></select>
+          <span class="label">Placa de la moto</span>
+          <div class="input-row">
+            <input id="placa" autocomplete="off" placeholder="Ej: ABC12D" style="text-transform:uppercase">
+            <button id="guardarPlaca" class="btn btn--primary btn--icon" type="button" title="Guardar placa">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5 10 17l9-10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Paso 3: Preguntas -->
+    <!-- Paso 2: Checklist diario -->
+    <section id="cardChecklist" class="card hidden">
+      <div class="card__head">
+        <span class="step-dot">2</span>
+        <div>
+          <p class="card__title">Tus registros de hoy</p>
+          <p class="card__sub">Debes completar los dos</p>
+        </div>
+      </div>
+      <div class="card__body">
+        <p class="field-note">Cada día es obligatorio registrar el <b>preoperacional</b> y la <b>limpieza</b>. Toca uno para diligenciarlo.</p>
+        <div id="checklist" class="checklist"></div>
+      </div>
+    </section>
+
+    <!-- Paso 3: Formulario activo -->
     <form id="registroForm" class="card hidden">
       <div class="card__head">
         <span class="step-dot">3</span>
         <div>
-          <p class="card__title">Responde el formulario</p>
-          <p class="card__sub">Completa las preguntas obligatorias</p>
+          <p id="formTitle" class="card__title">Formulario</p>
+          <p class="card__sub">Completa y guarda</p>
         </div>
         <span id="questionCount" class="counter">0</span>
       </div>
@@ -81,11 +103,11 @@
     <div id="status" class="status" aria-live="polite"></div>
   </main>
 
-  <div class="bottombar">
+  <div id="bottombar" class="bottombar hidden">
     <div class="bottombar__inner">
       <div class="bottombar__note">
-        <strong>Gestión HSQ</strong>
-        Evidencias por día
+        <strong id="bottomForm">Registro</strong>
+        Fecha y hora automáticas
       </div>
       <button id="guardar" class="btn btn--primary" type="submit" form="registroForm" disabled>
         <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5 10 17l9-10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -94,42 +116,52 @@
     </div>
   </div>
 
+  <!-- Modal comprobante -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal__card">
+      <div class="modal__head">
+        <div class="modal__check">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5 10 17l9-10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h2>¡Marcación efectiva!</h2>
+        <p id="modalMsg">Gracias por cumplir con tus dos registros del día.</p>
+      </div>
+      <div class="modal__body">
+        <div id="comprobante" class="comprobante"></div>
+        <div class="modal__actions">
+          <button id="descargar" class="btn btn--primary btn--block" type="button">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Descargar comprobante
+          </button>
+          <button id="cerrarModal" class="btn btn--ghost btn--block" type="button">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="assets/config.js"></script>
   <script src="assets/api.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
-    const state = { persona: null, formData: null };
+    const state = { persona: null, estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null };
 
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
 
     $('buscar').addEventListener('click', buscarPersona);
-    $('cedula').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); buscarPersona(); }
-    });
-    $('formulario').addEventListener('change', cargarFormulario);
+    $('cedula').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarPersona(); } });
+    $('guardarPlaca').addEventListener('click', guardarPlaca);
+    $('placa').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); guardarPlaca(); } });
     $('registroForm').addEventListener('submit', guardarRegistro);
+    $('descargar').addEventListener('click', () => descargarComprobante(state.ultimoComprobante));
+    $('cerrarModal').addEventListener('click', () => $('modal').classList.remove('show'));
 
-    init();
-
-    async function init() {
-      try {
-        const data = await HSQ_API.call('getBootstrap');
-        fillSelect($('formulario'), data.formularios, 'id_formulario', 'nombre_formulario');
-      } catch (err) {
-        showStatus(err.message, 'error');
-      }
-    }
-
-    function fillSelect(select, rows, valueKey, labelKey) {
-      select.innerHTML = '<option value="">Selecciona…</option>' + (rows || []).map((r) =>
-        `<option value="${escapeHtml(r[valueKey])}">${escapeHtml(r[labelKey])}</option>`).join('');
-    }
-
+    /* ---------- Paso 1: buscar ---------- */
     async function buscarPersona() {
       const cedula = $('cedula').value.trim();
       if (!cedula) return showStatus('Digita tu cédula.', 'error');
       setLoading($('buscar'), true);
       showStatus('Buscando…', 'info');
+      resetFlujo();
       try {
         const resp = await HSQ_API.call('buscarActivo', { cedula });
         renderPersona(resp);
@@ -143,11 +175,7 @@
     function renderPersona(resp) {
       const box = $('persona');
       if (!resp.encontrado) {
-        state.persona = null;
         box.classList.remove('show');
-        $('cardTipo').classList.add('hidden');
-        $('registroForm').classList.add('hidden');
-        $('guardar').disabled = true;
         return showStatus(resp.mensaje || 'No se encontró la cédula.', 'error');
       }
       state.persona = resp.datos;
@@ -162,26 +190,98 @@
         </div>
         <div style="margin-top:10px"><span class="badge ${resp.activo ? 'badge--ok' : 'badge--req'}">${resp.activo ? '✓ Habilitado' : 'No habilitado'}</span></div>`;
       box.classList.add('show');
-      $('cardTipo').classList.toggle('hidden', !resp.activo);
-      showStatus(resp.mensaje, resp.activo ? 'ok' : 'error');
-      if (resp.activo && $('formulario').value) cargarFormulario();
+
+      if (!resp.activo) return showStatus(resp.mensaje, 'error');
+
+      state.formularios = resp.formulariosRequeridos || [];
+      state.estado = resp.estadoDiario || {};
+
+      if (resp.requierePlaca) {
+        $('cardPlaca').classList.remove('hidden');
+        showStatus('Antes de registrar, escribe la placa de tu moto.', 'info');
+      } else {
+        $('cardPlaca').classList.add('hidden');
+        mostrarChecklist();
+      }
     }
 
-    function item(label, value) {
-      return `<div class="person__item"><b>${escapeHtml(label)}</b><span>${escapeHtml(value || '—')}</span></div>`;
+    /* ---------- Placa (una sola vez) ---------- */
+    async function guardarPlaca() {
+      const placa = $('placa').value.trim().toUpperCase();
+      if (!placa) return showStatus('Escribe la placa.', 'error');
+      setLoading($('guardarPlaca'), true);
+      showStatus('Guardando placa…', 'info');
+      try {
+        const resp = await HSQ_API.call('registrarPlaca', { cedula: state.persona.cedula, placa });
+        state.persona.placa_moto = resp.placa_moto || placa;
+        $('cardPlaca').classList.add('hidden');
+        clearStatus();
+        // refrescar tarjeta de persona con la placa
+        const el = $('persona').querySelectorAll('.person__item span');
+        if (el.length) el[el.length - 1].textContent = state.persona.placa_moto;
+        mostrarChecklist();
+      } catch (err) {
+        showStatus(err.message, 'error');
+      } finally {
+        setLoading($('guardarPlaca'), false);
+      }
     }
 
-    async function cargarFormulario() {
-      const id = $('formulario').value;
-      $('guardar').disabled = true;
-      if (!id) { $('registroForm').classList.add('hidden'); return; }
+    /* ---------- Paso 2: checklist ---------- */
+    function mostrarChecklist() {
+      $('cardChecklist').classList.remove('hidden');
+      renderChecklist();
+      if (todoCompleto()) {
+        abrirComprobante(comprobanteDesdeEstado(), true);
+      }
+    }
+
+    function renderChecklist() {
+      $('checklist').innerHTML = state.formularios.map((f) => {
+        const st = state.estado[f.id_formulario] || { hecho: false };
+        const done = !!st.hecho;
+        const active = state.currentForm === f.id_formulario && !done;
+        const statusTxt = done ? ('✓ Registrado' + (st.hora ? ' · ' + String(st.hora).slice(0, 5) : '')) : 'Pendiente · toca para diligenciar';
+        const ico = done
+          ? '<svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5 10 17l9-10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5m0 3h.01M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+        return `
+          <button type="button" class="checkitem ${done ? 'done' : 'pending'} ${active ? 'active' : ''}" data-form="${escapeHtml(f.id_formulario)}" ${done ? 'disabled' : ''}>
+            <span class="checkitem__ico">${ico}</span>
+            <span class="checkitem__body">
+              <span class="checkitem__title">${escapeHtml(f.nombre_formulario)}</span>
+              <span class="checkitem__status">${statusTxt}</span>
+            </span>
+            <span class="checkitem__chev"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </button>`;
+      }).join('');
+
+      $('checklist').querySelectorAll('.checkitem:not(.done)').forEach((btn) => {
+        btn.addEventListener('click', () => seleccionarFormulario(btn.dataset.form));
+      });
+    }
+
+    function todoCompleto() {
+      return state.formularios.length > 0 && state.formularios.every((f) => state.estado[f.id_formulario] && state.estado[f.id_formulario].hecho);
+    }
+
+    /* ---------- Paso 3: formulario ---------- */
+    async function seleccionarFormulario(id) {
+      if (state.estado[id] && state.estado[id].hecho) return;
+      state.currentForm = id;
+      renderChecklist();
+      const f = state.formularios.find((x) => x.id_formulario === id);
+      $('formTitle').textContent = f ? f.nombre_formulario : 'Formulario';
+      $('bottomForm').textContent = f ? f.nombre_formulario : 'Registro';
       showStatus('Cargando preguntas…', 'info');
       try {
         state.formData = await HSQ_API.call('cargarFormulario', { id_formulario: id });
         renderQuestions();
         $('registroForm').classList.remove('hidden');
-        $('guardar').disabled = !state.persona;
+        $('bottombar').classList.remove('hidden');
+        $('guardar').disabled = false;
         clearStatus();
+        $('registroForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (err) {
         showStatus(err.message, 'error');
       }
@@ -208,7 +308,7 @@
             <span class="badge ${required ? 'badge--req' : 'badge--opt'}">${required ? 'Obligatoria' : 'Opcional'}</span>
           </div>
           ${hint}
-          <div style="margin-left:0">${renderInput(q, required)}</div>
+          <div>${renderInput(q, required)}</div>
         </div>`;
     }
 
@@ -219,8 +319,9 @@
       switch (q.tipo_respuesta) {
         case 'parrafo': return `<textarea name="${id}" ${req} placeholder="Escribe aquí…"></textarea>`;
         case 'numero': return `<input name="${id}" type="number" inputmode="numeric" ${req} placeholder="0">`;
-        case 'fecha': return `<input name="${id}" type="date" ${req}>`;
-        case 'hora': return `<input name="${id}" type="time" ${req}>`;
+        // Fecha y hora se registran AUTOMÁTICAMENTE y no se pueden alterar.
+        case 'fecha': return `<input name="${id}" type="date" value="${hoyISO()}" readonly ${req}><span class="auto-tag">Registrada automáticamente</span>`;
+        case 'hora': return `<input name="${id}" type="time" value="${ahoraHM()}" readonly ${req}><span class="auto-tag">Registrada automáticamente</span>`;
         case 'archivo': return `<input name="${id}" type="file" accept="image/*" capture="environment" ${req}>`;
         case 'si_no': return `<select name="${id}" ${req}><option value="">Selecciona…</option><option>SI</option><option>NO</option></select>`;
         case 'desplegable': return `<select name="${id}" ${req}><option value="">Selecciona…</option>${options.map((o) => `<option>${escapeHtml(o)}</option>`).join('')}</select>`;
@@ -231,7 +332,7 @@
 
     async function guardarRegistro(event) {
       event.preventDefault();
-      if (!state.persona) return showStatus('Primero busca tu cédula.', 'error');
+      if (!state.persona || !state.currentForm) return showStatus('Selecciona un registro primero.', 'error');
       const form = event.currentTarget;
       const respuestas = {};
       const archivos = [];
@@ -248,28 +349,138 @@
         }
       }
 
-      const payload = {
-        cedula: $('cedula').value.trim(),
-        id_formulario: $('formulario').value,
-        respuestas,
-        archivos,
-      };
-
+      const payload = { cedula: state.persona.cedula, id_formulario: state.currentForm, respuestas, archivos };
       setLoading($('guardar'), true);
       showStatus('Guardando registro…', 'info');
       try {
         const resp = await HSQ_API.call('guardarRegistro', payload);
-        form.reset();
-        renderQuestions();
-        const alertas = (resp.alertas && resp.alertas.length) ? ` · con ${resp.alertas.length} alerta(s)` : '';
-        showStatus(`✓ Registro guardado (${resp.estado})${alertas}. Puedes hacer otro registro.`, resp.alertas && resp.alertas.length ? 'warn' : 'ok');
+        state.estado = resp.estadoDiario || state.estado;
+        state.currentForm = null;
+        state.formData = null;
+        $('registroForm').classList.add('hidden');
+        $('bottombar').classList.add('hidden');
+        $('guardar').disabled = true;
+        renderChecklist();
+        if (resp.completo) {
+          abrirComprobante(resp.comprobante, false);
+        } else {
+          showStatus('✓ Registro guardado. Falta el otro registro del día, complétalo abajo.', 'ok');
+          $('cardChecklist').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       } catch (err) {
         showStatus(err.message, 'error');
+        $('bottombar').classList.remove('hidden');
+        $('registroForm').classList.remove('hidden');
       } finally {
         setLoading($('guardar'), false);
       }
     }
 
+    /* ---------- Comprobante ---------- */
+    function comprobanteDesdeEstado() {
+      return {
+        nombre: state.persona.nombre, cedula: state.persona.cedula, placa_moto: state.persona.placa_moto,
+        proyecto: state.persona.proyecto, ciudad: state.persona.ciudad, fecha: hoyISO(), completo: true,
+        registros: state.formularios
+          .filter((f) => state.estado[f.id_formulario] && state.estado[f.id_formulario].hecho)
+          .map((f) => ({ formulario: f.nombre_formulario, hora: state.estado[f.id_formulario].hora, idRegistro: state.estado[f.id_formulario].idRegistro })),
+      };
+    }
+
+    function abrirComprobante(c, yaEstaba) {
+      state.ultimoComprobante = c;
+      $('modalMsg').textContent = yaEstaba
+        ? 'Ya cumpliste con tus dos registros de hoy. Puedes descargar tu comprobante.'
+        : '¡Gracias por cumplir con tus dos registros del día!';
+      $('comprobante').innerHTML = `
+        <div class="comprobante__row"><b>Nombre</b><span>${escapeHtml(c.nombre)}</span></div>
+        <div class="comprobante__row"><b>Cédula</b><span>${escapeHtml(c.cedula)}</span></div>
+        <div class="comprobante__row"><b>Placa</b><span>${escapeHtml(c.placa_moto || '—')}</span></div>
+        <div class="comprobante__row"><b>Fecha</b><span>${escapeHtml(c.fecha)}</span></div>
+        ${(c.registros || []).map((r) => `
+          <div class="comprobante__reg">
+            <div class="t">${escapeHtml(r.formulario)}</div>
+            <div class="h">✓ Registrado${r.hora ? ' a las ' + String(r.hora).slice(0, 5) : ''}</div>
+          </div>`).join('')}`;
+      showStatus('✓ Día completo. Comprobante disponible.', 'ok');
+      $('modal').classList.add('show');
+    }
+
+    function descargarComprobante(c) {
+      if (!c) return;
+      const W = 720;
+      const regs = c.registros || [];
+      const H = 300 + regs.length * 78 + 90;
+      const cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      const x = cv.getContext('2d');
+
+      x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H);
+      const g = x.createLinearGradient(0, 0, W, 0);
+      g.addColorStop(0, '#0b2b45'); g.addColorStop(1, '#0e3f52');
+      x.fillStyle = g; x.fillRect(0, 0, W, 130);
+      x.fillStyle = '#00a79d'; x.beginPath(); x.arc(W - 70, 65, 34, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = '#fff'; x.lineWidth = 6; x.lineCap = 'round'; x.lineJoin = 'round';
+      x.beginPath(); x.moveTo(W - 84, 66); x.lineTo(W - 73, 78); x.lineTo(W - 55, 52); x.stroke();
+      x.fillStyle = '#fff'; x.font = 'bold 30px Arial'; x.fillText('Comprobante de registro', 40, 58);
+      x.font = '17px Arial'; x.fillStyle = 'rgba(255,255,255,.85)'; x.fillText('Gestión HSQ Motos · Marcación efectiva', 40, 90);
+
+      let y = 180;
+      x.fillStyle = '#16232e'; x.font = 'bold 24px Arial'; x.fillText(c.nombre || '', 40, y); y += 34;
+      x.font = '16px Arial'; x.fillStyle = '#5f7383';
+      x.fillText('Cédula: ' + (c.cedula || '') + '     Placa: ' + (c.placa_moto || '—'), 40, y); y += 26;
+      if (c.proyecto) { x.fillText('Proyecto: ' + c.proyecto, 40, y); y += 26; }
+      x.fillText('Fecha: ' + (c.fecha || ''), 40, y); y += 20;
+
+      regs.forEach((r) => {
+        y += 16;
+        x.fillStyle = '#e5f6ec'; roundRect(x, 40, y, W - 80, 60, 12); x.fill();
+        x.fillStyle = '#0a7a44'; x.beginPath(); x.arc(72, y + 30, 14, 0, Math.PI * 2); x.fill();
+        x.strokeStyle = '#fff'; x.lineWidth = 3;
+        x.beginPath(); x.moveTo(65, y + 30); x.lineTo(70, y + 36); x.lineTo(80, y + 24); x.stroke();
+        x.fillStyle = '#16232e'; x.font = 'bold 18px Arial'; x.fillText(r.formulario || '', 100, y + 27);
+        x.fillStyle = '#0a7a44'; x.font = '15px Arial';
+        x.fillText('Registrado' + (r.hora ? ' a las ' + String(r.hora).slice(0, 5) : ''), 100, y + 48);
+        y += 60;
+      });
+
+      y += 40;
+      x.fillStyle = '#5f7383'; x.font = 'italic 15px Arial';
+      x.fillText('Gracias por cumplir con tus registros del día. Conserva este comprobante.', 40, y);
+
+      cv.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Comprobante_HSQ_' + (c.cedula || '') + '_' + (c.fecha || '') + '.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      }, 'image/png');
+    }
+
+    function roundRect(x, px, py, w, h, r) {
+      x.beginPath();
+      x.moveTo(px + r, py);
+      x.arcTo(px + w, py, px + w, py + h, r);
+      x.arcTo(px + w, py + h, px, py + h, r);
+      x.arcTo(px, py + h, px, py, r);
+      x.arcTo(px, py, px + w, py, r);
+      x.closePath();
+    }
+
+    /* ---------- utilidades ---------- */
+    function resetFlujo() {
+      state.currentForm = null; state.formData = null;
+      $('cardPlaca').classList.add('hidden');
+      $('cardChecklist').classList.add('hidden');
+      $('registroForm').classList.add('hidden');
+      $('bottombar').classList.add('hidden');
+      $('modal').classList.remove('show');
+      $('guardar').disabled = true;
+    }
+    function item(label, value) {
+      return `<div class="person__item"><b>${escapeHtml(label)}</b><span>${escapeHtml(value || '—')}</span></div>`;
+    }
     function fileToPayload(idPregunta, file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -278,21 +489,12 @@
         reader.readAsDataURL(file);
       });
     }
-
-    /* ---------- utilidades ---------- */
-    function setLoading(btn, loading) {
-      btn.disabled = loading;
-      btn.style.opacity = loading ? '.7' : '';
-    }
-    function showStatus(message, type) {
-      const n = $('status');
-      n.className = `status show status--${type}`;
-      n.textContent = message;
-    }
+    function hoyISO() { return new Date().toISOString().slice(0, 10); }
+    function ahoraHM() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+    function setLoading(btn, loading) { btn.disabled = loading; btn.style.opacity = loading ? '.7' : ''; }
+    function showStatus(message, type) { const n = $('status'); n.className = `status show status--${type}`; n.textContent = message; }
     function clearStatus() { $('status').className = 'status'; }
-    function escapeHtml(v) {
-      return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    }
+    function escapeHtml(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
     function cssEscape(v) { return String(v).replace(/"/g, '\\"'); }
   </script>
 </body>
