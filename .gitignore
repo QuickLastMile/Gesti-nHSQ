@@ -5,3 +5,5 @@ node_modules/
 *.inspect.ndjson
 preview_*.png
 outputs/
+.chrome-profile*/
+tmp_*.png

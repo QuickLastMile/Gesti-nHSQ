@@ -5,6 +5,7 @@ Sistema para reemplazar formularios rigidos de Google Forms por un formulario we
 ## Que incluye
 
 - Formulario web para mensajeros en `apps-script/Index.html`.
+- Frontend externo sin banner en `public/index.html`.
 - Backend de Google Apps Script en `apps-script/Code.gs`.
 - Manifiesto de Apps Script en `apps-script/appsscript.json`.
 - Base administrable inicial en `base/Base_HSQ_Admin.xlsx`.
@@ -22,6 +23,8 @@ https://docs.google.com/spreadsheets/d/1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImF
 Aplicacion web de Apps Script:
 
 https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec
+
+Google muestra un aviso de seguridad en las URLs de Apps Script. Ese aviso no se puede quitar desde el HTML. Para una experiencia sin marca de Google Apps Script, usar la version preparada en `public/index.html` y alojarla fuera de Apps Script. Detalles en `docs/FRONTEND_EXTERNO.md`.
 
 Uso por area:
 

@@ -4,6 +4,7 @@
 
 - Google Sheets administrador: https://docs.google.com/spreadsheets/d/1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImFdz8/edit
 - Aplicacion web Apps Script: https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec
+- Frontend externo preparado: `public/index.html`
 - Base local de respaldo: `C:\Users\Quick\Downloads\HSQ_Automatizacion\outputs\Base_HSQ_Admin.xlsx`
 - Script backend Apps Script: `C:\Users\Quick\Downloads\HSQ_Automatizacion\Code.gs`
 - Formulario web Apps Script: `C:\Users\Quick\Downloads\HSQ_Automatizacion\Index.html`
@@ -90,6 +91,18 @@ Para corregirlo:
 10. Presione `Implementar`.
 
 Despues abra nuevamente el link `/exec`.
+
+## Aviso de Google Apps Script
+
+El banner superior `Un usuario de Google Apps Script creo esta aplicacion` no se puede ocultar desde el codigo. Es impuesto por Google en las aplicaciones publicadas con `script.google.com`.
+
+Para quitarlo, use un frontend externo. La primera version esta en:
+
+```text
+public/index.html
+```
+
+Ver: `docs/FRONTEND_EXTERNO.md`.
 
 ## Nota sobre formularios actuales
 
