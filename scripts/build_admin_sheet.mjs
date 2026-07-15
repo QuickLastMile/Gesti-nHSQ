@@ -229,6 +229,7 @@ const configRows = [
   ["EXPORT_FOLDER_NAME", "Exportables HSQ", "Carpeta donde se guardan archivos CSV exportados."],
   ["MAX_REGISTROS_DIA_ESTIMADO", 1000, "Volumen diario esperado."],
   ["PREGUNTAS_PROMEDIO_FORMULARIO", 13, "Cantidad promedio indicada por HSQ."],
+  ["WEB_APP_URL", "https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec", "URL oficial que usan mensajeros, coordinadores y HSQ."],
 ];
 
 const instruccionesRows = [

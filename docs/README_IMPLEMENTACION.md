@@ -3,9 +3,17 @@
 ## Entregables
 
 - Google Sheets administrador: https://docs.google.com/spreadsheets/d/1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImFdz8/edit
+- Aplicacion web Apps Script: https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec
 - Base local de respaldo: `C:\Users\Quick\Downloads\HSQ_Automatizacion\outputs\Base_HSQ_Admin.xlsx`
 - Script backend Apps Script: `C:\Users\Quick\Downloads\HSQ_Automatizacion\Code.gs`
 - Formulario web Apps Script: `C:\Users\Quick\Downloads\HSQ_Automatizacion\Index.html`
+
+## Links por area
+
+- Mensajeros: https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec
+- Coordinador / Lider: https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec
+- HSQ / Area encargada: https://docs.google.com/spreadsheets/d/1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImFdz8/edit
+- Tecnologia / Desarrollo: https://github.com/QuickLastMile/Gesti-nHSQ
 
 ## Estructura de la base
 

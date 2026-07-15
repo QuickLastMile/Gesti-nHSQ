@@ -17,6 +17,20 @@ La base inicial ya fue importada como Google Sheets:
 
 https://docs.google.com/spreadsheets/d/1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImFdz8/edit
 
+## Link del formulario web
+
+Aplicacion web de Apps Script:
+
+https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec
+
+Uso por area:
+
+- Mensajeros: pestana `Registrar`.
+- Coordinador / Lider: pestana `Exportar`.
+- HSQ: edicion de matriz, preguntas y opciones en la base administrable.
+
+Detalle de enlaces por rol: `docs/LINKS_POR_AREA.md`.
+
 Hojas principales:
 
 - `Matriz_Activos`: colaboradores, proyectos y estado activo/inactivo.
