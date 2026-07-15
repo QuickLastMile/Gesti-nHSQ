@@ -2,11 +2,62 @@ const HSQ_DEFAULT_ROOT = 'Registros HSQ';
 const HSQ_EXPORT_FOLDER = 'Exportables HSQ';
 const HSQ_ADMIN_SPREADSHEET_ID = '1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImFdz8';
 
-function doGet() {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('Registro HSQ Motos')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+/**
+ * API JSON para el frontend alojado en GitHub Pages.
+ * El frontend hace POST con cuerpo de texto plano { action, payload }.
+ * Se usa POST/texto-plano para evitar el "preflight" de CORS.
+ */
+function doPost(e) {
+  return handleApi_(e);
+}
+
+/**
+ * GET: permite una verificacion de estado abriendo la URL /exec en el navegador,
+ * y tambien soporta ?action=... para pruebas rapidas.
+ */
+function doGet(e) {
+  if (e && e.parameter && e.parameter.action) return handleApi_(e);
+  return jsonOutput_({
+    ok: true,
+    service: 'Gestion HSQ Motos - API',
+    mensaje: 'El backend esta activo. El frontend vive en GitHub Pages.',
+  });
+}
+
+function handleApi_(e) {
+  var out;
+  try {
+    var body = {};
+    if (e && e.postData && e.postData.contents) {
+      body = JSON.parse(e.postData.contents);
+    } else if (e && e.parameter && e.parameter.action) {
+      body = {
+        action: e.parameter.action,
+        payload: e.parameter.payload ? JSON.parse(e.parameter.payload) : {},
+      };
+    }
+    var action = body.action;
+    var payload = body.payload || {};
+    var result;
+    switch (action) {
+      case 'getBootstrap': result = getBootstrap(); break;
+      case 'buscarActivo': result = buscarActivo(payload.cedula); break;
+      case 'cargarFormulario': result = cargarFormulario(payload.id_formulario); break;
+      case 'guardarRegistro': result = guardarRegistro(payload); break;
+      case 'generarExportable': result = generarExportable(payload); break;
+      default: throw new Error('Accion no reconocida: ' + action);
+    }
+    out = { ok: true, result: result };
+  } catch (err) {
+    out = { ok: false, error: (err && err.message) ? err.message : String(err) };
+  }
+  return jsonOutput_(out);
+}
+
+function jsonOutput_(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function onOpen() {

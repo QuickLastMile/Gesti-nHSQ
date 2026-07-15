@@ -1,37 +1,39 @@
-# Links por area
+# Links por área
+
+> Los links definitivos aparecen cuando actives GitHub Pages (ver `docs/PUBLICAR.md`).
+> Formato: `https://quicklastmile.github.io/Gesti-nHSQ/…`
 
 ## Mensajeros
 
-Usan este link para registrar:
+App de registro (optimizada para celular):
 
-https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec
+https://quicklastmile.github.io/Gesti-nHSQ/mensajero.html
 
-Modulo a usar:
+Flujo:
 
-- Pestana `Registrar`.
-- Digitar cedula.
-- Seleccionar formulario.
-- Responder preguntas.
-- Adjuntar evidencia cuando aplique.
-- Guardar registro.
+- Digitar la cédula y buscar.
+- Verificar que aparezca el nombre (debe estar activo en `Matriz_Activos`).
+- Seleccionar el tipo de registro.
+- Responder las preguntas.
+- Adjuntar la foto de evidencia cuando aplique (se abre la cámara).
+- Guardar.
 
-## Coordinador / Lider de operacion
+## Coordinador / Líder de operación
 
-Usan este mismo link para consultar y generar exportables:
+App de exportación:
 
-https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec
+https://quicklastmile.github.io/Gesti-nHSQ/coordinador.html
 
-Modulo a usar:
+Flujo:
 
-- Pestana `Exportar`.
-- Filtrar por fecha inicial y fecha final.
+- Filtrar por fecha inicial y final.
 - Filtrar por uno o varios proyectos.
 - Filtrar por formulario.
-- Generar exportable CSV.
+- Generar exportable CSV (se guarda en Drive y aparece el enlace).
 
-## HSQ / Area encargada
+## HSQ / Área encargada
 
-Usan esta base para administrar matriz, formularios, preguntas y opciones:
+Base para administrar matriz, formularios, preguntas y opciones:
 
 https://docs.google.com/spreadsheets/d/1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImFdz8/edit
 
@@ -43,7 +45,7 @@ Hojas principales:
 - `Formularios`: activar o desactivar formularios.
 - `Proyectos`: proyectos disponibles para filtros.
 
-## Tecnologia / Administrador del sistema
+## Tecnología / Administrador del sistema
 
 Repositorio:
 
@@ -51,23 +53,23 @@ https://github.com/QuickLastMile/Gesti-nHSQ
 
 Archivos clave:
 
-- `apps-script/Code.gs`
-- `apps-script/Index.html`
-- `apps-script/appsscript.json`
-- `base/Base_HSQ_Admin.xlsx`
-- `scripts/build_admin_sheet.mjs`
+- `assets/config.js` — URL del backend (conexión).
+- `apps-script/Code.gs` — backend (API + lógica de datos).
+- `apps-script/appsscript.json` — manifiesto (acceso "Cualquier persona").
+- `mensajero.html`, `coordinador.html`, `index.html` — frontend.
+- `docs/PUBLICAR.md` — pasos de despliegue.
 
 ## Almacenamiento de respuestas
 
-El sistema crea automaticamente carpetas en Google Drive cuando se reciben registros:
+El sistema crea automáticamente carpetas en Google Drive:
 
 ```text
 Registros HSQ/
-  ano/
-    ano-mes/
-      ano-mes-dia/
-        ano-mes-dia_PREOPERACIONAL
-        ano-mes-dia_LIMPIEZA_MOTO
+  año/
+    año-mes/
+      año-mes-día/
+        año-mes-día_PREOPERACIONAL
+        año-mes-día_LIMPIEZA_MOTO
         Evidencias/
 ```
 

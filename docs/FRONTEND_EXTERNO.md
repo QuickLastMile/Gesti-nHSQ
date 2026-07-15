@@ -31,15 +31,19 @@ Usuario
   -> Google Sheets + Drive
 ```
 
-## Archivos preparados
+## Archivos preparados (ya implementado)
 
-Se dejo una version HTML limpia en:
+El frontend externo ya está construido en la raíz del repo:
 
 ```text
-public/index.html
+index.html          Lanzador de roles
+mensajero.html      App de registro (móvil)
+coordinador.html    App de exportación
+assets/             Estilos + conexión al backend
 ```
 
-Esta version no muestra marca de Apps Script cuando se aloja en un hosting externo.
+Estas páginas no muestran marca de Apps Script porque se alojan en GitHub Pages.
+El backend (`apps-script/Code.gs`) quedó como API JSON. Pasos en `docs/PUBLICAR.md`.
 
 ## Opcion recomendada para produccion
 
@@ -66,5 +70,6 @@ pero Apps Script tiene limitaciones de CORS y autenticacion cuando se consume de
 
 ## Estado actual
 
-- `apps-script/Index.html`: version redisenada para Apps Script. Mejora el diseno, pero no puede quitar el banner de Google.
-- `public/index.html`: version preparada para hosting externo. Esta es la ruta para una experiencia sin banner.
+- Frontend sin banner: `index.html`, `mensajero.html`, `coordinador.html` (GitHub Pages).
+- Backend como API: `apps-script/Code.gs` desplegado como Aplicación web con acceso "Cualquier persona".
+- La conexión entre ambos se define en `assets/config.js` (`API_URL`).

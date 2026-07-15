@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b2b45">
+  <title>Registrar · Gestión HSQ Motos</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div id="demoBanner" class="demo-banner hidden">Modo demostración · datos de ejemplo, no se guarda nada real</div>
+
+  <header class="app-header">
+    <div class="app-header__inner">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M6 10.8 10.1 15 18 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="1.6" opacity=".7"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>Registrar</h1>
+        <p>Gestión HSQ Motos</p>
+      </div>
+      <a class="header-back" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Inicio
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Paso 1: Cédula -->
+    <section class="card">
+      <div class="card__head">
+        <span class="step-dot">1</span>
+        <div>
+          <p class="card__title">Identifícate</p>
+          <p class="card__sub">Digita tu número de cédula</p>
+        </div>
+      </div>
+      <div class="card__body">
+        <div class="field">
+          <div class="input-row">
+            <input id="cedula" inputmode="numeric" autocomplete="off" enterkeyhint="search" placeholder="Ej: 1017654321">
+            <button id="buscar" class="btn btn--dark btn--icon" type="button" title="Buscar">
+              <svg viewBox="0 0 24 24" fill="none"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="persona" class="person" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- Paso 2: Tipo de registro -->
+    <section id="cardTipo" class="card hidden">
+      <div class="card__head">
+        <span class="step-dot">2</span>
+        <div>
+          <p class="card__title">Tipo de registro</p>
+          <p class="card__sub">Elige qué vas a diligenciar</p>
+        </div>
+      </div>
+      <div class="card__body">
+        <div class="field">
+          <select id="formulario"></select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Paso 3: Preguntas -->
+    <form id="registroForm" class="card hidden">
+      <div class="card__head">
+        <span class="step-dot">3</span>
+        <div>
+          <p class="card__title">Responde el formulario</p>
+          <p class="card__sub">Completa las preguntas obligatorias</p>
+        </div>
+        <span id="questionCount" class="counter">0</span>
+      </div>
+      <div id="questions" class="questions"></div>
+    </form>
+
+    <div id="status" class="status" aria-live="polite"></div>
+  </main>
+
+  <div class="bottombar">
+    <div class="bottombar__inner">
+      <div class="bottombar__note">
+        <strong>Gestión HSQ</strong>
+        Evidencias por día
+      </div>
+      <button id="guardar" class="btn btn--primary" type="submit" form="registroForm" disabled>
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5 10 17l9-10" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Guardar
+      </button>
+    </div>
+  </div>
+
+  <script src="assets/config.js"></script>
+  <script src="assets/api.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const state = { persona: null, formData: null };
+
+    if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
+
+    $('buscar').addEventListener('click', buscarPersona);
+    $('cedula').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); buscarPersona(); }
+    });
+    $('formulario').addEventListener('change', cargarFormulario);
+    $('registroForm').addEventListener('submit', guardarRegistro);
+
+    init();
+
+    async function init() {
+      try {
+        const data = await HSQ_API.call('getBootstrap');
+        fillSelect($('formulario'), data.formularios, 'id_formulario', 'nombre_formulario');
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
+    }
+
+    function fillSelect(select, rows, valueKey, labelKey) {
+      select.innerHTML = '<option value="">Selecciona…</option>' + (rows || []).map((r) =>
+        `<option value="${escapeHtml(r[valueKey])}">${escapeHtml(r[labelKey])}</option>`).join('');
+    }
+
+    async function buscarPersona() {
+      const cedula = $('cedula').value.trim();
+      if (!cedula) return showStatus('Digita tu cédula.', 'error');
+      setLoading($('buscar'), true);
+      showStatus('Buscando…', 'info');
+      try {
+        const resp = await HSQ_API.call('buscarActivo', { cedula });
+        renderPersona(resp);
+      } catch (err) {
+        showStatus(err.message, 'error');
+      } finally {
+        setLoading($('buscar'), false);
+      }
+    }
+
+    function renderPersona(resp) {
+      const box = $('persona');
+      if (!resp.encontrado) {
+        state.persona = null;
+        box.classList.remove('show');
+        $('cardTipo').classList.add('hidden');
+        $('registroForm').classList.add('hidden');
+        $('guardar').disabled = true;
+        return showStatus(resp.mensaje || 'No se encontró la cédula.', 'error');
+      }
+      state.persona = resp.datos;
+      const d = resp.datos;
+      box.innerHTML = `
+        <div class="person__name">${escapeHtml(d.nombre || 'Sin nombre')}</div>
+        <div class="person__grid">
+          ${item('Cargo', d.cargo)}
+          ${item('Proyecto', d.proyecto)}
+          ${item('Ciudad', d.ciudad)}
+          ${item('Placa', d.placa_moto)}
+        </div>
+        <div style="margin-top:10px"><span class="badge ${resp.activo ? 'badge--ok' : 'badge--req'}">${resp.activo ? '✓ Habilitado' : 'No habilitado'}</span></div>`;
+      box.classList.add('show');
+      $('cardTipo').classList.toggle('hidden', !resp.activo);
+      showStatus(resp.mensaje, resp.activo ? 'ok' : 'error');
+      if (resp.activo && $('formulario').value) cargarFormulario();
+    }
+
+    function item(label, value) {
+      return `<div class="person__item"><b>${escapeHtml(label)}</b><span>${escapeHtml(value || '—')}</span></div>`;
+    }
+
+    async function cargarFormulario() {
+      const id = $('formulario').value;
+      $('guardar').disabled = true;
+      if (!id) { $('registroForm').classList.add('hidden'); return; }
+      showStatus('Cargando preguntas…', 'info');
+      try {
+        state.formData = await HSQ_API.call('cargarFormulario', { id_formulario: id });
+        renderQuestions();
+        $('registroForm').classList.remove('hidden');
+        $('guardar').disabled = !state.persona;
+        clearStatus();
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
+    }
+
+    function renderQuestions() {
+      const data = state.formData;
+      if (!data) return;
+      $('questionCount').textContent = data.preguntas.length + (data.preguntas.length === 1 ? ' pregunta' : ' preguntas');
+      $('questions').innerHTML = data.preguntas.map(renderQuestion).join('');
+    }
+
+    function renderQuestion(q) {
+      const required = String(q.obligatorio).toUpperCase() === 'SI';
+      const hint = q.ayuda ? `<div class="question__hint">${escapeHtml(q.ayuda)}</div>` : '';
+      return `
+        <div class="question">
+          <div class="question__top">
+            <span class="question__num">${escapeHtml(q.orden)}</span>
+            <span class="question__label">${escapeHtml(q.pregunta)}</span>
+          </div>
+          <div class="question__meta">
+            <span class="badge badge--opt">${escapeHtml(q.seccion || 'General')}</span>
+            <span class="badge ${required ? 'badge--req' : 'badge--opt'}">${required ? 'Obligatoria' : 'Opcional'}</span>
+          </div>
+          ${hint}
+          <div style="margin-left:0">${renderInput(q, required)}</div>
+        </div>`;
+    }
+
+    function renderInput(q, required) {
+      const id = escapeHtml(q.id_pregunta);
+      const req = required ? 'required' : '';
+      const options = (state.formData.opciones && state.formData.opciones[q.grupo_opciones]) || [];
+      switch (q.tipo_respuesta) {
+        case 'parrafo': return `<textarea name="${id}" ${req} placeholder="Escribe aquí…"></textarea>`;
+        case 'numero': return `<input name="${id}" type="number" inputmode="numeric" ${req} placeholder="0">`;
+        case 'fecha': return `<input name="${id}" type="date" ${req}>`;
+        case 'hora': return `<input name="${id}" type="time" ${req}>`;
+        case 'archivo': return `<input name="${id}" type="file" accept="image/*" capture="environment" ${req}>`;
+        case 'si_no': return `<select name="${id}" ${req}><option value="">Selecciona…</option><option>SI</option><option>NO</option></select>`;
+        case 'desplegable': return `<select name="${id}" ${req}><option value="">Selecciona…</option>${options.map((o) => `<option>${escapeHtml(o)}</option>`).join('')}</select>`;
+        case 'checkbox': return `<div class="checks">${options.map((o) => `<label><input type="checkbox" name="${id}" value="${escapeHtml(o)}">${escapeHtml(o)}</label>`).join('')}</div>`;
+        default: return `<input name="${id}" type="text" ${req} placeholder="Respuesta">`;
+      }
+    }
+
+    async function guardarRegistro(event) {
+      event.preventDefault();
+      if (!state.persona) return showStatus('Primero busca tu cédula.', 'error');
+      const form = event.currentTarget;
+      const respuestas = {};
+      const archivos = [];
+
+      for (const q of state.formData.preguntas) {
+        const nodes = Array.from(form.querySelectorAll(`[name="${cssEscape(q.id_pregunta)}"]`));
+        if (q.tipo_respuesta === 'checkbox') {
+          respuestas[q.id_pregunta] = nodes.filter((n) => n.checked).map((n) => n.value);
+        } else if (q.tipo_respuesta === 'archivo') {
+          const file = nodes[0] && nodes[0].files[0];
+          if (file) archivos.push(await fileToPayload(q.id_pregunta, file));
+        } else {
+          respuestas[q.id_pregunta] = nodes[0] ? nodes[0].value : '';
+        }
+      }
+
+      const payload = {
+        cedula: $('cedula').value.trim(),
+        id_formulario: $('formulario').value,
+        respuestas,
+        archivos,
+      };
+
+      setLoading($('guardar'), true);
+      showStatus('Guardando registro…', 'info');
+      try {
+        const resp = await HSQ_API.call('guardarRegistro', payload);
+        form.reset();
+        renderQuestions();
+        const alertas = (resp.alertas && resp.alertas.length) ? ` · con ${resp.alertas.length} alerta(s)` : '';
+        showStatus(`✓ Registro guardado (${resp.estado})${alertas}. Puedes hacer otro registro.`, resp.alertas && resp.alertas.length ? 'warn' : 'ok');
+      } catch (err) {
+        showStatus(err.message, 'error');
+      } finally {
+        setLoading($('guardar'), false);
+      }
+    }
+
+    function fileToPayload(idPregunta, file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ id_pregunta: idPregunta, nombre: file.name, tipo: file.type, dataUrl: reader.result });
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    /* ---------- utilidades ---------- */
+    function setLoading(btn, loading) {
+      btn.disabled = loading;
+      btn.style.opacity = loading ? '.7' : '';
+    }
+    function showStatus(message, type) {
+      const n = $('status');
+      n.className = `status show status--${type}`;
+      n.textContent = message;
+    }
+    function clearStatus() { $('status').className = 'status'; }
+    function escapeHtml(v) {
+      return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function cssEscape(v) { return String(v).replace(/"/g, '\\"'); }
+  </script>
+</body>
+</html>

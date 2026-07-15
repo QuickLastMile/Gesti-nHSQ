@@ -1,51 +1,65 @@
-# Gestion HSQ Motos
+# Gestión HSQ Motos
 
-Sistema para reemplazar formularios rigidos de Google Forms por un formulario web dinamico administrado desde Google Sheets.
+Plataforma web para registrar el preoperacional y la limpieza de las motos, y exportar los registros. Reemplaza los formularios rígidos de Google Forms por un frontend profesional propio, administrado desde Google Sheets.
 
-## Que incluye
+## Arquitectura
 
-- Formulario web para mensajeros en `apps-script/Index.html`.
-- Frontend externo sin banner en `public/index.html`.
-- Backend de Google Apps Script en `apps-script/Code.gs`.
-- Manifiesto de Apps Script en `apps-script/appsscript.json`.
-- Base administrable inicial en `base/Base_HSQ_Admin.xlsx`.
-- Guia de implementacion en `docs/README_IMPLEMENTACION.md`.
-- Script auxiliar para regenerar la base en `scripts/build_admin_sheet.mjs`.
+```text
+Mensajero / Coordinador (celular o PC)
+        │
+        ▼
+Frontend en GitHub Pages   ← HTML + CSS + JS, sin banner de Google
+        │  (fetch JSON)
+        ▼
+Backend en Google Apps Script  ← misma cuenta, mismos datos
+        │
+        ▼
+Google Sheets (base administrable) + Google Drive (registros y evidencias)
+```
 
-## Base administrable
+El frontend es estático y bonito; toda la lógica de datos sigue en Apps Script, que ahora funciona como **API** (ya no muestra pantalla propia, por eso desaparece el aviso *"Un usuario de Google Apps Script creó esta aplicación"*).
 
-La base inicial ya fue importada como Google Sheets:
+## Páginas (GitHub Pages)
+
+- **Inicio / lanzador:** `index.html` — elige rol.
+- **Mensajero (móvil):** `mensajero.html` — digita cédula, elige formulario, responde y guarda. Optimizado para celular, la cámara se abre directo para las evidencias.
+- **Coordinador:** `coordinador.html` — filtra por fecha, proyecto y formulario, y genera el exportable CSV.
+
+Diseño y conexión compartidos en `assets/` (`styles.css`, `config.js`, `api.js`).
+
+URL pública (cuando actives Pages):
+
+- Inicio: `https://quicklastmile.github.io/Gesti-nHSQ/`
+- Mensajero: `https://quicklastmile.github.io/Gesti-nHSQ/mensajero.html`
+- Coordinador: `https://quicklastmile.github.io/Gesti-nHSQ/coordinador.html`
+
+## Puesta en marcha (resumen)
+
+1. **Backend:** pega `apps-script/Code.gs` y `apps-script/appsscript.json` en tu proyecto de Apps Script y despliega como **Aplicación web** con acceso **Cualquier persona**. Copia la URL `/exec`.
+2. **Conectar:** pega esa URL en `assets/config.js` (línea `API_URL`).
+3. **Publicar:** sube los cambios a GitHub y activa **GitHub Pages** (rama `main`, carpeta raíz).
+
+Paso a paso detallado en [`docs/PUBLICAR.md`](docs/PUBLICAR.md).
+
+Mientras `config.js` conserve el texto `PEGUE_AQUI`, las páginas funcionan en **modo demostración** (datos de ejemplo, no guardan nada). Útil para revisar el diseño.
+
+## Base administrable (HSQ)
+
+HSQ administra matriz, formularios, preguntas y opciones sin tocar código:
 
 https://docs.google.com/spreadsheets/d/1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImFdz8/edit
-
-## Link del formulario web
-
-Aplicacion web de Apps Script:
-
-https://script.google.com/macros/s/AKfycbyDhvIfqO6kY4uwqL4aiTLEZe2pdaiV-mFwpZ3ytzV5TjQvJUhrPMSNoJtPNT948pYl7w/exec
-
-Google muestra un aviso de seguridad en las URLs de Apps Script. Ese aviso no se puede quitar desde el HTML. Para una experiencia sin marca de Google Apps Script, usar la version preparada en `public/index.html` y alojarla fuera de Apps Script. Detalles en `docs/FRONTEND_EXTERNO.md`.
-
-Uso por area:
-
-- Mensajeros: pestana `Registrar`.
-- Coordinador / Lider: pestana `Exportar`.
-- HSQ: edicion de matriz, preguntas y opciones en la base administrable.
-
-Detalle de enlaces por rol: `docs/LINKS_POR_AREA.md`.
 
 Hojas principales:
 
 - `Matriz_Activos`: colaboradores, proyectos y estado activo/inactivo.
 - `Formularios`: formularios disponibles.
-- `Preguntas`: preguntas dinamicas por formulario.
+- `Preguntas`: preguntas dinámicas por formulario.
 - `Opciones`: opciones para desplegables y checkboxes.
 - `Proyectos`: proyectos disponibles para filtros.
-- `Exportador_Config`: estructura del modulo exportador.
 
-## Almacenamiento
+## Almacenamiento en Drive
 
-El Apps Script crea automaticamente la estructura:
+El backend crea automáticamente:
 
 ```text
 Registros HSQ/
@@ -58,24 +72,21 @@ Registros HSQ/
   Exportables HSQ/
 ```
 
-Cada dia queda separado por carpeta y formulario, pensado para un volumen aproximado de 1000 registros diarios.
+Cada día queda separado por carpeta y formulario, pensado para ~1000 registros diarios.
 
-## Instalacion rapida
+## Estructura del repositorio
 
-1. Abra el Google Sheets administrador.
-2. Vaya a `Extensiones > Apps Script`.
-3. Copie `apps-script/Code.gs` en el archivo `Code.gs`.
-4. Cree un archivo HTML llamado `Index` y copie `apps-script/Index.html`.
-5. Copie el contenido de `apps-script/appsscript.json` en la configuracion del manifiesto.
-6. Ejecute `verificarConfiguracion` una vez para autorizar permisos.
-7. Despliegue como `Aplicacion web`.
-
-Mas detalle en `docs/README_IMPLEMENTACION.md`.
-
-## Error comun
-
-Si el link de Apps Script muestra `No se encontro el archivo HTML llamado Index`, falta crear el archivo HTML `Index` en el proyecto Apps Script. La correccion esta documentada en `docs/README_IMPLEMENTACION.md`.
-
-## Nota
-
-Los enlaces actuales de Google Forms solicitaron acceso/cookies durante la revision, por eso la hoja `Preguntas` trae una precarga editable. HSQ puede reemplazar esas preguntas directamente en la base administrable sin cambiar codigo.
+```text
+index.html            Lanzador de roles
+mensajero.html        App de registro (móvil)
+coordinador.html      App de exportación
+assets/
+  styles.css          Sistema de diseño compartido
+  config.js           ⚙️ URL del backend (edítalo aquí)
+  api.js              Cliente que habla con Apps Script
+apps-script/
+  Code.gs             Backend (API JSON + lógica de datos)
+  appsscript.json     Manifiesto (acceso "Cualquier persona")
+base/                 Base administrable inicial (.xlsx)
+docs/                 Guías de implementación y enlaces por área
+```

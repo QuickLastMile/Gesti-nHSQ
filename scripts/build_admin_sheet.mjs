@@ -239,7 +239,7 @@ const instruccionesRows = [
   ["Preguntas", "Agregar, quitar, ordenar o modificar preguntas. Use id_pregunta estable para no romper historicos."],
   ["Opciones", "Administrar listas desplegables y casillas multiples."],
   ["Proyectos", "Lista de proyectos para filtrar exportables por uno o varios proyectos."],
-  ["Apps Script", "Pegar Code.gs e Index.html en un proyecto de Apps Script vinculado a esta base."],
+  ["Apps Script", "Pegar Code.gs en un proyecto de Apps Script vinculado a esta base y desplegar como Aplicacion web (API). El frontend vive en GitHub Pages."],
   ["Nota formularios actuales", "Los enlaces de Google Forms indicados solicitan acceso/cookies, por eso las preguntas iniciales son una precarga editable."],
 ];
 
