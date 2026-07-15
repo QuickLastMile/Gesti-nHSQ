@@ -22,6 +22,7 @@
       --warning: #b7791f;
       --shadow: 0 14px 40px rgba(6, 47, 79, 0.09);
       --radius: 8px;
+      --touch-control: 60px;
     }
 
     * { box-sizing: border-box; }
@@ -34,7 +35,7 @@
       background: var(--bg);
       color: var(--ink);
       font-family: "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: 14px;
+      font-size: 16px;
       letter-spacing: 0;
       overflow-x: hidden;
     }
@@ -199,7 +200,7 @@
     label.field {
       color: var(--muted);
       display: grid;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 900;
       gap: 7px;
       min-width: 0;
@@ -213,7 +214,7 @@
       border: 1px solid #c7d6de;
       border-radius: 7px;
       color: var(--ink);
-      min-height: 42px;
+      min-height: 48px;
       min-width: 0;
       outline: none;
       padding: 10px 12px;
@@ -256,7 +257,7 @@
       font-weight: 900;
       gap: 8px;
       justify-content: center;
-      min-height: 42px;
+      min-height: 48px;
       padding: 10px 14px;
     }
 
@@ -627,6 +628,354 @@
         width: 100%;
       }
     }
+
+    @media (max-width: 1100px) {
+      body {
+        font-size: 17px;
+        line-height: 1.45;
+      }
+
+      .app-shell {
+        padding-bottom: 104px;
+      }
+
+      .topbar-inner {
+        gap: 12px;
+        padding-bottom: 12px;
+        padding-top: 12px;
+      }
+
+      .brand-mark {
+        height: 44px;
+        width: 44px;
+      }
+
+      .brand h1 {
+        font-size: 20px;
+      }
+
+      .brand p {
+        font-size: 13px;
+      }
+
+      .tabs {
+        min-height: 52px;
+      }
+
+      .tab {
+        font-size: 16px;
+        min-height: 46px;
+        padding: 11px 14px;
+      }
+
+      main {
+        padding-top: 16px;
+      }
+
+      .panel {
+        border-radius: 8px;
+        box-shadow: 0 8px 22px rgba(6, 47, 79, 0.08);
+      }
+
+      .panel-head {
+        padding: 18px 16px;
+      }
+
+      .panel-title {
+        font-size: 19px;
+      }
+
+      .panel-body {
+        padding: 18px 16px;
+      }
+
+      label.field {
+        font-size: 13px;
+        gap: 9px;
+      }
+
+      input,
+      select,
+      textarea {
+        border-radius: 8px;
+        font-size: 17px;
+        min-height: 58px;
+        padding: 15px 14px;
+      }
+
+      textarea {
+        min-height: 118px;
+      }
+
+      .lookup-row {
+        grid-template-columns: 1fr;
+      }
+
+      .icon-button,
+      .secondary {
+        min-height: 58px;
+        width: 100%;
+      }
+
+      .status-card {
+        padding: 16px;
+      }
+
+      .status-card strong {
+        font-size: 16px;
+      }
+
+      .status-card span,
+      .data-line span,
+      .bottom-copy {
+        font-size: 15px;
+        overflow-wrap: anywhere;
+      }
+
+      .data-line {
+        padding: 13px;
+      }
+
+      .data-line strong {
+        font-size: 12px;
+      }
+
+      .questions-toolbar {
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .counter {
+        font-size: 14px;
+        padding: 8px 11px;
+      }
+
+      .question {
+        gap: 12px;
+        grid-template-columns: 1fr;
+        padding: 20px 16px;
+      }
+
+      .question-title {
+        align-items: flex-start;
+        gap: 11px;
+      }
+
+      .question-index {
+        border-radius: 7px;
+        font-size: 14px;
+        height: 34px;
+        width: 42px;
+      }
+
+      .question-title span:last-child {
+        font-size: 18px;
+        line-height: 1.35;
+      }
+
+      .question-sub {
+        font-size: 14px;
+        gap: 8px;
+        padding-left: 53px;
+      }
+
+      .required,
+      .optional {
+        font-size: 11px;
+        padding: 5px 8px;
+      }
+
+      .hint {
+        display: block;
+        flex-basis: 100%;
+        font-size: 14px;
+      }
+
+      .checks {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .checks label {
+        font-size: 16px;
+        min-height: 52px;
+        padding: 12px 13px;
+      }
+
+      .bottom-inner {
+        gap: 10px;
+        padding-bottom: 10px;
+        padding-top: 10px;
+      }
+
+      .bottom-copy strong {
+        font-size: 15px;
+      }
+
+      .bottom-copy {
+        display: none;
+      }
+
+      .primary {
+        font-size: 18px;
+        min-height: 58px;
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .brand h1 {
+        font-size: 19px;
+      }
+
+      .brand p {
+        display: none;
+      }
+
+      .tabs {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .tab {
+        flex: 1;
+        justify-content: center;
+        min-width: 0;
+        padding-left: 8px;
+        padding-right: 8px;
+        width: 100%;
+      }
+
+      .question-sub {
+        padding-left: 0;
+      }
+
+    }
+    body.mobile-mode {
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    .mobile-mode .app-shell {
+      padding-bottom: 96px;
+    }
+
+    .mobile-mode .topbar-inner {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr;
+      max-width: 100%;
+      padding: 12px;
+    }
+
+    .mobile-mode .brand h1 {
+      font-size: 21px;
+    }
+
+    .mobile-mode .brand p {
+      display: none;
+    }
+
+    .mobile-mode .tabs {
+      display: grid;
+      grid-template-columns: 1fr;
+      width: 100%;
+    }
+
+    .mobile-mode .tab[data-view="exportar"] {
+      display: none;
+    }
+
+    .mobile-mode .tab {
+      font-size: 17px;
+      justify-content: center;
+      min-height: 54px;
+      min-width: 0;
+      padding: 12px 8px;
+      width: 100%;
+    }
+
+    .mobile-mode main {
+      margin: 0;
+      max-width: none;
+      padding: 14px 12px 0;
+      width: 100%;
+    }
+
+    .mobile-mode .workgrid,
+    .mobile-mode .export-layout,
+    .mobile-mode .field-grid.two,
+    .mobile-mode .field-grid.three,
+    .mobile-mode .question {
+      grid-template-columns: 1fr;
+    }
+
+    .mobile-mode .panel,
+    .mobile-mode .status {
+      width: 100%;
+    }
+
+    .mobile-mode .panel-head,
+    .mobile-mode .panel-body,
+    .mobile-mode .question {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .mobile-mode .panel-title {
+      font-size: 21px;
+    }
+
+    .mobile-mode label.field {
+      font-size: 14px;
+      gap: 10px;
+    }
+
+    .mobile-mode input,
+    .mobile-mode select,
+    .mobile-mode textarea,
+    .mobile-mode .icon-button,
+    .mobile-mode .primary,
+    .mobile-mode .secondary {
+      font-size: 18px;
+      min-height: var(--touch-control);
+    }
+
+    .mobile-mode .lookup-row {
+      grid-template-columns: 1fr;
+    }
+
+    .mobile-mode .question {
+      gap: 14px;
+      padding-bottom: 22px;
+      padding-top: 22px;
+    }
+
+    .mobile-mode .question-index {
+      font-size: 15px;
+      height: 36px;
+      width: 44px;
+    }
+
+    .mobile-mode .question-title span:last-child {
+      font-size: 19px;
+      line-height: 1.35;
+    }
+
+    .mobile-mode .question-sub,
+    .mobile-mode .hint {
+      font-size: 15px;
+      padding-left: 0;
+    }
+
+    .mobile-mode .bottom-copy {
+      display: none;
+    }
+
+    .mobile-mode .status-card {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -790,7 +1139,13 @@
     $('registroForm').addEventListener('submit', guardarRegistro);
     $('exportar').addEventListener('click', generarExportable);
 
+    applyDeviceMode();
     init();
+
+    function applyDeviceMode() {
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      if (isMobile) document.body.classList.add('mobile-mode');
+    }
 
     function init() {
       if (demo) {
