@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro HSQ Motos</title>
+  <style>
+    :root {
+      --bg: #f5f8fa;
+      --panel: #ffffff;
+      --text: #15232d;
+      --muted: #647887;
+      --line: #d9e4ea;
+      --navy: #0b3a5b;
+      --teal: #006d77;
+      --teal-soft: #e3f4f3;
+      --danger: #b42318;
+      --ok: #087443;
+      --shadow: 0 10px 30px rgba(11, 58, 91, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 14px;
+    }
+
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 18px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+    .header-inner {
+      align-items: center;
+      display: flex;
+      gap: 20px;
+      justify-content: space-between;
+      margin: 0 auto;
+      max-width: 1180px;
+    }
+
+    h1 {
+      font-size: 21px;
+      line-height: 1.2;
+      margin: 0;
+      color: var(--navy);
+    }
+
+    .tabs {
+      background: #eef4f7;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: flex;
+      padding: 3px;
+    }
+
+    .tab {
+      background: transparent;
+      border: 0;
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      padding: 9px 14px;
+    }
+
+    .tab.active {
+      background: var(--panel);
+      color: var(--navy);
+      box-shadow: 0 1px 4px rgba(21, 35, 45, 0.12);
+    }
+
+    main {
+      display: grid;
+      gap: 18px;
+      margin: 24px auto 40px;
+      max-width: 1180px;
+      padding: 0 24px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    label {
+      color: var(--muted);
+      display: grid;
+      font-size: 12px;
+      font-weight: 800;
+      gap: 7px;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    input,
+    select,
+    textarea {
+      background: #fff;
+      border: 1px solid #c9d8e0;
+      border-radius: 7px;
+      color: var(--text);
+      font: inherit;
+      min-height: 42px;
+      padding: 10px 12px;
+      width: 100%;
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+
+    button.primary,
+    button.secondary {
+      border: 0;
+      border-radius: 7px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+      min-height: 42px;
+      padding: 10px 14px;
+    }
+
+    button.primary {
+      background: var(--teal);
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #e8f0f4;
+      color: var(--navy);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .inline {
+      align-items: end;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(220px, 320px) auto;
+    }
+
+    .person {
+      background: var(--teal-soft);
+      border: 1px solid #b6dddb;
+      border-radius: 8px;
+      display: none;
+      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      padding: 14px;
+    }
+
+    .person.visible { display: grid; }
+
+    .person strong {
+      color: var(--navy);
+      display: block;
+      font-size: 12px;
+      margin-bottom: 3px;
+    }
+
+    .question {
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 8px;
+      padding-top: 14px;
+    }
+
+    .question:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .question-title {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+    }
+
+    .question-title span {
+      color: var(--text);
+      font-weight: 800;
+      text-transform: none;
+    }
+
+    .required {
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .checks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .checks label {
+      align-items: center;
+      background: #f7fafb;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      display: flex;
+      flex-direction: row;
+      font-size: 13px;
+      font-weight: 700;
+      gap: 7px;
+      min-height: 38px;
+      padding: 8px 10px;
+      text-transform: none;
+    }
+
+    .checks input {
+      min-height: 0;
+      width: auto;
+    }
+
+    .status {
+      border-radius: 7px;
+      display: none;
+      font-weight: 800;
+      padding: 12px;
+    }
+
+    .status.visible { display: block; }
+    .status.ok { background: #e6f6ee; color: var(--ok); }
+    .status.error { background: #feece9; color: var(--danger); }
+    .status.info { background: #edf4ff; color: var(--navy); }
+
+    .section-title {
+      color: var(--navy);
+      font-size: 16px;
+      font-weight: 900;
+      margin: 0 0 14px;
+    }
+
+    .hidden { display: none; }
+
+    .actions {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 760px) {
+      .header-inner,
+      .grid.two,
+      .grid.three,
+      .inline,
+      .person {
+        grid-template-columns: 1fr;
+      }
+
+      .header-inner {
+        align-items: stretch;
+        display: grid;
+      }
+
+      main { padding: 0 14px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>Registro HSQ Motos</h1>
+      <nav class="tabs" aria-label="Modulos">
+        <button class="tab active" data-view="registro" type="button">Registrar</button>
+        <button class="tab" data-view="exportar" type="button">Exportar</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-registro" class="grid">
+      <div class="panel">
+        <p class="section-title">Identificacion del colaborador</p>
+        <div class="inline">
+          <label>Cedula
+            <input id="cedula" inputmode="numeric" autocomplete="off" placeholder="Digite o pegue la cedula">
+          </label>
+          <button id="buscar" class="secondary" type="button">Buscar</button>
+        </div>
+        <div id="persona" class="person" aria-live="polite"></div>
+      </div>
+
+      <div class="panel">
+        <p class="section-title">Formulario</p>
+        <div class="grid two">
+          <label>Tipo de registro
+            <select id="formulario"></select>
+          </label>
+          <label>Estado
+            <input id="estado" readonly value="Pendiente de busqueda">
+          </label>
+        </div>
+      </div>
+
+      <form id="registroForm" class="panel">
+        <p class="section-title">Preguntas</p>
+        <div id="questions" class="grid"></div>
+        <div class="actions">
+          <button id="guardar" class="primary" type="submit" disabled>Guardar registro</button>
+        </div>
+      </form>
+    </section>
+
+    <section id="view-exportar" class="panel hidden">
+      <p class="section-title">Exportar respuestas</p>
+      <div class="grid three">
+        <label>Fecha inicial
+          <input id="fechaInicio" type="date">
+        </label>
+        <label>Fecha final
+          <input id="fechaFin" type="date">
+        </label>
+        <label>Formulario
+          <select id="filtroFormularios" multiple size="4"></select>
+        </label>
+      </div>
+      <div class="grid two" style="margin-top:14px">
+        <label>Proyecto(s)
+          <select id="filtroProyectos" multiple size="8"></select>
+        </label>
+        <label>Resultado
+          <textarea readonly id="exportResult" placeholder="Aqui aparecera el enlace del exportable generado."></textarea>
+        </label>
+      </div>
+      <div class="actions">
+        <button id="exportar" class="primary" type="button">Generar exportable</button>
+      </div>
+    </section>
+
+    <div id="status" class="status"></div>
+  </main>
+
+  <script>
+    const state = {
+      bootstrap: { formularios: [], proyectos: [] },
+      persona: null,
+      formData: null,
+    };
+
+    const demo = typeof google === 'undefined' || !google.script || !google.script.run;
+
+    const $ = (id) => document.getElementById(id);
+
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        const view = tab.dataset.view;
+        $('view-registro').classList.toggle('hidden', view !== 'registro');
+        $('view-exportar').classList.toggle('hidden', view !== 'exportar');
+      });
+    });
+
+    $('buscar').addEventListener('click', buscarPersona);
+    $('formulario').addEventListener('change', cargarFormulario);
+    $('registroForm').addEventListener('submit', guardarRegistro);
+    $('exportar').addEventListener('click', generarExportable);
+
+    init();
+
+    function init() {
+      if (demo) {
+        state.bootstrap = demoBootstrap();
+        fillBootstrap();
+        showStatus('Vista local cargada. En Apps Script se conectara con Google Sheets y Drive.', 'info');
+        cargarFormulario();
+        return;
+      }
+      callServer('getBootstrap')
+        .then((data) => {
+          state.bootstrap = data;
+          fillBootstrap();
+          return cargarFormulario();
+        })
+        .catch(showError);
+    }
+
+    function fillBootstrap() {
+      fillSelect($('formulario'), state.bootstrap.formularios, 'id_formulario', 'nombre_formulario');
+      fillSelect($('filtroFormularios'), state.bootstrap.formularios, 'id_formulario', 'nombre_formulario');
+      fillSelect($('filtroProyectos'), state.bootstrap.proyectos, 'proyecto_id', 'proyecto');
+      const today = new Date().toISOString().slice(0, 10);
+      $('fechaInicio').value = today;
+      $('fechaFin').value = today;
+    }
+
+    function fillSelect(select, rows, valueKey, labelKey) {
+      select.innerHTML = rows.map((row) => {
+        const value = escapeHtml(row[valueKey]);
+        const label = escapeHtml(row[labelKey]);
+        return `<option value="${value}">${label}</option>`;
+      }).join('');
+    }
+
+    function buscarPersona() {
+      const cedula = $('cedula').value.trim();
+      if (!cedula) return showStatus('Digite una cedula.', 'error');
+      if (demo) {
+        renderPersona({
+          encontrado: true,
+          activo: true,
+          mensaje: 'Activo habilitado para registro.',
+          datos: {
+            cedula,
+            nombre: 'EJEMPLO COLABORADOR',
+            cargo: 'QUICKER - MENSAJERO',
+            proyecto: 'Proyecto de ejemplo',
+            ciudad: 'MEDELLIN',
+            placa_moto: 'ABC12D',
+          },
+        });
+        return;
+      }
+      callServer('buscarActivo', cedula).then(renderPersona).catch(showError);
+    }
+
+    function renderPersona(resp) {
+      if (!resp.encontrado) {
+        state.persona = null;
+        $('persona').classList.remove('visible');
+        $('estado').value = resp.mensaje;
+        $('guardar').disabled = true;
+        return showStatus(resp.mensaje, 'error');
+      }
+      state.persona = resp.datos;
+      $('persona').innerHTML = [
+        info('Nombre', resp.datos.nombre),
+        info('Proyecto', resp.datos.proyecto),
+        info('Ciudad', resp.datos.ciudad),
+        info('Cargo', resp.datos.cargo),
+      ].join('');
+      $('persona').classList.add('visible');
+      $('estado').value = resp.mensaje;
+      $('guardar').disabled = !resp.activo;
+      showStatus(resp.mensaje, resp.activo ? 'ok' : 'error');
+    }
+
+    function info(label, value) {
+      return `<div><strong>${escapeHtml(label)}</strong>${escapeHtml(value || '')}</div>`;
+    }
+
+    function cargarFormulario() {
+      const id = $('formulario').value;
+      if (!id) return Promise.resolve();
+      if (demo) {
+        state.formData = demoFormData(id);
+        renderQuestions();
+        return Promise.resolve();
+      }
+      return callServer('cargarFormulario', id)
+        .then((data) => {
+          state.formData = data;
+          renderQuestions();
+        })
+        .catch(showError);
+    }
+
+    function renderQuestions() {
+      const data = state.formData;
+      if (!data) return;
+      $('questions').innerHTML = data.preguntas.map(renderQuestion).join('');
+    }
+
+    function renderQuestion(q) {
+      const required = String(q.obligatorio).toUpperCase() === 'SI';
+      const label = `
+        <div class="question-title">
+          <span>${escapeHtml(q.orden)}. ${escapeHtml(q.pregunta)}</span>
+          ${required ? '<b class="required">Obligatoria</b>' : ''}
+        </div>`;
+      const help = q.ayuda ? `<div class="hint">${escapeHtml(q.ayuda)}</div>` : '';
+      return `<div class="question" data-question="${escapeHtml(q.id_pregunta)}">${label}${renderInput(q, required)}${help}</div>`;
+    }
+
+    function renderInput(q, required) {
+      const id = escapeHtml(q.id_pregunta);
+      const req = required ? 'required' : '';
+      const options = state.formData.opciones[q.grupo_opciones] || [];
+      if (q.tipo_respuesta === 'parrafo') return `<textarea name="${id}" ${req}></textarea>`;
+      if (q.tipo_respuesta === 'numero') return `<input name="${id}" type="number" ${req}>`;
+      if (q.tipo_respuesta === 'fecha') return `<input name="${id}" type="date" ${req}>`;
+      if (q.tipo_respuesta === 'hora') return `<input name="${id}" type="time" ${req}>`;
+      if (q.tipo_respuesta === 'archivo') return `<input name="${id}" type="file" accept="image/*,.pdf" ${req}>`;
+      if (q.tipo_respuesta === 'si_no') {
+        return `<select name="${id}" ${req}><option value=""></option><option>SI</option><option>NO</option></select>`;
+      }
+      if (q.tipo_respuesta === 'desplegable') {
+        return `<select name="${id}" ${req}><option value=""></option>${options.map((o) => `<option>${escapeHtml(o)}</option>`).join('')}</select>`;
+      }
+      if (q.tipo_respuesta === 'checkbox') {
+        return `<div class="checks">${options.map((o) => `<label><input type="checkbox" name="${id}" value="${escapeHtml(o)}">${escapeHtml(o)}</label>`).join('')}</div>`;
+      }
+      return `<input name="${id}" type="text" ${req}>`;
+    }
+
+    async function guardarRegistro(event) {
+      event.preventDefault();
+      if (!state.persona) return showStatus('Primero busque una cedula activa.', 'error');
+      const form = event.currentTarget;
+      const respuestas = {};
+      const archivos = [];
+
+      for (const q of state.formData.preguntas) {
+        const nodes = Array.from(form.querySelectorAll(`[name="${cssEscape(q.id_pregunta)}"]`));
+        if (q.tipo_respuesta === 'checkbox') {
+          respuestas[q.id_pregunta] = nodes.filter((n) => n.checked).map((n) => n.value);
+        } else if (q.tipo_respuesta === 'archivo') {
+          const file = nodes[0] && nodes[0].files[0];
+          if (file) archivos.push(await fileToPayload(q.id_pregunta, file));
+        } else {
+          respuestas[q.id_pregunta] = nodes[0] ? nodes[0].value : '';
+        }
+      }
+
+      const payload = {
+        cedula: $('cedula').value.trim(),
+        id_formulario: $('formulario').value,
+        respuestas,
+        archivos,
+      };
+
+      $('guardar').disabled = true;
+      showStatus('Guardando registro...', 'info');
+      if (demo) {
+        setTimeout(() => {
+          $('guardar').disabled = false;
+          showStatus('Registro demo guardado correctamente.', 'ok');
+        }, 500);
+        return;
+      }
+      callServer('guardarRegistro', payload)
+        .then((resp) => {
+          form.reset();
+          showStatus(`Registro ${resp.idRegistro} guardado. Estado: ${resp.estado}`, resp.alertas.length ? 'info' : 'ok');
+        })
+        .catch(showError)
+        .finally(() => {
+          $('guardar').disabled = false;
+        });
+    }
+
+    function generarExportable() {
+      const filtros = {
+        fechaInicio: $('fechaInicio').value,
+        fechaFin: $('fechaFin').value,
+        proyectos: selectedValues($('filtroProyectos')),
+        formularios: selectedValues($('filtroFormularios')),
+      };
+      $('exportResult').value = 'Generando exportable...';
+      if (demo) {
+        $('exportResult').value = 'Demo: en Apps Script aqui se mostrara el enlace de descarga CSV.';
+        return;
+      }
+      callServer('generarExportable', filtros)
+        .then((resp) => {
+          $('exportResult').value = `${resp.nombre}\nFilas: ${resp.filas}\nColumnas: ${resp.columnas}\n${resp.url}`;
+        })
+        .catch((err) => {
+          $('exportResult').value = err.message || String(err);
+        });
+    }
+
+    function selectedValues(select) {
+      return Array.from(select.selectedOptions).map((o) => o.value);
+    }
+
+    function fileToPayload(idPregunta, file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({
+          id_pregunta: idPregunta,
+          nombre: file.name,
+          tipo: file.type,
+          dataUrl: reader.result,
+        });
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function callServer(name, ...args) {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)[name](...args);
+      });
+    }
+
+    function showStatus(message, type) {
+      const node = $('status');
+      node.className = `status visible ${type}`;
+      node.textContent = message;
+    }
+
+    function showError(err) {
+      showStatus(err && err.message ? err.message : String(err), 'error');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }[c]));
+    }
+
+    function cssEscape(value) {
+      return String(value).replace(/"/g, '\\"');
+    }
+
+    function demoBootstrap() {
+      return {
+        formularios: [
+          { id_formulario: 'PREOPERACIONAL', nombre_formulario: 'Registro diario preoperacional' },
+          { id_formulario: 'LIMPIEZA_MOTO', nombre_formulario: 'Limpieza y desinfeccion de la moto' },
+        ],
+        proyectos: [
+          { proyecto_id: '432', proyecto: 'ICONTEC - INT. COL NORMAS TECNICAS' },
+          { proyecto_id: '440', proyecto: 'GASES LINDE COLOMBIA S.A.' },
+        ],
+      };
+    }
+
+    function demoFormData(id) {
+      const common = {
+        formulario: { id_formulario: id },
+        opciones: {
+          cumple_no_cumple_na: ['Cumple', 'No cumple', 'No aplica'],
+          nivel_combustible: ['Lleno', 'Medio', 'Bajo'],
+          productos_limpieza: ['Agua y jabon', 'Desinfectante', 'Alcohol', 'Otro'],
+        },
+      };
+      common.preguntas = id === 'PREOPERACIONAL'
+        ? [
+          { id_pregunta: 'PRE_001', orden: 1, pregunta: 'Fecha de la inspeccion', tipo_respuesta: 'fecha', obligatorio: 'SI' },
+          { id_pregunta: 'PRE_003', orden: 2, pregunta: 'Kilometraje actual', tipo_respuesta: 'numero', obligatorio: 'SI' },
+          { id_pregunta: 'PRE_005', orden: 3, pregunta: 'Estado de llantas', tipo_respuesta: 'desplegable', obligatorio: 'SI', grupo_opciones: 'cumple_no_cumple_na' },
+          { id_pregunta: 'PRE_013', orden: 4, pregunta: 'Evidencia fotografica', tipo_respuesta: 'archivo', obligatorio: 'NO' },
+        ]
+        : [
+          { id_pregunta: 'LIM_001', orden: 1, pregunta: 'Fecha de limpieza', tipo_respuesta: 'fecha', obligatorio: 'SI' },
+          { id_pregunta: 'LIM_008', orden: 2, pregunta: 'Productos utilizados', tipo_respuesta: 'checkbox', obligatorio: 'SI', grupo_opciones: 'productos_limpieza' },
+          { id_pregunta: 'LIM_010', orden: 3, pregunta: 'Evidencia despues de la limpieza', tipo_respuesta: 'archivo', obligatorio: 'SI' },
+        ];
+      return common;
+    }
+  </script>
+</body>
+</html>
