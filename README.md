@@ -69,6 +69,10 @@ Cada dia queda separado por carpeta y formulario, pensado para un volumen aproxi
 
 Mas detalle en `docs/README_IMPLEMENTACION.md`.
 
+## Error comun
+
+Si el link de Apps Script muestra `No se encontro el archivo HTML llamado Index`, falta crear el archivo HTML `Index` en el proyecto Apps Script. La correccion esta documentada en `docs/README_IMPLEMENTACION.md`.
+
 ## Nota
 
 Los enlaces actuales de Google Forms solicitaron acceso/cookies durante la revision, por eso la hoja `Preguntas` trae una precarga editable. HSQ puede reemplazar esas preguntas directamente en la base administrable sin cambiar codigo.

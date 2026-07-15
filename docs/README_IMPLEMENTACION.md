@@ -59,12 +59,37 @@ Cada archivo diario guarda filas por registro y columnas por pregunta activa.
 1. Abra el Google Sheets administrador.
 2. Vaya a `Extensiones > Apps Script`.
 3. Pegue el contenido de `Code.gs` en el archivo `Code.gs`.
-4. Cree un archivo HTML llamado `Index`.
+4. Cree un archivo HTML llamado exactamente `Index`.
 5. Pegue el contenido de `Index.html`.
 6. Guarde el proyecto.
 7. Ejecute `verificarConfiguracion` una vez y autorice permisos.
 8. Despliegue como `Implementar > Nueva implementacion > Aplicacion web`.
 9. En acceso, use la politica que defina HSQ: dominio interno o usuarios autorizados.
+
+## Solucion de error: no se encontro el archivo HTML llamado Index
+
+Si al abrir el link aparece:
+
+```text
+Exception: No se encontro el archivo HTML llamado Index.
+```
+
+significa que el proyecto de Apps Script tiene `Code.gs`, pero no tiene el archivo HTML que el backend intenta cargar.
+
+Para corregirlo:
+
+1. Abra el proyecto en Apps Script.
+2. En el panel izquierdo, presione `+`.
+3. Seleccione `HTML`.
+4. Escriba el nombre `Index`.
+5. Pegue todo el contenido de `apps-script/Index.html`.
+6. Guarde.
+7. Vaya a `Implementar > Administrar implementaciones`.
+8. Edite la implementacion web.
+9. En `Version`, seleccione `Nueva version`.
+10. Presione `Implementar`.
+
+Despues abra nuevamente el link `/exec`.
 
 ## Nota sobre formularios actuales
 
