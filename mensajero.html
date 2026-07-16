@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
-  <title>Registrar · Gestión HSQ Motos</title>
+  <title>Registrar · Gestión HSEQ Motos</title>
   <link rel="stylesheet" href="assets/styles.css">
 </head>
 <body>
@@ -15,9 +15,11 @@
       <div class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="#ffc21f"/></svg>
       </div>
+      <img class="brand-logo hidden" src="assets/logo-quick.png" alt="Quick"
+           onload="this.classList.remove('hidden');this.previousElementSibling.classList.add('hidden')" onerror="this.remove()">
       <div class="brand-text">
         <h1>Registrar</h1>
-        <p>Gestión HSQ Motos</p>
+        <p>Gestión HSEQ Motos</p>
       </div>
       <a class="header-back" href="index.html">
         <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -423,7 +425,7 @@
       x.strokeStyle = '#0d3b2a'; x.lineWidth = 6; x.lineCap = 'round'; x.lineJoin = 'round';
       x.beginPath(); x.moveTo(W - 84, 66); x.lineTo(W - 73, 78); x.lineTo(W - 55, 52); x.stroke();
       x.fillStyle = '#fff'; x.font = 'bold 30px Arial'; x.fillText('Comprobante de registro', 40, 58);
-      x.font = '17px Arial'; x.fillStyle = 'rgba(255,255,255,.85)'; x.fillText('Gestión HSQ Motos · Marcación efectiva', 40, 90);
+      x.font = '17px Arial'; x.fillStyle = 'rgba(255,255,255,.85)'; x.fillText('Gestión HSEQ Motos · Marcación efectiva', 40, 90);
 
       let y = 180;
       x.fillStyle = '#16232e'; x.font = 'bold 24px Arial'; x.fillText(c.nombre || '', 40, y); y += 34;
@@ -452,7 +454,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Comprobante_HSQ_' + (c.cedula || '') + '_' + (c.fecha || '') + '.png';
+        a.download = 'Comprobante_HSEQ_' + (c.cedula || '') + '_' + (c.fecha || '') + '.png';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
       }, 'image/png');

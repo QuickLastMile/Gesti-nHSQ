@@ -1,5 +1,5 @@
 /* ============================================================
-   Cliente de API — Gestión HSQ Motos
+   Cliente de API — Gestión HSEQ Motos
    Habla con el backend de Apps Script (desplegado como Web App).
    Usa POST con cuerpo de texto plano para evitar el "preflight"
    de CORS que bloquea a las páginas de GitHub Pages.
