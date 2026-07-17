@@ -121,8 +121,10 @@ function buscarActivo(cedula) {
 }
 
 /**
- * Guarda por primera vez la placa del colaborador en Matriz_Activos.
- * Despues de esto, buscarActivo ya no volvera a pedirla.
+ * Guarda o actualiza la placa del colaborador en Matriz_Activos.
+ * - Primera vez: buscarActivo la pide y despues ya no la vuelve a pedir.
+ * - Cambio de moto: el mensajero puede actualizarla cuando cambie de vehiculo.
+ * Los registros ya guardados conservan la placa que tenian en su momento.
  */
 function registrarPlaca(cedula, placa) {
   const key = normalizeId_(cedula);
@@ -328,6 +330,8 @@ function generarExportable(filtros) {
   }
   const formId = formularios[0];
   const proyectos = new Set((filtros.proyectos || []).map(String).filter(Boolean));
+  // Filtro opcional por mensajero. Vacio = todos.
+  const cedulaFiltro = normalizeId_(filtros.cedula);
 
   // Columnas que NO deben aparecer en el exportable del coordinador.
   const OCULTAR = ['respuestas_json', 'evidencias_json', 'timestamp', 'usuario'];
@@ -355,9 +359,11 @@ function generarExportable(filtros) {
       const formIdx = headers.indexOf('id_formulario');
       const projectIdIdx = headers.indexOf('proyecto_id');
       const projectIdx = headers.indexOf('proyecto');
+      const cedulaIdx = headers.indexOf('cedula');
 
       values.forEach((row) => {
         if (String(row[formIdx] || '') !== formId) return;
+        if (cedulaFiltro && normalizeId_(row[cedulaIdx]) !== cedulaFiltro) return;
         const projectOk =
           !proyectos.size ||
           proyectos.has(String(row[projectIdIdx] || '')) ||
@@ -396,7 +402,8 @@ function generarExportable(filtros) {
   // BOM UTF-8 + CRLF para que Excel muestre bien las tildes y las columnas.
   const csv = '\uFEFF' + csvRows.map((r) => r.map(csvEscape_).join(',')).join('\r\n');
   const exportFolder = getOrCreateFolder_(getRootFolder_(), HSQ_EXPORT_FOLDER);
-  const name = 'Exportable_' + formId + '_' + Utilities.formatDate(new Date(), tz, 'yyyyMMdd_HHmmss') + '.csv';
+  const sufijoCedula = cedulaFiltro ? '_CC' + cedulaFiltro : '';
+  const name = 'Exportable_' + formId + sufijoCedula + '_' + Utilities.formatDate(new Date(), tz, 'yyyyMMdd_HHmmss') + '.csv';
   const file = exportFolder.createFile(Utilities.newBlob(csv, 'text/csv; charset=utf-8', name));
 
   return {

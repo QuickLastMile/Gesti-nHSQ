@@ -71,6 +71,11 @@
               <datalist id="proyDatalist"></datalist>
               <span class="hint-inline">Escribe parte del nombre y elige de la lista. Déjalo vacío para incluir todos.</span>
             </div>
+            <div class="field">
+              <span class="label">Mensajero (cédula)</span>
+              <input id="filtroCedula" inputmode="numeric" autocomplete="off" placeholder="Ej: 1017654321 (vacío = todos)">
+              <span class="hint-inline">Escribe la cédula para exportar solo los registros de ese mensajero.</span>
+            </div>
           </div>
         </section>
       </div>
@@ -158,6 +163,7 @@
         fechaFin: $('fechaFin').value,
         formularios: [formId],
         proyectos: resolverProyecto(),
+        cedula: $('filtroCedula').value.trim(),
       };
       if (!filtros.fechaInicio || !filtros.fechaFin) return showStatus('Selecciona el rango de fechas.', 'error');
 

@@ -187,6 +187,7 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .btn--dark { background: var(--brand); color: #fff; }
 .btn--ghost { background: var(--surface-2); color: var(--brand); border: 1.5px solid var(--line-strong); }
 .btn--block { width: 100%; }
+.btn--sm { min-height: 40px; padding: 8px 14px; font-size: 13.5px; gap: 6px; }
 .btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
 .btn--icon { min-width: var(--tap); padding: 12px; }
 
@@ -218,6 +219,14 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 }
 .person__item b { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
 .person__item span { font-weight: 700; overflow-wrap: anywhere; }
+.person__foot {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 
 /* ---------- Badges / chips ---------- */
 .badge {

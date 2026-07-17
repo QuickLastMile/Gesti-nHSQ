@@ -51,17 +51,17 @@
       </div>
     </section>
 
-    <!-- Registro de placa (solo la primera vez) -->
+    <!-- Registro / cambio de placa -->
     <section id="cardPlaca" class="card hidden">
       <div class="card__head">
         <span class="step-dot">!</span>
         <div>
-          <p class="card__title">Registra tu placa</p>
-          <p class="card__sub">Solo te la pediremos esta vez</p>
+          <p id="placaTitle" class="card__title">Registra tu placa</p>
+          <p id="placaSub" class="card__sub">Solo te la pediremos esta vez</p>
         </div>
       </div>
       <div class="card__body">
-        <p class="field-note">No tenemos la placa de tu moto. Escríbela una vez y quedará guardada para siempre.</p>
+        <p id="placaNote" class="field-note">No tenemos la placa de tu moto. Escríbela una vez y quedará guardada.</p>
         <div class="field">
           <span class="label">Placa de la moto</span>
           <div class="input-row">
@@ -71,6 +71,7 @@
             </button>
           </div>
         </div>
+        <button id="cancelarPlaca" class="btn btn--ghost btn--block hidden" type="button" style="margin-top:10px">Cancelar</button>
       </div>
     </section>
 
@@ -145,13 +146,14 @@
   <script src="assets/api.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
-    const state = { persona: null, estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null };
+    const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null };
 
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
 
     $('buscar').addEventListener('click', buscarPersona);
     $('cedula').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarPersona(); } });
     $('guardarPlaca').addEventListener('click', guardarPlaca);
+    $('cancelarPlaca').addEventListener('click', cancelarPlaca);
     $('placa').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); guardarPlaca(); } });
     $('registroForm').addEventListener('submit', guardarRegistro);
     $('descargar').addEventListener('click', () => descargarComprobante(state.ultimoComprobante));
@@ -175,13 +177,31 @@
     }
 
     function renderPersona(resp) {
-      const box = $('persona');
       if (!resp.encontrado) {
-        box.classList.remove('show');
+        $('persona').classList.remove('show');
         return showStatus(resp.mensaje || 'No se encontró la cédula.', 'error');
       }
       state.persona = resp.datos;
-      const d = resp.datos;
+      state.activo = resp.activo;
+      pintarPersona();
+
+      if (!resp.activo) return showStatus(resp.mensaje, 'error');
+
+      state.formularios = resp.formulariosRequeridos || [];
+      state.estado = resp.estadoDiario || {};
+
+      if (resp.requierePlaca) {
+        abrirPlacaNueva();
+      } else {
+        $('cardPlaca').classList.add('hidden');
+        mostrarChecklist();
+      }
+    }
+
+    function pintarPersona() {
+      const d = state.persona;
+      const box = $('persona');
+      const puedeCambiar = state.activo && String(d.placa_moto || '').trim();
       box.innerHTML = `
         <div class="person__name">${escapeHtml(d.nombre || 'Sin nombre')}</div>
         <div class="person__grid">
@@ -190,38 +210,66 @@
           ${item('Ciudad', d.ciudad)}
           ${item('Placa', d.placa_moto)}
         </div>
-        <div style="margin-top:10px"><span class="badge ${resp.activo ? 'badge--ok' : 'badge--req'}">${resp.activo ? '✓ Habilitado' : 'No habilitado'}</span></div>`;
+        <div class="person__foot">
+          <span class="badge ${state.activo ? 'badge--ok' : 'badge--req'}">${state.activo ? '✓ Habilitado' : 'No habilitado'}</span>
+          ${puedeCambiar ? '<button id="btnCambiarPlaca" class="btn btn--ghost btn--sm" type="button">Cambiar placa</button>' : ''}
+        </div>`;
       box.classList.add('show');
-
-      if (!resp.activo) return showStatus(resp.mensaje, 'error');
-
-      state.formularios = resp.formulariosRequeridos || [];
-      state.estado = resp.estadoDiario || {};
-
-      if (resp.requierePlaca) {
-        $('cardPlaca').classList.remove('hidden');
-        showStatus('Antes de registrar, escribe la placa de tu moto.', 'info');
-      } else {
-        $('cardPlaca').classList.add('hidden');
-        mostrarChecklist();
-      }
+      const btn = $('btnCambiarPlaca');
+      if (btn) btn.addEventListener('click', abrirCambioPlaca);
     }
 
-    /* ---------- Placa (una sola vez) ---------- */
+    /* ---------- Placa: registrar la primera vez o cambiar de moto ---------- */
+    function abrirPlacaNueva() {
+      state.placaMode = 'nuevo';
+      $('placaTitle').textContent = 'Registra tu placa';
+      $('placaSub').textContent = 'Solo te la pediremos esta vez';
+      $('placaNote').textContent = 'No tenemos la placa de tu moto. Escríbela una vez y quedará guardada.';
+      $('placa').value = '';
+      $('cancelarPlaca').classList.add('hidden');
+      $('cardPlaca').classList.remove('hidden');
+      showStatus('Antes de registrar, escribe la placa de tu moto.', 'info');
+    }
+
+    function abrirCambioPlaca() {
+      state.placaMode = 'cambio';
+      $('placaTitle').textContent = 'Cambiar placa';
+      $('placaSub').textContent = 'Actualiza la moto que estás usando';
+      $('placaNote').textContent = 'Si cambiaste de moto o hoy trabajas con una diferente, escribe la placa nueva. Se usará en tus próximos registros.';
+      $('placa').value = state.persona.placa_moto || '';
+      $('cancelarPlaca').classList.remove('hidden');
+      $('cardPlaca').classList.remove('hidden');
+      $('cardPlaca').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      $('placa').focus();
+    }
+
+    function cancelarPlaca() {
+      $('cardPlaca').classList.add('hidden');
+      clearStatus();
+    }
+
     async function guardarPlaca() {
       const placa = $('placa').value.trim().toUpperCase();
       if (!placa) return showStatus('Escribe la placa.', 'error');
+      const modo = state.placaMode;
+      const actual = String(state.persona.placa_moto || '').trim().toUpperCase();
+      if (modo === 'cambio' && placa === actual) {
+        $('cardPlaca').classList.add('hidden');
+        return showStatus('Es la misma placa, no hubo cambios.', 'info');
+      }
       setLoading($('guardarPlaca'), true);
-      showStatus('Guardando placa…', 'info');
+      showStatus(modo === 'cambio' ? 'Actualizando placa…' : 'Guardando placa…', 'info');
       try {
         const resp = await HSQ_API.call('registrarPlaca', { cedula: state.persona.cedula, placa });
         state.persona.placa_moto = resp.placa_moto || placa;
         $('cardPlaca').classList.add('hidden');
-        clearStatus();
-        // refrescar tarjeta de persona con la placa
-        const el = $('persona').querySelectorAll('.person__item span');
-        if (el.length) el[el.length - 1].textContent = state.persona.placa_moto;
-        mostrarChecklist();
+        pintarPersona();
+        if (modo === 'cambio') {
+          showStatus('✓ Placa actualizada a ' + state.persona.placa_moto + '.', 'ok');
+        } else {
+          clearStatus();
+          mostrarChecklist();
+        }
       } catch (err) {
         showStatus(err.message, 'error');
       } finally {
