@@ -428,8 +428,23 @@
             <span class="badge ${required ? 'badge--req' : 'badge--opt'}">${required ? 'Obligatoria' : 'Opcional'}</span>
           </div>
           ${hint}
+          ${fotoRef(q)}
           <div>${renderInput(q, required && !q.depende_de)}</div>
         </div>`;
+    }
+
+    // Muestra una foto de referencia si la pregunta tiene un link en la columna imagen_url.
+    function fotoRef(q) {
+      const raw = String(q.imagen_url || q.imagen || q.foto || '').trim();
+      if (!raw) return '';
+      const m = raw.match(/\/d\/([-\w]{20,})/) || raw.match(/[?&]id=([-\w]{20,})/);
+      const esDrive = raw.indexOf('drive.google.com') !== -1 && m;
+      const src = esDrive ? ('https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1200') : raw;
+      const full = esDrive ? ('https://drive.google.com/file/d/' + m[1] + '/view') : raw;
+      return `<a class="question__img" href="${escapeHtml(full)}" target="_blank" rel="noopener">
+        <img src="${escapeHtml(src)}" alt="Foto de referencia" loading="lazy" onerror="this.closest('.question__img').style.display='none'">
+        <span class="question__img-tag">📷 Foto de referencia · toca para ampliar</span>
+      </a>`;
     }
 
     function renderInput(q, required) {

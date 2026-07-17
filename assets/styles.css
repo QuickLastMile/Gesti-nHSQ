@@ -271,6 +271,9 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .question__label { font-weight: 700; line-height: 1.35; }
 .question__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 12px 40px; }
 .question__hint { flex-basis: 100%; margin-left: 40px; margin-top: -4px; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+.question__img { display: block; margin: 2px 0 12px; text-decoration: none; }
+.question__img img { width: 100%; max-width: 360px; border: 1px solid var(--line-strong); border-radius: 10px; display: block; background: var(--surface-2); }
+.question__img-tag { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 800; color: var(--accent-dark); }
 .checks { display: grid; gap: 8px; }
 .checks label {
   display: flex;
