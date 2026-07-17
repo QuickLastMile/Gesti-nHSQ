@@ -98,6 +98,29 @@
         </div>
       </section>
     </div>
+
+    <section class="card" style="margin-top:14px">
+      <div class="card__head">
+        <p class="card__title">Actualizar matriz de activos</p>
+      </div>
+      <div class="card__body">
+        <p id="matrizInfo" class="hint-inline" style="margin-top:0"><b>Última actualización:</b> —</p>
+        <p class="hint-inline">
+          Pega el <b>export de nómina completo</b> (con su fila de títulos: <i>ClientId, ClientName, State…</i>) copiado de Excel.
+          La app <b>conserva las placas</b> y observaciones, <b>inactiva</b> a quien ya no aparezca (con nota y fecha) y <b>agrega</b> los nuevos.
+        </p>
+        <div class="field" style="margin-top:10px">
+          <span class="label">Datos de la matriz</span>
+          <textarea id="matrizData" placeholder="Copia el rango desde Excel (incluye la fila de títulos) y pégalo aquí…" style="min-height:130px"></textarea>
+        </div>
+        <button id="btnMatriz" class="btn btn--dark btn--block" type="button" style="margin-top:8px">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Actualizar matriz
+        </button>
+        <div id="matrizResult" class="hidden" style="margin-top:12px"></div>
+        <div id="matrizStatus" class="status" aria-live="polite"></div>
+      </div>
+    </section>
   </main>
 
   <script src="assets/config.js"></script>
@@ -127,6 +150,7 @@
 
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
     $('exportar').addEventListener('click', generarExportable);
+    $('btnMatriz').addEventListener('click', actualizarMatriz);
     init();
 
     async function init() {
@@ -146,7 +170,52 @@
       } catch (err) {
         showStatus(err.message, 'error');
       }
+      cargarMatrizInfo();
     }
+
+    async function cargarMatrizInfo() {
+      try {
+        const info = await HSQ_API.call('getMatrizInfo');
+        $('matrizInfo').innerHTML = '<b>Última actualización:</b> ' + (info.ultimaActualizacion ? escapeHtml(info.ultimaActualizacion) : 'sin registro');
+      } catch (e) { /* silencioso */ }
+    }
+
+    async function actualizarMatriz() {
+      const data = $('matrizData').value;
+      if (!data.trim()) return showMatrizStatus('Pega los datos de la matriz primero.', 'error');
+      if (!confirm('Se actualizará la matriz: se inactivará a quien NO aparezca en estos datos y se agregarán los nuevos. Las placas se conservan.\n\n¿Continuar?')) return;
+
+      setBtn($('btnMatriz'), true);
+      $('matrizResult').classList.add('hidden');
+      showMatrizStatus('Actualizando matriz… puede tardar unos segundos.', 'info');
+      try {
+        const r = await HSQ_API.call('actualizarMatriz', { data });
+        $('matrizResult').classList.remove('hidden');
+        $('matrizResult').innerHTML = `
+          <div class="person show" style="background:var(--success-soft);border-color:#bfe6cd">
+            <div class="person__grid">
+              <div class="person__item"><b>Actualizados</b><span>${r.actualizados}</span></div>
+              <div class="person__item"><b>Nuevos</b><span>${r.nuevos}</span></div>
+              <div class="person__item"><b>Inactivados</b><span>${r.inactivados}</span></div>
+              <div class="person__item"><b>En los datos</b><span>${r.totalEnData}</span></div>
+            </div>
+          </div>`;
+        showMatrizStatus('✓ Matriz actualizada el ' + r.fecha + '.', 'ok');
+        $('matrizData').value = '';
+        cargarMatrizInfo();
+      } catch (err) {
+        showMatrizStatus(err.message, 'error');
+      } finally {
+        setBtn($('btnMatriz'), false);
+      }
+    }
+
+    function showMatrizStatus(msg, type) {
+      const n = $('matrizStatus');
+      n.className = `status show status--${type}`;
+      n.textContent = msg;
+    }
+    function setBtn(btn, loading) { btn.disabled = loading; btn.style.opacity = loading ? '.7' : ''; }
 
     function resolverProyecto() {
       const txt = $('proyectoBusca').value.trim();

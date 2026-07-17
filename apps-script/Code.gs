@@ -42,10 +42,12 @@ function handleApi_(e) {
     switch (action) {
       case 'getBootstrap': result = getBootstrap(); break;
       case 'buscarActivo': result = buscarActivo(payload.cedula); break;
-      case 'registrarPlaca': result = registrarPlaca(payload.cedula, payload.placa); break;
+      case 'registrarPlaca': result = registrarPlaca(payload.cedula, payload.placa, payload.observacion); break;
       case 'cargarFormulario': result = cargarFormulario(payload.id_formulario); break;
       case 'guardarRegistro': result = guardarRegistro(payload); break;
       case 'generarExportable': result = generarExportable(payload); break;
+      case 'actualizarMatriz': result = actualizarMatriz(payload); break;
+      case 'getMatrizInfo': result = getMatrizInfo(); break;
       default: throw new Error('Accion no reconocida: ' + action);
     }
     out = { ok: true, result: result };
@@ -126,11 +128,12 @@ function buscarActivo(cedula) {
  * - Cambio de moto: el mensajero puede actualizarla cuando cambie de vehiculo.
  * Los registros ya guardados conservan la placa que tenian en su momento.
  */
-function registrarPlaca(cedula, placa) {
+function registrarPlaca(cedula, placa, observacion) {
   const key = normalizeId_(cedula);
   if (!key) throw new Error('Digite una cedula valida.');
   const placaClean = String(placa || '').trim().toUpperCase();
   if (!placaClean) throw new Error('Digite una placa valida.');
+  const obs = String(observacion || '').trim();
 
   const sheet = getAdminSpreadsheet_().getSheetByName('Matriz_Activos');
   if (!sheet) throw new Error('No existe la hoja Matriz_Activos.');
@@ -138,15 +141,260 @@ function registrarPlaca(cedula, placa) {
   const headers = values[0].map(function (h) { return String(h).trim(); });
   const cedIdx = headers.indexOf('cedula');
   const placaIdx = headers.indexOf('placa_moto');
+  const obsIdx = headers.indexOf('observaciones_hsq');
   if (cedIdx === -1 || placaIdx === -1) throw new Error('Faltan columnas cedula o placa_moto en Matriz_Activos.');
 
   for (let i = 1; i < values.length; i++) {
     if (normalizeId_(values[i][cedIdx]) === key) {
+      const placaAnterior = String(values[i][placaIdx] || '').trim().toUpperCase();
+      const esCambio = placaAnterior && placaAnterior !== placaClean;
+
+      // Al cambiar de moto (ya habia placa distinta) el motivo es obligatorio.
+      if (esCambio && !obs) {
+        throw new Error('Para cambiar la placa debes escribir el motivo del cambio.');
+      }
+
       sheet.getRange(i + 1, placaIdx + 1).setValue(placaClean);
-      return { ok: true, placa_moto: placaClean };
+
+      if (esCambio) {
+        const tz = getConfig_().TIMEZONE || 'America/Bogota';
+        const fecha = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm');
+        const nota = 'Placa ' + placaAnterior + ' -> ' + placaClean + ' (' + fecha + '): ' + obs;
+        if (obsIdx !== -1) {
+          const prev = String(values[i][obsIdx] || '').trim();
+          sheet.getRange(i + 1, obsIdx + 1).setValue(prev ? (prev + ' | ' + nota) : nota);
+        }
+        registrarHistorial_('CAMBIO_PLACA', key, nota);
+      }
+
+      clearSheetCache_('Matriz_Activos');
+      return { ok: true, placa_moto: placaClean, cambio: esCambio };
     }
   }
   throw new Error('No se encontro la cedula en Matriz_Activos.');
+}
+
+/**
+ * Registra una linea en la hoja Historial_Cambios (la crea si no existe).
+ * Deja auditoria de cambios de placa y actualizaciones de matriz.
+ */
+function registrarHistorial_(tipo, cedula, detalle) {
+  try {
+    const ss = getAdminSpreadsheet_();
+    let sheet = ss.getSheetByName('Historial_Cambios');
+    if (!sheet) {
+      sheet = ss.insertSheet('Historial_Cambios');
+      sheet.appendRow(['timestamp', 'fecha', 'tipo', 'cedula', 'detalle']);
+      sheet.getRange(1, 1, 1, 5).setBackground('#0B3A5B').setFontColor('#FFFFFF').setFontWeight('bold');
+      sheet.setFrozenRows(1);
+    }
+    const tz = getConfig_().TIMEZONE || 'America/Bogota';
+    const now = new Date();
+    sheet.appendRow([
+      now,
+      Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm:ss'),
+      tipo,
+      "'" + String(cedula || ''),
+      String(detalle || ''),
+    ]);
+  } catch (e) { /* el historial no debe frenar la operacion principal */ }
+}
+
+function appendHistorialBatch_(rows) {
+  if (!rows || !rows.length) return;
+  try {
+    const ss = getAdminSpreadsheet_();
+    let sheet = ss.getSheetByName('Historial_Cambios');
+    if (!sheet) {
+      sheet = ss.insertSheet('Historial_Cambios');
+      sheet.appendRow(['timestamp', 'fecha', 'tipo', 'cedula', 'detalle']);
+      sheet.getRange(1, 1, 1, 5).setBackground('#0B3A5B').setFontColor('#FFFFFF').setFontWeight('bold');
+      sheet.setFrozenRows(1);
+    }
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 5).setValues(rows);
+  } catch (e) { /* noop */ }
+}
+
+/** Fecha en que se actualizo la matriz por ultima vez (para mostrarla al coordinador). */
+function getMatrizInfo() {
+  const cfg = getConfig_();
+  return { ultimaActualizacion: cfg.MATRIZ_ULTIMA_ACTUALIZACION || '' };
+}
+
+function setConfigParam_(parametro, valor) {
+  const sheet = getAdminSpreadsheet_().getSheetByName('Configuracion');
+  if (!sheet) return;
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function (h) { return String(h).trim(); });
+  const pIdx = headers.indexOf('parametro');
+  const vIdx = headers.indexOf('valor');
+  if (pIdx === -1 || vIdx === -1) return;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][pIdx]).trim() === parametro) {
+      sheet.getRange(i + 1, vIdx + 1).setValue(valor);
+      clearSheetCache_('Configuracion');
+      return;
+    }
+  }
+  const row = new Array(headers.length).fill('');
+  row[pIdx] = parametro;
+  row[vIdx] = valor;
+  sheet.appendRow(row);
+  clearSheetCache_('Configuracion');
+}
+
+/**
+ * Actualiza Matriz_Activos con el export de nomina pegado por el coordinador.
+ * - Mapea por nombre de columna (ClientId, ClientName, State, ...).
+ * - Conserva placa_moto, tipo_vehiculo y observaciones_hsq de cada persona.
+ * - Inactiva automaticamente a quien no aparezca en la nueva data y deja nota.
+ * - Agrega las cedulas nuevas como activas.
+ * - Guarda la fecha de actualizacion y registra el historial.
+ */
+function actualizarMatriz(payload) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const texto = String((payload && payload.data) || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+    if (!texto) throw new Error('Pega los datos de la matriz antes de actualizar.');
+
+    const lines = texto.split('\n').filter(function (l) { return l.trim() !== ''; });
+    if (lines.length < 2) throw new Error('Los datos deben incluir la fila de titulos y al menos un registro.');
+
+    const src = lines.map(function (l) { return l.split('\t'); });
+    const srcHeaders = src.shift().map(function (h) { return String(h).trim(); });
+    const H = {};
+    srcHeaders.forEach(function (h, i) { H[h] = i; });
+
+    if (!('ClientId' in H)) {
+      throw new Error('No encuentro la columna "ClientId" (cedula) en los datos pegados. Incluye la fila de titulos del export de nomina.');
+    }
+    if (!('ClientName' in H)) {
+      throw new Error('No encuentro la columna "ClientName" (nombre) en los datos pegados.');
+    }
+
+    // Columna destino en Matriz_Activos <- columna del export de nomina.
+    const MAP = {
+      estado_nomina: 'State',
+      tipo_documento: 'Columna1',
+      nombre: 'ClientName',
+      cargo: 'PlaceName',
+      proyecto_id: 'ProjectId',
+      proyecto: 'ProjectName',
+      ciudad: 'Ciudad',
+      telefono: 'Phone',
+      celular: 'CelPhone',
+      email: 'Email',
+      fecha_ingreso: 'DateIngress',
+      fecha_retiro: 'DateRetirement',
+    };
+    const get = function (row, srcName) {
+      return (srcName in H) ? String(row[H[srcName]] == null ? '' : row[H[srcName]]).trim() : '';
+    };
+
+    const nuevos = {};
+    src.forEach(function (row) {
+      const ced = normalizeId_(get(row, 'ClientId'));
+      if (!ced) return;
+      const state = get(row, 'State').toUpperCase();
+      const retiro = get(row, 'DateRetirement');
+      nuevos[ced] = { row: row, activo: (state === 'A' && !retiro) ? 'SI' : 'NO' };
+    });
+
+    const sheet = getAdminSpreadsheet_().getSheetByName('Matriz_Activos');
+    if (!sheet) throw new Error('No existe la hoja Matriz_Activos.');
+    const values = sheet.getDataRange().getValues();
+    const dHeaders = values[0].map(function (h) { return String(h).trim(); });
+    const dIdx = {};
+    dHeaders.forEach(function (h, i) { dIdx[h] = i; });
+    const cedIdx = dIdx['cedula'];
+    const activoIdx = dIdx['activo_para_registro'];
+    const obsIdx = dIdx['observaciones_hsq'];
+    if (cedIdx === undefined) throw new Error('Falta la columna cedula en Matriz_Activos.');
+
+    const tz = getConfig_().TIMEZONE || 'America/Bogota';
+    const now = new Date();
+    const hoy = Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm');
+    const fechaLog = Utilities.formatDate(now, tz, 'yyyy-MM-dd HH:mm:ss');
+
+    let cActualizados = 0, cInactivados = 0, cNuevos = 0, cReactivados = 0;
+    const presentes = {};
+    const hist = [];
+
+    for (let i = 1; i < values.length; i++) {
+      const ced = normalizeId_(values[i][cedIdx]);
+      if (!ced) continue;
+      if (nuevos[ced]) {
+        presentes[ced] = true;
+        const info = nuevos[ced];
+        const antes = String(values[i][activoIdx] || '').trim().toUpperCase();
+        Object.keys(MAP).forEach(function (dest) {
+          if (dIdx[dest] === undefined) return;
+          const val = get(info.row, MAP[dest]);
+          if (val !== '') values[i][dIdx[dest]] = val;
+        });
+        if (activoIdx !== undefined) values[i][activoIdx] = info.activo;
+        if (info.activo === 'SI' && antes !== 'SI' && antes !== 'A') cReactivados++;
+        cActualizados++;
+      } else {
+        const antes = String(values[i][activoIdx] || '').trim().toUpperCase();
+        if (activoIdx !== undefined && antes !== 'NO') {
+          values[i][activoIdx] = 'NO';
+          const nota = 'Inactivada el ' + hoy + ': no aparece en la matriz cargada.';
+          if (obsIdx !== undefined) {
+            const prev = String(values[i][obsIdx] || '').trim();
+            values[i][obsIdx] = prev ? (prev + ' | ' + nota) : nota;
+          }
+          hist.push([now, fechaLog, 'INACTIVACION', "'" + ced, 'No aparece en la matriz cargada el ' + hoy]);
+          cInactivados++;
+        }
+      }
+    }
+
+    // Reescribe las filas existentes (solo valores; el formato de la hoja se conserva).
+    sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
+
+    // Agrega las cedulas nuevas.
+    const nuevasFilas = [];
+    Object.keys(nuevos).forEach(function (ced) {
+      if (presentes[ced]) return;
+      const info = nuevos[ced];
+      const fila = new Array(dHeaders.length).fill('');
+      fila[cedIdx] = get(info.row, 'ClientId');
+      Object.keys(MAP).forEach(function (dest) {
+        if (dIdx[dest] === undefined) return;
+        fila[dIdx[dest]] = get(info.row, MAP[dest]);
+      });
+      if (activoIdx !== undefined) fila[activoIdx] = info.activo;
+      if (dIdx['tipo_vehiculo'] !== undefined) fila[dIdx['tipo_vehiculo']] = 'MOTO';
+      if (obsIdx !== undefined) fila[obsIdx] = 'Agregada el ' + hoy + ' desde actualizacion de matriz.';
+      nuevasFilas.push(fila);
+      hist.push([now, fechaLog, 'NUEVO', "'" + ced, 'Agregada el ' + hoy]);
+      cNuevos++;
+    });
+    if (nuevasFilas.length) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, nuevasFilas.length, dHeaders.length).setValues(nuevasFilas);
+    }
+
+    hist.push([now, fechaLog, 'ACTUALIZACION_MATRIZ', '', 'Actualizados ' + cActualizados + ', nuevos ' + cNuevos + ', inactivados ' + cInactivados]);
+    appendHistorialBatch_(hist);
+    setConfigParam_('MATRIZ_ULTIMA_ACTUALIZACION', hoy);
+
+    clearSheetCache_('Matriz_Activos');
+    clearSheetCache_('Proyectos');
+
+    return {
+      ok: true,
+      actualizados: cActualizados,
+      nuevos: cNuevos,
+      inactivados: cInactivados,
+      reactivados: cReactivados,
+      totalEnData: Object.keys(nuevos).length,
+      fecha: hoy,
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
@@ -436,13 +684,24 @@ function getConfig_() {
   return out;
 }
 
+// TTL de cache por hoja (segundos). La matriz cambia con placas, TTL corto.
+const HSQ_CACHE_TTL = { Matriz_Activos: 60 };
+const HSQ_CACHE_TTL_DEFAULT = 300;
+
 function readObjects_(sheetName) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'hsq_sheet_' + sheetName;
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) { /* cache corrupto, se relee */ }
+  }
+
   const sheet = getAdminSpreadsheet_().getSheetByName(sheetName);
   if (!sheet) throw new Error('No existe la hoja ' + sheetName);
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
   const headers = values.shift().map((h) => String(h).trim());
-  return values
+  const objects = values
     .filter((row) => row.some((cell) => cell !== '' && cell !== null))
     .map((row) => {
       const obj = {};
@@ -451,6 +710,16 @@ function readObjects_(sheetName) {
       });
       return obj;
     });
+
+  // CacheService limita a ~100KB por clave: si no cabe (matriz grande), simplemente no se cachea.
+  try {
+    cache.put(cacheKey, JSON.stringify(objects), HSQ_CACHE_TTL[sheetName] || HSQ_CACHE_TTL_DEFAULT);
+  } catch (e) { /* demasiado grande para cache; se seguira leyendo directo */ }
+  return objects;
+}
+
+function clearSheetCache_(sheetName) {
+  try { CacheService.getScriptCache().remove('hsq_sheet_' + sheetName); } catch (e) { /* noop */ }
 }
 
 function getFormularios_() {

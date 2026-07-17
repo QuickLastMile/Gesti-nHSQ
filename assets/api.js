@@ -128,6 +128,12 @@
     if (action === 'generarExportable') {
       return wait({ ok: true, filas: 12, columnas: 20, formulario: (payload.formularios || ['DEMO'])[0], url: '#', downloadUrl: '#', nombre: 'Exportable_DEMO.csv' });
     }
+    if (action === 'getMatrizInfo') {
+      return wait({ ultimaActualizacion: '2026-07-15 09:30 (demo)' });
+    }
+    if (action === 'actualizarMatriz') {
+      return wait({ ok: true, actualizados: 8, nuevos: 2, inactivados: 1, reactivados: 0, totalEnData: 10, fecha: new Date().toISOString().slice(0, 16).replace('T', ' ') });
+    }
     return Promise.reject(new Error('Acción demo no soportada: ' + action));
   }
 

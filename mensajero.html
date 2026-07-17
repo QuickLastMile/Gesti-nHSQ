@@ -71,6 +71,10 @@
             </button>
           </div>
         </div>
+        <div id="placaObsField" class="field hidden" style="margin-top:12px">
+          <span class="label">Motivo del cambio (obligatorio)</span>
+          <textarea id="placaObs" placeholder="¿Por qué cambias de placa? Ej: mi moto está en mantenimiento, hoy trabajo con una de respaldo…"></textarea>
+        </div>
         <button id="cancelarPlaca" class="btn btn--ghost btn--block hidden" type="button" style="margin-top:10px">Cancelar</button>
       </div>
     </section>
@@ -146,7 +150,7 @@
   <script src="assets/api.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
-    const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null };
+    const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {} };
 
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
 
@@ -226,6 +230,8 @@
       $('placaSub').textContent = 'Solo te la pediremos esta vez';
       $('placaNote').textContent = 'No tenemos la placa de tu moto. Escríbela una vez y quedará guardada.';
       $('placa').value = '';
+      $('placaObsField').classList.add('hidden');
+      $('placaObs').value = '';
       $('cancelarPlaca').classList.add('hidden');
       $('cardPlaca').classList.remove('hidden');
       showStatus('Antes de registrar, escribe la placa de tu moto.', 'info');
@@ -237,6 +243,8 @@
       $('placaSub').textContent = 'Actualiza la moto que estás usando';
       $('placaNote').textContent = 'Si cambiaste de moto o hoy trabajas con una diferente, escribe la placa nueva. Se usará en tus próximos registros.';
       $('placa').value = state.persona.placa_moto || '';
+      $('placaObsField').classList.remove('hidden');
+      $('placaObs').value = '';
       $('cancelarPlaca').classList.remove('hidden');
       $('cardPlaca').classList.remove('hidden');
       $('cardPlaca').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -245,6 +253,7 @@
 
     function cancelarPlaca() {
       $('cardPlaca').classList.add('hidden');
+      $('placaObsField').classList.add('hidden');
       clearStatus();
     }
 
@@ -257,10 +266,15 @@
         $('cardPlaca').classList.add('hidden');
         return showStatus('Es la misma placa, no hubo cambios.', 'info');
       }
+      const observacion = $('placaObs').value.trim();
+      if (modo === 'cambio' && !observacion) {
+        $('placaObs').focus();
+        return showStatus('Escribe el motivo del cambio de placa (es obligatorio).', 'error');
+      }
       setLoading($('guardarPlaca'), true);
       showStatus(modo === 'cambio' ? 'Actualizando placa…' : 'Guardando placa…', 'info');
       try {
-        const resp = await HSQ_API.call('registrarPlaca', { cedula: state.persona.cedula, placa });
+        const resp = await HSQ_API.call('registrarPlaca', { cedula: state.persona.cedula, placa, observacion });
         state.persona.placa_moto = resp.placa_moto || placa;
         $('cardPlaca').classList.add('hidden');
         pintarPersona();
@@ -283,7 +297,21 @@
       renderChecklist();
       if (todoCompleto()) {
         abrirComprobante(comprobanteDesdeEstado(), true);
+      } else {
+        prefetchFormularios();
       }
+    }
+
+    // Carga por adelantado las preguntas de los formularios pendientes,
+    // para que al tocar uno aparezcan al instante.
+    function prefetchFormularios() {
+      state.formularios.forEach((f) => {
+        const id = f.id_formulario;
+        if (state.formCache[id] || (state.estado[id] && state.estado[id].hecho)) return;
+        HSQ_API.call('cargarFormulario', { id_formulario: id })
+          .then((data) => { state.formCache[id] = data; })
+          .catch(() => { /* si falla, se cargara al tocar */ });
+      });
     }
 
     function renderChecklist() {
@@ -325,7 +353,8 @@
       $('bottomForm').textContent = f ? f.nombre_formulario : 'Registro';
       showStatus('Cargando preguntas…', 'info');
       try {
-        state.formData = await HSQ_API.call('cargarFormulario', { id_formulario: id });
+        state.formData = state.formCache[id] || await HSQ_API.call('cargarFormulario', { id_formulario: id });
+        state.formCache[id] = state.formData;
         renderQuestions();
         $('registroForm').classList.remove('hidden');
         $('bottombar').classList.remove('hidden');
