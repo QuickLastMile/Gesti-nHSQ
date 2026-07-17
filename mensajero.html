@@ -371,13 +371,54 @@
       if (!data) return;
       $('questionCount').textContent = data.preguntas.length + (data.preguntas.length === 1 ? ' pregunta' : ' preguntas');
       $('questions').innerHTML = data.preguntas.map(renderQuestion).join('');
+      wireConditionals();
+    }
+
+    // Preguntas condicionales: se muestran solo cuando la pregunta "madre" tiene el valor esperado.
+    function wireConditionals() {
+      const conds = Array.from($('questions').querySelectorAll('.question.cond'));
+      if (!conds.length) return;
+      const gates = {};
+      conds.forEach((c) => { gates[c.dataset.dependeDe] = true; });
+      Object.keys(gates).forEach((gateId) => {
+        $('questions').querySelectorAll(`[name="${cssEscape(gateId)}"]`).forEach((n) => {
+          n.addEventListener('change', () => toggleConditionals(gateId));
+        });
+        toggleConditionals(gateId);
+      });
+    }
+
+    function gateValue(gateId) {
+      const nodes = Array.from($('questions').querySelectorAll(`[name="${cssEscape(gateId)}"]`));
+      if (!nodes.length) return '';
+      if (nodes[0].type === 'checkbox') return nodes.filter((n) => n.checked).map((n) => n.value).join(',');
+      return nodes[0].value || '';
+    }
+
+    function toggleConditionals(gateId) {
+      const val = String(gateValue(gateId)).trim().toUpperCase();
+      $('questions').querySelectorAll(`.question.cond[data-depende-de="${cssEscape(gateId)}"]`).forEach((c) => {
+        const need = String(c.dataset.dependeValor || '').trim().toUpperCase();
+        const show = val === need;
+        c.classList.toggle('hidden', !show);
+        if (!show) {
+          c.querySelectorAll('input, select, textarea').forEach((inp) => {
+            if (inp.type === 'checkbox' || inp.type === 'radio') inp.checked = false;
+            else inp.value = '';
+          });
+        }
+      });
     }
 
     function renderQuestion(q) {
       const required = String(q.obligatorio).toUpperCase() === 'SI';
       const hint = q.ayuda ? `<div class="question__hint">${escapeHtml(q.ayuda)}</div>` : '';
+      const cond = q.depende_de ? ' cond hidden' : '';
+      const dep = q.depende_de ? ` data-depende-de="${escapeHtml(q.depende_de)}" data-depende-valor="${escapeHtml(q.depende_valor || '')}"` : '';
+      // Las preguntas condicionales no llevan required HTML (ocultas bloquearían el envío);
+      // el motivo/obligatoriedad lo valida el backend cuando la condición se cumple.
       return `
-        <div class="question">
+        <div class="question${cond}" data-qid="${escapeHtml(q.id_pregunta)}"${dep}>
           <div class="question__top">
             <span class="question__num">${escapeHtml(q.orden)}</span>
             <span class="question__label">${escapeHtml(q.pregunta)}</span>
@@ -387,7 +428,7 @@
             <span class="badge ${required ? 'badge--req' : 'badge--opt'}">${required ? 'Obligatoria' : 'Opcional'}</span>
           </div>
           ${hint}
-          <div>${renderInput(q, required)}</div>
+          <div>${renderInput(q, required && !q.depende_de)}</div>
         </div>`;
     }
 
@@ -417,6 +458,9 @@
       const archivos = [];
 
       for (const q of state.formData.preguntas) {
+        // Si es una pregunta condicional oculta, no se envía ni se valida.
+        const cont = form.querySelector(`.question[data-qid="${cssEscape(q.id_pregunta)}"]`);
+        if (cont && cont.classList.contains('cond') && cont.classList.contains('hidden')) continue;
         const nodes = Array.from(form.querySelectorAll(`[name="${cssEscape(q.id_pregunta)}"]`));
         if (q.tipo_respuesta === 'checkbox') {
           respuestas[q.id_pregunta] = nodes.filter((n) => n.checked).map((n) => n.value);

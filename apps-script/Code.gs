@@ -2,6 +2,39 @@ const HSQ_DEFAULT_ROOT = 'Registros HSQ';
 const HSQ_EXPORT_FOLDER = 'Exportables HSQ';
 const HSQ_ADMIN_SPREADSHEET_ID = '1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImFdz8';
 
+// Bloque de documentacion que se agrega al INICIO del PREOPERACIONAL.
+// La 1a pregunta decide; si es SI, se exigen los documentos del vehiculo.
+const HSQ_GATE_DOC = 'DOC_PRIMERA_O_RENOVACION';
+const HSQ_DOCS_PREOPERACIONAL = [
+  {
+    id_pregunta: HSQ_GATE_DOC, orden: 0, seccion: 'Documentacion del vehiculo',
+    pregunta: '¿Es la primera inspeccion del vehiculo, o renovaste el SOAT o la Tecnomecanica?',
+    tipo_respuesta: 'si_no', obligatorio: 'SI',
+    ayuda: 'Si respondes SI, debes adjuntar la documentacion del vehiculo.',
+  },
+  {
+    id_pregunta: 'DOC_LICENCIA_TRANSITO', orden: 0, seccion: 'Documentacion del vehiculo',
+    pregunta: 'Licencia de Transito (Tarjeta de Propiedad)',
+    tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
+  },
+  {
+    id_pregunta: 'DOC_SOAT', orden: 0, seccion: 'Documentacion del vehiculo',
+    pregunta: 'SOAT', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
+  },
+  {
+    id_pregunta: 'DOC_TECNOMECANICA', orden: 0, seccion: 'Documentacion del vehiculo',
+    pregunta: 'Revision Tecnomecanica', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
+  },
+  {
+    id_pregunta: 'DOC_MARCA_VEHICULO', orden: 0, seccion: 'Documentacion del vehiculo',
+    pregunta: 'Marca del vehiculo', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
+  },
+  {
+    id_pregunta: 'DOC_CILINDRAJE', orden: 0, seccion: 'Documentacion del vehiculo',
+    pregunta: 'Tipo de cilindraje (CC)', tipo_respuesta: 'numero', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
+  },
+];
+
 /**
  * API JSON para el frontend alojado en GitHub Pages.
  * El frontend hace POST con cuerpo de texto plano { action, payload }.
@@ -442,9 +475,14 @@ function cargarFormulario(idFormulario) {
   const formulario = getFormularios_().find((f) => f.id_formulario === idFormulario && isActive_(f.activo));
   if (!formulario) throw new Error('Formulario no encontrado o inactivo.');
 
-  const preguntas = readObjects_('Preguntas')
+  let preguntas = readObjects_('Preguntas')
     .filter((q) => q.id_formulario === idFormulario && isActive_(q.activo))
     .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
+
+  // El PREOPERACIONAL inicia con el bloque de documentacion del vehiculo.
+  if (idFormulario === 'PREOPERACIONAL') {
+    preguntas = HSQ_DOCS_PREOPERACIONAL.concat(preguntas);
+  }
 
   return {
     formulario,
@@ -746,6 +784,12 @@ function getOpcionesPorGrupo_() {
 function validarRespuestas_(preguntas, respuestas, archivos) {
   const fileQuestionIds = new Set((archivos || []).map((f) => f.id_pregunta));
   preguntas.forEach((q) => {
+    // Pregunta condicional: si la condicion no se cumple, no se exige.
+    if (q.depende_de) {
+      const gate = respuestas[q.depende_de];
+      const gateVal = Array.isArray(gate) ? gate.join(',') : String(gate == null ? '' : gate);
+      if (gateVal.trim().toUpperCase() !== String(q.depende_valor || '').trim().toUpperCase()) return;
+    }
     const value = respuestas[q.id_pregunta];
     const empty = value === undefined || value === null || value === '' || (Array.isArray(value) && !value.length);
     const hasFile = fileQuestionIds.has(q.id_pregunta);
