@@ -25,32 +25,17 @@ const HSQ_DOCS_PREOPERACIONAL = [
     id_pregunta: 'DOC_LICENCIA_TRANSITO', orden: 0, seccion: 'Documentacion del vehiculo',
     pregunta: 'Licencia de Transito (Tarjeta de Propiedad)',
     tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
-  },
-  {
-    id_pregunta: 'DOC_LICENCIA_VENCE', orden: 0, seccion: 'Documentacion del vehiculo',
-    pregunta: 'Fecha de vencimiento de la Licencia de Transito',
-    tipo_respuesta: 'fecha', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
-    documento: 'LICENCIA', ayuda: 'Escribela como aparece en el documento.',
+    documento: 'LICENCIA',
   },
   {
     id_pregunta: 'DOC_SOAT', orden: 0, seccion: 'Documentacion del vehiculo',
     pregunta: 'SOAT', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
-  },
-  {
-    id_pregunta: 'DOC_SOAT_VENCE', orden: 0, seccion: 'Documentacion del vehiculo',
-    pregunta: 'Fecha de vencimiento del SOAT',
-    tipo_respuesta: 'fecha', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
-    documento: 'SOAT', ayuda: 'Escribela como aparece en el documento.',
+    documento: 'SOAT',
   },
   {
     id_pregunta: 'DOC_TECNOMECANICA', orden: 0, seccion: 'Documentacion del vehiculo',
     pregunta: 'Revision Tecnomecanica', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
-  },
-  {
-    id_pregunta: 'DOC_TECNOMECANICA_VENCE', orden: 0, seccion: 'Documentacion del vehiculo',
-    pregunta: 'Fecha de vencimiento de la Revision Tecnomecanica',
-    tipo_respuesta: 'fecha', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
-    documento: 'TECNOMECANICA', ayuda: 'Escribela como aparece en el documento.',
+    documento: 'TECNOMECANICA',
   },
   {
     id_pregunta: 'DOC_MARCA_VEHICULO', orden: 0, seccion: 'Documentacion del vehiculo',
@@ -508,8 +493,28 @@ function cargarFormulario(idFormulario) {
     .sort((a, b) => Number(a.orden || 0) - Number(b.orden || 0));
 
   // El PREOPERACIONAL inicia con el bloque de documentacion del vehiculo.
+  // Las preguntas de vigencia que ya existen en la hoja (SOAT, Tecnomecanica,
+  // Licencia) se suben al inicio, cada una debajo de su documento.
   if (idFormulario === 'PREOPERACIONAL') {
-    preguntas = HSQ_DOCS_PREOPERACIONAL.concat(preguntas);
+    const fechasHoja = {};
+    const resto = [];
+    preguntas.forEach(function (q) {
+      const k = docKeyDePregunta_(q);
+      if (k && !fechasHoja[k]) fechasHoja[k] = q;
+      else resto.push(q);
+    });
+    const bloque = [];
+    HSQ_DOCS_PREOPERACIONAL.forEach(function (d) {
+      bloque.push(d);
+      const k = sinTildes_(d.documento).trim();
+      if (k && fechasHoja[k]) {
+        bloque.push(fechasHoja[k]);
+        delete fechasHoja[k];
+      }
+    });
+    // Si quedo alguna vigencia sin documento asociado, va igual al inicio.
+    Object.keys(fechasHoja).forEach(function (k) { bloque.push(fechasHoja[k]); });
+    preguntas = bloque.concat(resto);
   }
 
   return {
@@ -555,28 +560,21 @@ function guardarRegistro(payload) {
     const gateDoc = String(respuestas[HSQ_GATE_DOC] || '').trim().toUpperCase();
     const fechasDoc = {};
 
-    // 1) Las fechas que el mensajero escribio en el bloque de documentacion mandan.
-    if (gateDoc === 'SI') {
-      preguntas.forEach(function (q) {
-        if (!esPreguntaDocBloque_(q)) return;
-        const k = sinTildes_(q.documento).trim();
-        if (!HSQ_DOC_COLS[k]) return;
-        const v = fechaISO_(respuestas[q.id_pregunta], tz);
-        if (v) fechasDoc[k] = v;
-      });
-    }
-
-    // 2) Las preguntas de vigencia de la hoja siempre reflejan el valor oficial
-    //    (la fecha nueva si la acaba de escribir, o la ya guardada).
+    // Si marco "primera vez / renovacion" escribe la fecha nueva; si no, se usa
+    // siempre la ya guardada (la pregunta va bloqueada y no se altera dia a dia).
     preguntas.forEach(function (q) {
-      if (esPreguntaDocBloque_(q)) return;
       const k = docKeyDePregunta_(q);
       if (!k) return;
-      const valor = fechasDoc[k] || fechaISO_(activoResp.datos[HSQ_DOC_COLS[k]], tz);
-      if (!valor && gateDoc !== 'SI' && isActive_(q.obligatorio)) {
-        throw new Error('Aun no tienes registrada la fecha de ' + k + '. Responde SI en la primera pregunta y adjunta tus documentos.');
+      if (gateDoc === 'SI') {
+        const v = fechaISO_(respuestas[q.id_pregunta], tz);
+        if (v) fechasDoc[k] = v;
+      } else {
+        const guardada = fechaISO_(activoResp.datos[HSQ_DOC_COLS[k]], tz);
+        if (!guardada && isActive_(q.obligatorio)) {
+          throw new Error('Aun no tienes registrada la fecha de ' + k + '. Responde SI en la primera pregunta y adjunta tus documentos.');
+        }
+        respuestas[q.id_pregunta] = guardada;
       }
-      respuestas[q.id_pregunta] = valor;
     });
 
     validarRespuestas_(preguntas, respuestas, archivos);
@@ -788,11 +786,6 @@ function sinTildes_(s) {
  * Usa la columna opcional "documento" (SOAT/TECNOMECANICA/LICENCIA) y, si no existe,
  * reconoce la pregunta por su texto.
  */
-/** Preguntas inyectadas del bloque de documentacion (sus ids empiezan por DOC_). */
-function esPreguntaDocBloque_(q) {
-  return String(q.id_pregunta || '').indexOf('DOC_') === 0;
-}
-
 function docKeyDePregunta_(q) {
   if (String(q.tipo_respuesta || '').trim() !== 'fecha') return '';
   const exp = sinTildes_(q.documento).trim();
