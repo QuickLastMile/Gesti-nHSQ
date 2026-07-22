@@ -388,6 +388,11 @@
         });
         toggleConditionals(gateId);
       });
+      // Al escribir la fecha junto al documento, se copia a la pregunta de vigencia.
+      $('questions').querySelectorAll('input[data-doc-src]').forEach((inp) => {
+        inp.addEventListener('change', toggleDocFechas);
+        inp.addEventListener('input', toggleDocFechas);
+      });
       toggleDocFechas();
     }
 
@@ -461,6 +466,11 @@
           // 1) Vencimiento de documento: se precarga de la matriz y va bloqueado,
           //    salvo que el mensajero marque "primera vez / renovación".
           const dk = docKeyFront(q);
+          // 1a) Fecha que el mensajero ESCRIBE junto al documento (primera vez / renovación).
+          if (dk && esDocBloqueF(q)) {
+            return `<input name="${id}" type="date" data-doc-src="${escapeHtml(dk)}">`;
+          }
+          // 1b) Pregunta de vigencia de la hoja: siempre bloqueada, refleja el valor oficial.
           if (dk) {
             const info = (state.documentos && state.documentos[dk]) || {};
             return `<input name="${id}" type="date" data-doc="${escapeHtml(dk)}" value="${escapeHtml(info.fecha || '')}" readonly>
@@ -652,6 +662,11 @@
         .toUpperCase();
     }
 
+    // Preguntas del bloque de documentación inyectado (sus ids empiezan por DOC_).
+    function esDocBloqueF(q) {
+      return String(q.id_pregunta || '').indexOf('DOC_') === 0;
+    }
+
     // ¿Esta pregunta de fecha corresponde al vencimiento de un documento?
     function docKeyFront(q) {
       if (String(q.tipo_respuesta || '').trim() !== 'fecha') return '';
@@ -684,19 +699,16 @@
       return '';
     }
 
-    // Al marcar "primera vez / renovación" se habilitan las fechas para escribirlas.
+    // Las preguntas de vigencia de la hoja SIEMPRE van bloqueadas. Si el mensajero
+    // escribió una fecha nueva junto al documento, se refleja aquí al instante.
     function toggleDocFechas() {
       const si = String(gateValue('DOC_PRIMERA_O_RENOVACION')).trim().toUpperCase() === 'SI';
       $('questions').querySelectorAll('input[data-doc]').forEach((inp) => {
-        const info = (state.documentos && state.documentos[inp.dataset.doc]) || {};
-        if (si) {
-          inp.readOnly = false;
-          // Limpia solo si aún tiene la fecha vieja, para que escriba la nueva.
-          if (inp.value === (info.fecha || '')) inp.value = '';
-        } else {
-          inp.readOnly = true;
-          inp.value = info.fecha || '';
-        }
+        const k = inp.dataset.doc;
+        const info = (state.documentos && state.documentos[k]) || {};
+        const src = $('questions').querySelector(`input[data-doc-src="${cssEscape(k)}"]`);
+        inp.readOnly = true;
+        inp.value = (si && src && src.value) ? src.value : (info.fecha || '');
       });
     }
 
