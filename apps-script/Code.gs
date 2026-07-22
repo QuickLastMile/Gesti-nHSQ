@@ -1103,10 +1103,33 @@ function parseDate_(value) {
   return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 
+function pad2_(n) {
+  return ('0' + n).slice(-2);
+}
+
+/**
+ * Formatea un valor para el CSV.
+ * Google Sheets guarda las celdas de SOLO HORA con su fecha base 1899-12-30,
+ * por eso una hora se leia como "1899-12-30 16:01:00". Aqui se detecta ese caso
+ * y se exporta unicamente la hora. Igual con las celdas de solo fecha.
+ */
 function csvEscape_(value) {
-  const text = value instanceof Date
-    ? Utilities.formatDate(value, getConfig_().TIMEZONE || 'America/Bogota', 'yyyy-MM-dd HH:mm:ss')
-    : String(value === null || value === undefined ? '' : value);
+  let text;
+  if (value instanceof Date) {
+    const hh = pad2_(value.getHours());
+    const mi = pad2_(value.getMinutes());
+    const ss = pad2_(value.getSeconds());
+    const fecha = value.getFullYear() + '-' + pad2_(value.getMonth() + 1) + '-' + pad2_(value.getDate());
+    if (value.getFullYear() < 1901) {
+      text = hh + ':' + mi + ':' + ss;                 // celda de solo hora
+    } else if (hh === '00' && mi === '00' && ss === '00') {
+      text = fecha;                                    // celda de solo fecha
+    } else {
+      text = fecha + ' ' + hh + ':' + mi + ':' + ss;   // fecha y hora
+    }
+  } else {
+    text = String(value === null || value === undefined ? '' : value);
+  }
   return '"' + text.replace(/"/g, '""') + '"';
 }
 
