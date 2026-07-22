@@ -428,6 +428,8 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .checkitem.done .checkitem__chev { display: none; }
 .field-note { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
 .auto-tag { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark); }
+.auto-tag--warn { color: var(--warning); }
+.auto-tag--err { color: var(--danger); }
 
 /* ============================================================
    Modal comprobante

@@ -69,6 +69,11 @@
           PREOPERACIONAL: { hecho: false },
           LIMPIEZA_MOTO: { hecho: false },
         },
+        documentos: {
+          SOAT: { fecha: '2026-12-01', dias: 138, estado: 'ok' },
+          TECNOMECANICA: { fecha: '2026-08-05', dias: 20, estado: 'por_vencer' },
+          LICENCIA: { fecha: '', dias: null, estado: 'sin_dato' },
+        },
         datos: {
           cedula: payload.cedula,
           nombre: 'EJEMPLO COLABORADOR',

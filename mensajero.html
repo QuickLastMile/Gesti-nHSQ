@@ -150,7 +150,7 @@
   <script src="assets/api.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
-    const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {} };
+    const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
 
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
 
@@ -193,6 +193,7 @@
 
       state.formularios = resp.formulariosRequeridos || [];
       state.estado = resp.estadoDiario || {};
+      state.documentos = resp.documentos || {};
 
       if (resp.requierePlaca) {
         abrirPlacaNueva();
@@ -372,6 +373,7 @@
       $('questionCount').textContent = data.preguntas.length + (data.preguntas.length === 1 ? ' pregunta' : ' preguntas');
       $('questions').innerHTML = data.preguntas.map(renderQuestion).join('');
       wireConditionals();
+      revisarDocumentos();
     }
 
     // Preguntas condicionales: se muestran solo cuando la pregunta "madre" tiene el valor esperado.
@@ -382,10 +384,11 @@
       conds.forEach((c) => { gates[c.dataset.dependeDe] = true; });
       Object.keys(gates).forEach((gateId) => {
         $('questions').querySelectorAll(`[name="${cssEscape(gateId)}"]`).forEach((n) => {
-          n.addEventListener('change', () => toggleConditionals(gateId));
+          n.addEventListener('change', () => { toggleConditionals(gateId); toggleDocFechas(); });
         });
         toggleConditionals(gateId);
       });
+      toggleDocFechas();
     }
 
     function gateValue(gateId) {
@@ -454,8 +457,22 @@
       switch (q.tipo_respuesta) {
         case 'parrafo': return `<textarea name="${id}" ${req} placeholder="Escribe aquí…"></textarea>`;
         case 'numero': return `<input name="${id}" type="number" inputmode="numeric" ${req} placeholder="0">`;
-        // Fecha y hora se registran AUTOMÁTICAMENTE y no se pueden alterar.
-        case 'fecha': return `<input name="${id}" type="date" value="${hoyISO()}" readonly ${req}><span class="auto-tag">Registrada automáticamente</span>`;
+        case 'fecha': {
+          // 1) Vencimiento de documento: se precarga de la matriz y va bloqueado,
+          //    salvo que el mensajero marque "primera vez / renovación".
+          const dk = docKeyFront(q);
+          if (dk) {
+            const info = (state.documentos && state.documentos[dk]) || {};
+            return `<input name="${id}" type="date" data-doc="${escapeHtml(dk)}" value="${escapeHtml(info.fecha || '')}" readonly>
+                    <span class="auto-tag ${claseDoc(info)}">${textoDoc(info)}</span>`;
+          }
+          // 2) Fecha del registro: automática y no editable.
+          if (esFechaAuto(q)) {
+            return `<input name="${id}" type="date" value="${hoyISO()}" readonly ${req}><span class="auto-tag">Registrada automáticamente</span>`;
+          }
+          // 3) Cualquier otra fecha: editable normalmente.
+          return `<input name="${id}" type="date" ${req}>`;
+        }
         case 'hora': return `<input name="${id}" type="time" value="${ahoraHM()}" readonly ${req}><span class="auto-tag">Registrada automáticamente</span>`;
         case 'archivo': return `<input name="${id}" type="file" accept="image/*" capture="environment" ${req}>`;
         case 'si_no': return `<select name="${id}" ${req}><option value="">Selecciona…</option><option>SI</option><option>NO</option></select>`;
@@ -627,6 +644,84 @@
         reader.readAsDataURL(file);
       });
     }
+    /* ---------- Documentos del vehículo ---------- */
+    function sinTildesF(s) {
+      return String(s == null ? '' : s)
+        .replace(/[áàäâÁÀÄÂ]/g, 'A').replace(/[éèëêÉÈËÊ]/g, 'E').replace(/[íìïîÍÌÏÎ]/g, 'I')
+        .replace(/[óòöôÓÒÖÔ]/g, 'O').replace(/[úùüûÚÙÜÛ]/g, 'U').replace(/[ñÑ]/g, 'N')
+        .toUpperCase();
+    }
+
+    // ¿Esta pregunta de fecha corresponde al vencimiento de un documento?
+    function docKeyFront(q) {
+      if (String(q.tipo_respuesta || '').trim() !== 'fecha') return '';
+      const exp = sinTildesF(q.documento).trim();
+      if (exp === 'SOAT' || exp === 'TECNOMECANICA' || exp === 'LICENCIA') return exp;
+      const t = sinTildesF(q.pregunta);
+      if (t.indexOf('SOAT') !== -1) return 'SOAT';
+      if (/TECNO|TECNIC|MECANIC/.test(t)) return 'TECNOMECANICA';
+      if (t.indexOf('LICENCIA') !== -1) return 'LICENCIA';
+      return '';
+    }
+
+    // Fechas del propio registro (inspección/limpieza): automáticas y bloqueadas.
+    function esFechaAuto(q) {
+      const sec = sinTildesF(q.seccion);
+      const txt = sinTildesF(q.pregunta);
+      return sec.indexOf('DATOS DEL REGISTRO') !== -1 || /FECHA DE (LA )?(INSPECCION|LIMPIEZA|REGISTRO)/.test(txt);
+    }
+
+    function textoDoc(info) {
+      if (!info || !info.fecha) return 'Sin registrar · responde SÍ arriba para cargarlo';
+      if (info.estado === 'vencido') return `❌ Vencido el ${info.fecha} · responde SÍ arriba para actualizar`;
+      if (info.estado === 'por_vencer') return `⚠️ Vence el ${info.fecha} · faltan ${info.dias} día(s)`;
+      return `Vence el ${info.fecha} · faltan ${info.dias} día(s)`;
+    }
+
+    function claseDoc(info) {
+      if (!info || !info.fecha || info.estado === 'vencido') return 'auto-tag--err';
+      if (info.estado === 'por_vencer') return 'auto-tag--warn';
+      return '';
+    }
+
+    // Al marcar "primera vez / renovación" se habilitan las fechas para escribirlas.
+    function toggleDocFechas() {
+      const si = String(gateValue('DOC_PRIMERA_O_RENOVACION')).trim().toUpperCase() === 'SI';
+      $('questions').querySelectorAll('input[data-doc]').forEach((inp) => {
+        const info = (state.documentos && state.documentos[inp.dataset.doc]) || {};
+        if (si) {
+          inp.readOnly = false;
+          // Limpia solo si aún tiene la fecha vieja, para que escriba la nueva.
+          if (inp.value === (info.fecha || '')) inp.value = '';
+        } else {
+          inp.readOnly = true;
+          inp.value = info.fecha || '';
+        }
+      });
+    }
+
+    // Si algo está vencido o sin registrar, se obliga a actualizar documentos.
+    function revisarDocumentos() {
+      if (!state.documentos) return;
+      // Solo aplica en formularios que piden documentos (preoperacional).
+      const hayDocs = $('questions').querySelector('input[data-doc]')
+        || $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
+      if (!hayDocs) return;
+      const criticos = Object.keys(state.documentos).filter((k) => {
+        const e = state.documentos[k].estado;
+        return e === 'vencido' || e === 'sin_dato';
+      });
+      const porVencer = Object.keys(state.documentos).filter((k) => state.documentos[k].estado === 'por_vencer');
+
+      if (criticos.length) {
+        const sel = $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
+        if (sel) { sel.value = 'SI'; sel.dispatchEvent(new Event('change')); }
+        showStatus('Debes actualizar: ' + criticos.join(', ') + '. Adjunta el documento y escribe su fecha de vencimiento.', 'error');
+      } else if (porVencer.length) {
+        showStatus('⚠️ Próximo(s) a vencer: ' + porVencer.map((k) => `${k} (${state.documentos[k].dias} días)`).join(', ') + '.', 'warn');
+      }
+    }
+
     function hoyISO() { return new Date().toISOString().slice(0, 10); }
     function ahoraHM() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
     function setLoading(btn, loading) { btn.disabled = loading; btn.style.opacity = loading ? '.7' : ''; }

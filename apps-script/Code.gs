@@ -2,6 +2,15 @@ const HSQ_DEFAULT_ROOT = 'Registros HSQ';
 const HSQ_EXPORT_FOLDER = 'Exportables HSQ';
 const HSQ_ADMIN_SPREADSHEET_ID = '1WokV7ZlyxblP8ugbkM-tXoADf7d9wN7JSykSNImFdz8';
 
+// Columnas de Matriz_Activos donde se guarda el vencimiento de cada documento.
+// Se crean solas la primera vez que se registran.
+const HSQ_DOC_COLS = {
+  SOAT: 'soat_vence',
+  TECNOMECANICA: 'tecnomecanica_vence',
+  LICENCIA: 'licencia_vence',
+};
+const HSQ_DIAS_ALERTA = 30; // avisar cuando falten 30 dias o menos
+
 // Bloque de documentacion que se agrega al INICIO del PREOPERACIONAL.
 // La 1a pregunta decide; si es SI, se exigen los documentos del vehiculo.
 const HSQ_GATE_DOC = 'DOC_PRIMERA_O_RENOVACION';
@@ -151,6 +160,7 @@ function buscarActivo(cedula) {
       return { id_formulario: f.id_formulario, nombre_formulario: f.nombre_formulario };
     });
     resp.estadoDiario = getEstadoDiario_(found);
+    resp.documentos = getDocumentos_(found);
   }
   return resp;
 }
@@ -511,8 +521,6 @@ function guardarRegistro(payload) {
     const preguntas = formData.preguntas;
     const respuestas = payload.respuestas || {};
     const archivos = payload.archivos || [];
-    validarRespuestas_(preguntas, respuestas, archivos);
-
     const now = new Date();
     const tz = getConfig_().TIMEZONE || Session.getScriptTimeZone() || 'America/Bogota';
     const fecha = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
@@ -522,6 +530,32 @@ function guardarRegistro(payload) {
       Utilities.formatDate(now, tz, 'yyyyMMdd-HHmmss'),
       normalizeId_(payload.cedula),
     ].join('-');
+
+    // Vencimientos de documentos: si el mensajero marco "primera vez / renovacion",
+    // se toman las fechas nuevas. Si no, se usa siempre la ya registrada (la
+    // pregunta va bloqueada y no se puede alterar dia a dia).
+    const gateDoc = String(respuestas[HSQ_GATE_DOC] || '').trim().toUpperCase();
+    const fechasDoc = {};
+    preguntas.forEach(function (q) {
+      const k = docKeyDePregunta_(q);
+      if (!k) return;
+      if (gateDoc === 'SI') {
+        const v = fechaISO_(respuestas[q.id_pregunta], tz);
+        if (v) fechasDoc[k] = v;
+      } else {
+        const guardada = fechaISO_(activoResp.datos[HSQ_DOC_COLS[k]], tz);
+        if (!guardada && isActive_(q.obligatorio)) {
+          throw new Error('Aun no tienes registrada la fecha de ' + k + '. Responde SI en la primera pregunta y adjunta tus documentos.');
+        }
+        respuestas[q.id_pregunta] = guardada;
+      }
+    });
+
+    validarRespuestas_(preguntas, respuestas, archivos);
+
+    if (Object.keys(fechasDoc).length) {
+      guardarFechasDocumentos_(payload.cedula, fechasDoc);
+    }
 
     const folders = getStorageFolders_(fecha);
     const evidenciaFolder = getOrCreateFolder_(folders.day, 'Evidencias');
@@ -706,6 +740,106 @@ function generarExportable(filtros) {
 function safeParseJson_(value) {
   if (!value) return null;
   try { return JSON.parse(value); } catch (e) { return null; }
+}
+
+/* ============ Documentos del vehiculo (SOAT / Tecnomecanica / Licencia) ============ */
+
+function sinTildes_(s) {
+  return String(s == null ? '' : s)
+    .replace(/[áàäâÁÀÄÂ]/g, 'A')
+    .replace(/[éèëêÉÈËÊ]/g, 'E')
+    .replace(/[íìïîÍÌÏÎ]/g, 'I')
+    .replace(/[óòöôÓÒÖÔ]/g, 'O')
+    .replace(/[úùüûÚÙÜÛ]/g, 'U')
+    .replace(/[ñÑ]/g, 'N')
+    .toUpperCase();
+}
+
+/**
+ * Indica si una pregunta de tipo fecha corresponde al vencimiento de un documento.
+ * Usa la columna opcional "documento" (SOAT/TECNOMECANICA/LICENCIA) y, si no existe,
+ * reconoce la pregunta por su texto.
+ */
+function docKeyDePregunta_(q) {
+  if (String(q.tipo_respuesta || '').trim() !== 'fecha') return '';
+  const exp = sinTildes_(q.documento).trim();
+  if (HSQ_DOC_COLS[exp]) return exp;
+  const t = sinTildes_(q.pregunta);
+  if (t.indexOf('SOAT') !== -1) return 'SOAT';
+  if (/TECNO|TECNIC|MECANIC/.test(t)) return 'TECNOMECANICA';
+  if (t.indexOf('LICENCIA') !== -1) return 'LICENCIA';
+  return '';
+}
+
+function fechaISO_(v, tz) {
+  if (v === null || v === undefined || v === '') return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, tz || 'America/Bogota', 'yyyy-MM-dd');
+  }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  return s;
+}
+
+function estadoDocumento_(fechaIso, hoyIso) {
+  if (!fechaIso) return { fecha: '', dias: null, estado: 'sin_dato' };
+  const dias = Math.floor((Date.parse(fechaIso + 'T00:00:00') - Date.parse(hoyIso + 'T00:00:00')) / 86400000);
+  if (isNaN(dias)) return { fecha: fechaIso, dias: null, estado: 'sin_dato' };
+  let estado = 'ok';
+  if (dias < 0) estado = 'vencido';
+  else if (dias <= HSQ_DIAS_ALERTA) estado = 'por_vencer';
+  return { fecha: fechaIso, dias: dias, estado: estado };
+}
+
+function getDocumentos_(persona) {
+  const tz = getConfig_().TIMEZONE || 'America/Bogota';
+  const hoy = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const out = {};
+  Object.keys(HSQ_DOC_COLS).forEach(function (k) {
+    out[k] = estadoDocumento_(fechaISO_(persona[HSQ_DOC_COLS[k]], tz), hoy);
+  });
+  return out;
+}
+
+/** Guarda las fechas de vencimiento en Matriz_Activos (crea las columnas si faltan). */
+function guardarFechasDocumentos_(cedula, dates) {
+  const key = normalizeId_(cedula);
+  const sheet = getAdminSpreadsheet_().getSheetByName('Matriz_Activos');
+  if (!sheet || !key) return;
+
+  let headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0]
+    .map(function (h) { return String(h).trim(); });
+
+  const faltantes = [];
+  Object.keys(dates).forEach(function (k) {
+    const col = HSQ_DOC_COLS[k];
+    if (col && headers.indexOf(col) === -1 && faltantes.indexOf(col) === -1) faltantes.push(col);
+  });
+  if (faltantes.length) {
+    sheet.getRange(1, headers.length + 1, 1, faltantes.length).setValues([faltantes]);
+    headers = headers.concat(faltantes);
+  }
+
+  const cedIdx = headers.indexOf('cedula');
+  if (cedIdx === -1) return;
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (normalizeId_(values[i][cedIdx]) === key) {
+      const detalle = [];
+      Object.keys(dates).forEach(function (k) {
+        const c = headers.indexOf(HSQ_DOC_COLS[k]);
+        if (c !== -1) {
+          sheet.getRange(i + 1, c + 1).setValue(dates[k]);
+          detalle.push(k + ': ' + dates[k]);
+        }
+      });
+      clearSheetCache_('Matriz_Activos');
+      if (detalle.length) registrarHistorial_('DOCUMENTOS', key, 'Vencimientos actualizados -> ' + detalle.join(', '));
+      return;
+    }
+  }
 }
 
 function getAdminSpreadsheet_() {
