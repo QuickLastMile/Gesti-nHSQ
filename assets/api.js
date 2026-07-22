@@ -139,6 +139,37 @@
     if (action === 'generarExportable') {
       return wait({ ok: true, filas: 12, columnas: 20, formulario: (payload.formularios || ['DEMO'])[0], url: '#', downloadUrl: '#', nombre: 'Exportable_DEMO.csv' });
     }
+    if (action === 'getCumplimientoDia') {
+      const forms = [
+        { id: 'PREOPERACIONAL', nombre: 'Preoperacional' },
+        { id: 'LIMPIEZA_MOTO', nombre: 'Limpieza' },
+      ];
+      const personas = [
+        { cedula: '1017654321', nombre: 'ANA DEMO', proyecto: 'Proyecto de ejemplo', ciudad: 'MEDELLÍN', placa: 'ABC12D',
+          estados: { PREOPERACIONAL: { hecho: false, hora: '' }, LIMPIEZA_MOTO: { hecho: false, hora: '' } }, completo: false, justificacion: '' },
+        { cedula: '1020304050', nombre: 'CARLOS DEMO', proyecto: 'Proyecto de ejemplo', ciudad: 'BOGOTÁ', placa: 'XYZ98Z',
+          estados: { PREOPERACIONAL: { hecho: true, hora: '06:12' }, LIMPIEZA_MOTO: { hecho: true, hora: '07:40' } }, completo: true, justificacion: '' },
+      ];
+      return wait({
+        fecha: payload.fecha, proyecto: payload.proyecto || '', formularios: forms, personas: personas,
+        resumen: { total: 2, completos: 1, pendientes: 1, porcentaje: 50 },
+      });
+    }
+    if (action === 'guardarJustificacion') {
+      return wait({ ok: true, actualizado: false });
+    }
+    if (action === 'getResumenCumplimiento') {
+      return wait({
+        agrupacion: payload.agrupacion || 'semana',
+        totalPersonas: 12,
+        periodos: [
+          { etiqueta: '2026 · Sem 27', esperados: 84, completos: 79, dias: 7, porcentaje: 94 },
+          { etiqueta: '2026 · Sem 28', esperados: 84, completos: 68, dias: 7, porcentaje: 81 },
+          { etiqueta: '2026 · Sem 29', esperados: 60, completos: 39, dias: 5, porcentaje: 65 },
+        ],
+        total: { esperados: 228, completos: 186, porcentaje: 81.6 },
+      });
+    }
     if (action === 'getMatrizInfo') {
       return wait({ ultimaActualizacion: '2026-07-15 09:30 (demo)' });
     }

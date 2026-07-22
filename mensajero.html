@@ -554,13 +554,21 @@
         <div class="comprobante__row"><b>Cédula</b><span>${escapeHtml(c.cedula)}</span></div>
         <div class="comprobante__row"><b>Placa</b><span>${escapeHtml(c.placa_moto || '—')}</span></div>
         <div class="comprobante__row"><b>Fecha</b><span>${escapeHtml(c.fecha)}</span></div>
+        <div class="comprobante__row"><b>Horas</b><span>${escapeHtml(horasResumen(c))}</span></div>
         ${(c.registros || []).map((r) => `
           <div class="comprobante__reg">
             <div class="t">${escapeHtml(r.formulario)}</div>
-            <div class="h">✓ Registrado${r.hora ? ' a las ' + String(r.hora).slice(0, 5) : ''}</div>
+            <div class="h">✓ Registrado${r.hora ? ' a las ' + escapeHtml(r.hora) : ''}</div>
           </div>`).join('')}`;
       showStatus('✓ Día completo. Comprobante disponible.', 'ok');
       $('modal').classList.add('show');
+    }
+
+    // Horas de los registros del día, para mostrarlas en el comprobante.
+    function horasResumen(c) {
+      const regs = (c.registros || []).filter((r) => r.hora);
+      if (!regs.length) return '—';
+      return regs.map((r) => r.hora).join(' · ');
     }
 
     function descargarComprobante(c) {
@@ -587,7 +595,7 @@
       x.font = '16px Arial'; x.fillStyle = '#5f7383';
       x.fillText('Cédula: ' + (c.cedula || '') + '     Placa: ' + (c.placa_moto || '—'), 40, y); y += 26;
       if (c.proyecto) { x.fillText('Proyecto: ' + c.proyecto, 40, y); y += 26; }
-      x.fillText('Fecha: ' + (c.fecha || ''), 40, y); y += 20;
+      x.fillText('Fecha: ' + (c.fecha || '') + '     Horas: ' + horasResumen(c), 40, y); y += 20;
 
       regs.forEach((r) => {
         y += 16;
@@ -597,7 +605,7 @@
         x.beginPath(); x.moveTo(65, y + 30); x.lineTo(70, y + 36); x.lineTo(80, y + 24); x.stroke();
         x.fillStyle = '#16232e'; x.font = 'bold 18px Arial'; x.fillText(r.formulario || '', 100, y + 27);
         x.fillStyle = '#0a7a44'; x.font = '15px Arial';
-        x.fillText('Registrado' + (r.hora ? ' a las ' + String(r.hora).slice(0, 5) : ''), 100, y + 48);
+        x.fillText('Registrado' + (r.hora ? ' a las ' + r.hora : ''), 100, y + 48);
         y += 60;
       });
 

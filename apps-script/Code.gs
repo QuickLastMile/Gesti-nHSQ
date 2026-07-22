@@ -11,6 +11,22 @@ const HSQ_DOC_COLS = {
 };
 const HSQ_DIAS_ALERTA = 30; // avisar cuando falten 30 dias o menos
 
+// Enlace al documento adjuntado (se guarda en la matriz para consultarlo luego).
+const HSQ_DOC_URL_COLS = {
+  SOAT: 'soat_url',
+  TECNOMECANICA: 'tecnomecanica_url',
+  LICENCIA: 'licencia_url',
+};
+// Que documento representa cada pregunta de archivo del bloque.
+const HSQ_DOC_ARCHIVO = {
+  DOC_SOAT: 'SOAT',
+  DOC_TECNOMECANICA: 'TECNOMECANICA',
+  DOC_LICENCIA_TRANSITO: 'LICENCIA',
+};
+// Columna donde el coordinador explica por que el quicker esta inactivo
+// (restriccion, incapacidad extendida, etc.). Se busca por nombre.
+const HSQ_OBS_COORD_COLS = ['observacion_coordinador', 'observacion', 'observaciones_coordinador'];
+
 // Bloque de documentacion que se agrega al INICIO del PREOPERACIONAL.
 // La 1a pregunta decide; si es SI, se exigen los documentos del vehiculo.
 const HSQ_GATE_DOC = 'DOC_PRIMERA_O_RENOVACION';
@@ -93,6 +109,9 @@ function handleApi_(e) {
       case 'generarExportable': result = generarExportable(payload); break;
       case 'actualizarMatriz': result = actualizarMatriz(payload); break;
       case 'getMatrizInfo': result = getMatrizInfo(); break;
+      case 'getCumplimientoDia': result = getCumplimientoDia(payload); break;
+      case 'guardarJustificacion': result = guardarJustificacion(payload); break;
+      case 'getResumenCumplimiento': result = getResumenCumplimiento(payload); break;
       default: throw new Error('Accion no reconocida: ' + action);
     }
     out = { ok: true, result: result };
@@ -151,10 +170,14 @@ function buscarActivo(cedula) {
   }
 
   const activo = isActive_(found.activo_para_registro);
+  const obsCoord = obsCoordinador_(found);
   const resp = {
     encontrado: true,
     activo,
-    mensaje: activo ? 'Activo habilitado para registro.' : 'La persona no esta activa para registro.',
+    observacionCoordinador: obsCoord,
+    mensaje: activo
+      ? 'Activo habilitado para registro.'
+      : (obsCoord ? ('No estas habilitado para registrar. Motivo: ' + obsCoord) : 'La persona no esta activa para registro.'),
     datos: found,
     requierePlaca: !String(found.placa_moto || '').trim(),
   };
@@ -474,7 +497,7 @@ function getEstadoDiario_(persona) {
           estado[idForm] = {
             hecho: true,
             idRegistro: values[i][idRegIdx],
-            hora: horaIdx !== -1 ? String(values[i][horaIdx]) : '',
+            hora: horaIdx !== -1 ? horaTexto_(values[i][horaIdx]) : '',
           };
           break;
         }
@@ -579,13 +602,20 @@ function guardarRegistro(payload) {
 
     validarRespuestas_(preguntas, respuestas, archivos);
 
-    if (Object.keys(fechasDoc).length) {
-      guardarFechasDocumentos_(payload.cedula, fechasDoc);
-    }
-
     const folders = getStorageFolders_(fecha);
     const evidenciaFolder = getOrCreateFolder_(folders.day, 'Evidencias');
     const evidencias = saveEvidenceFiles_(archivos, evidenciaFolder, idRegistro);
+
+    // Al actualizar documentos se guardan en la matriz la fecha de vencimiento
+    // y el enlace del archivo, para poder consultarlos por persona.
+    if (gateDoc === 'SI') {
+      const urlsDoc = {};
+      evidencias.forEach(function (ev) {
+        const k = HSQ_DOC_ARCHIVO[ev.id_pregunta];
+        if (k && ev.url) urlsDoc[k] = ev.url;
+      });
+      guardarDocumentos_(payload.cedula, fechasDoc, urlsDoc);
+    }
     const dailySpreadsheet = getOrCreateDailySpreadsheet_(folders.day, fecha, payload.id_formulario);
     const sheet = getOrCreateResponseSheet_(dailySpreadsheet, formData.formulario, preguntas);
     const alertas = buildAlertas_(preguntas, respuestas);
@@ -768,6 +798,221 @@ function safeParseJson_(value) {
   try { return JSON.parse(value); } catch (e) { return null; }
 }
 
+/* ==================== Cumplimiento diario y justificaciones ==================== */
+
+function horaTexto_(v) {
+  if (v instanceof Date) return pad2_(v.getHours()) + ':' + pad2_(v.getMinutes());
+  const s = String(v || '').trim();
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  return m ? (pad2_(Number(m[1])) + ':' + m[2]) : s;
+}
+
+/** Cedulas que registraron un formulario en una fecha -> { cedula: 'HH:mm' }. */
+function cedulasRegistradas_(fecha, idFormulario) {
+  const tz = getConfig_().TIMEZONE || 'America/Bogota';
+  const hoy = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  const cacheKey = 'hsq_reg_' + fecha + '_' + idFormulario;
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(cacheKey);
+  if (hit) { try { return JSON.parse(hit); } catch (e) { /* releer */ } }
+
+  const out = {};
+  const dayFolder = findDayFolder_(fecha);
+  if (dayFolder) {
+    const files = dayFolder.getFilesByName(fecha + '_' + idFormulario);
+    while (files.hasNext()) {
+      const f = files.next();
+      if (f.getMimeType() !== MimeType.GOOGLE_SHEETS) continue;
+      const sh = SpreadsheetApp.openById(f.getId()).getSheetByName('Respuestas');
+      if (!sh || sh.getLastRow() < 2) continue;
+      const values = sh.getDataRange().getValues();
+      const headers = values.shift().map(String);
+      const ci = headers.indexOf('cedula');
+      const hi = headers.indexOf('hora_registro');
+      if (ci === -1) continue;
+      values.forEach(function (r) {
+        const k = normalizeId_(r[ci]);
+        if (k) out[k] = hi !== -1 ? horaTexto_(r[hi]) : 'si';
+      });
+    }
+  }
+  // Los dias pasados ya no cambian: se pueden cachear mas tiempo.
+  try { cache.put(cacheKey, JSON.stringify(out), fecha < hoy ? 21600 : 60); } catch (e) { /* muy grande */ }
+  return out;
+}
+
+function personasActivas_(proyecto) {
+  const p = String(proyecto || '').trim();
+  return readObjects_('Matriz_Activos')
+    .filter(function (r) { return isActive_(r.activo_para_registro); })
+    .filter(function (r) {
+      return !p || String(r.proyecto_id) === p || String(r.proyecto) === p;
+    });
+}
+
+/** Detalle de un dia: quien diligencio, quien no, y su justificacion. */
+function getCumplimientoDia(filtros) {
+  const tz = getConfig_().TIMEZONE || 'America/Bogota';
+  const fecha = String((filtros && filtros.fecha) || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd')).trim();
+  const proyecto = String((filtros && filtros.proyecto) || '').trim();
+
+  const formularios = getFormularios_().map(function (f) {
+    return { id: f.id_formulario, nombre: f.nombre_formulario };
+  });
+  const registrados = {};
+  formularios.forEach(function (f) { registrados[f.id] = cedulasRegistradas_(fecha, f.id); });
+  const just = getJustificaciones_(fecha);
+
+  const personas = personasActivas_(proyecto).map(function (p) {
+    const ced = normalizeId_(p.cedula);
+    const estados = {};
+    let hechos = 0;
+    formularios.forEach(function (f) {
+      const h = registrados[f.id][ced];
+      estados[f.id] = { hecho: !!h, hora: (h && h !== 'si') ? h : '' };
+      if (h) hechos++;
+    });
+    return {
+      cedula: ced,
+      nombre: p.nombre || '',
+      proyecto: p.proyecto || '',
+      ciudad: p.ciudad || '',
+      placa: p.placa_moto || '',
+      estados: estados,
+      completo: hechos === formularios.length,
+      justificacion: just[ced] || '',
+    };
+  }).sort(function (a, b) {
+    if (a.completo !== b.completo) return a.completo ? 1 : -1; // pendientes primero
+    return String(a.nombre).localeCompare(String(b.nombre));
+  });
+
+  const total = personas.length;
+  const completos = personas.filter(function (p) { return p.completo; }).length;
+  return {
+    fecha: fecha,
+    proyecto: proyecto,
+    formularios: formularios,
+    personas: personas,
+    resumen: {
+      total: total,
+      completos: completos,
+      pendientes: total - completos,
+      porcentaje: total ? Math.round(completos * 1000 / total) / 10 : 0,
+    },
+  };
+}
+
+function getJustificaciones_(fecha) {
+  const out = {};
+  const sheet = getAdminSpreadsheet_().getSheetByName('Justificaciones');
+  if (!sheet || sheet.getLastRow() < 2) return out;
+  const tz = getConfig_().TIMEZONE || 'America/Bogota';
+  const values = sheet.getDataRange().getValues();
+  const headers = values.shift().map(function (h) { return String(h).trim(); });
+  const fi = headers.indexOf('fecha');
+  const ci = headers.indexOf('cedula');
+  const mi = headers.indexOf('motivo');
+  if (fi === -1 || ci === -1) return out;
+  values.forEach(function (r) {
+    if (fechaISO_(r[fi], tz) === fecha) out[normalizeId_(r[ci])] = String(r[mi] || '');
+  });
+  return out;
+}
+
+/** El coordinador explica por que un mensajero no marco ese dia. */
+function guardarJustificacion(payload) {
+  const fecha = String((payload && payload.fecha) || '').trim();
+  const ced = normalizeId_(payload && payload.cedula);
+  const motivo = String((payload && payload.motivo) || '').trim();
+  if (!fecha || !ced) throw new Error('Falta la fecha o la cedula.');
+  if (!motivo) throw new Error('Escribe la justificacion.');
+
+  const ss = getAdminSpreadsheet_();
+  let sheet = ss.getSheetByName('Justificaciones');
+  if (!sheet) {
+    sheet = ss.insertSheet('Justificaciones');
+    sheet.appendRow(['fecha', 'cedula', 'nombre', 'proyecto', 'motivo', 'registrado_en']);
+    sheet.getRange(1, 1, 1, 6).setBackground('#0B3A5B').setFontColor('#FFFFFF').setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  const tz = getConfig_().TIMEZONE || 'America/Bogota';
+  const sello = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(function (h) { return String(h).trim(); });
+  const fi = headers.indexOf('fecha');
+  const ci = headers.indexOf('cedula');
+  const mi = headers.indexOf('motivo');
+  const ri = headers.indexOf('registrado_en');
+
+  for (let i = 1; i < values.length; i++) {
+    if (fechaISO_(values[i][fi], tz) === fecha && normalizeId_(values[i][ci]) === ced) {
+      if (mi !== -1) sheet.getRange(i + 1, mi + 1).setValue(motivo);
+      if (ri !== -1) sheet.getRange(i + 1, ri + 1).setValue(sello);
+      return { ok: true, actualizado: true };
+    }
+  }
+  sheet.appendRow([fecha, "'" + ced, (payload.nombre || ''), (payload.proyecto || ''), motivo, sello]);
+  return { ok: true, actualizado: false };
+}
+
+/** Resumen de cumplimiento agrupado por semana o por mes. */
+function getResumenCumplimiento(filtros) {
+  const tz = getConfig_().TIMEZONE || 'America/Bogota';
+  const desde = parseDate_(filtros && filtros.desde);
+  const hasta = parseDate_(filtros && filtros.hasta);
+  if (!desde || !hasta || desde > hasta) throw new Error('Rango de fechas invalido.');
+  const dias = Math.round((hasta - desde) / 86400000) + 1;
+  if (dias > 62) throw new Error('El rango maximo es de 62 dias (2 meses).');
+
+  const proyecto = String((filtros && filtros.proyecto) || '').trim();
+  const agrupacion = (filtros && filtros.agrupacion === 'mes') ? 'mes' : 'semana';
+  const formularios = getFormularios_().map(function (f) { return f.id_formulario; });
+  const personas = personasActivas_(proyecto)
+    .map(function (p) { return normalizeId_(p.cedula); })
+    .filter(Boolean);
+  const totalPersonas = personas.length;
+
+  const grupos = {};
+  const orden = [];
+  for (let d = new Date(desde); d <= hasta; d.setDate(d.getDate() + 1)) {
+    const fecha = Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+    const etiqueta = agrupacion === 'mes'
+      ? Utilities.formatDate(d, tz, 'yyyy-MM')
+      : (Utilities.formatDate(d, tz, 'yyyy') + ' · Sem ' + Utilities.formatDate(d, tz, 'w'));
+    if (!grupos[etiqueta]) { grupos[etiqueta] = { etiqueta: etiqueta, esperados: 0, completos: 0, dias: 0 }; orden.push(etiqueta); }
+
+    const reg = {};
+    formularios.forEach(function (id) { reg[id] = cedulasRegistradas_(fecha, id); });
+    let completosDia = 0;
+    personas.forEach(function (ced) {
+      const todo = formularios.every(function (id) { return !!reg[id][ced]; });
+      if (todo) completosDia++;
+    });
+    grupos[etiqueta].esperados += totalPersonas;
+    grupos[etiqueta].completos += completosDia;
+    grupos[etiqueta].dias++;
+  }
+
+  const periodos = orden.map(function (k) {
+    const g = grupos[k];
+    g.porcentaje = g.esperados ? Math.round(g.completos * 1000 / g.esperados) / 10 : 0;
+    return g;
+  });
+  const totEsp = periodos.reduce(function (a, g) { return a + g.esperados; }, 0);
+  const totCom = periodos.reduce(function (a, g) { return a + g.completos; }, 0);
+  return {
+    periodos: periodos,
+    totalPersonas: totalPersonas,
+    agrupacion: agrupacion,
+    total: {
+      esperados: totEsp,
+      completos: totCom,
+      porcentaje: totEsp ? Math.round(totCom * 1000 / totEsp) / 10 : 0,
+    },
+  };
+}
+
 /* ============ Documentos del vehiculo (SOAT / Tecnomecanica / Licencia) ============ */
 
 function sinTildes_(s) {
@@ -825,47 +1070,67 @@ function getDocumentos_(persona) {
   const out = {};
   Object.keys(HSQ_DOC_COLS).forEach(function (k) {
     out[k] = estadoDocumento_(fechaISO_(persona[HSQ_DOC_COLS[k]], tz), hoy);
+    out[k].url = String(persona[HSQ_DOC_URL_COLS[k]] || '');
   });
   return out;
 }
 
-/** Guarda las fechas de vencimiento en Matriz_Activos (crea las columnas si faltan). */
-function guardarFechasDocumentos_(cedula, dates) {
+/**
+ * Escribe valores en la fila de una cedula dentro de Matriz_Activos.
+ * valores = { nombre_de_columna: valor }. Crea las columnas que no existan.
+ */
+function actualizarFilaMatriz_(cedula, valores) {
   const key = normalizeId_(cedula);
   const sheet = getAdminSpreadsheet_().getSheetByName('Matriz_Activos');
-  if (!sheet || !key) return;
+  if (!sheet || !key) return false;
 
   let headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0]
     .map(function (h) { return String(h).trim(); });
 
-  const faltantes = [];
-  Object.keys(dates).forEach(function (k) {
-    const col = HSQ_DOC_COLS[k];
-    if (col && headers.indexOf(col) === -1 && faltantes.indexOf(col) === -1) faltantes.push(col);
-  });
+  const faltantes = Object.keys(valores).filter(function (c) { return headers.indexOf(c) === -1; });
   if (faltantes.length) {
     sheet.getRange(1, headers.length + 1, 1, faltantes.length).setValues([faltantes]);
     headers = headers.concat(faltantes);
   }
 
   const cedIdx = headers.indexOf('cedula');
-  if (cedIdx === -1) return;
+  if (cedIdx === -1) return false;
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
     if (normalizeId_(values[i][cedIdx]) === key) {
-      const detalle = [];
-      Object.keys(dates).forEach(function (k) {
-        const c = headers.indexOf(HSQ_DOC_COLS[k]);
-        if (c !== -1) {
-          sheet.getRange(i + 1, c + 1).setValue(dates[k]);
-          detalle.push(k + ': ' + dates[k]);
-        }
+      Object.keys(valores).forEach(function (c) {
+        const ci = headers.indexOf(c);
+        if (ci !== -1) sheet.getRange(i + 1, ci + 1).setValue(valores[c]);
       });
       clearSheetCache_('Matriz_Activos');
-      if (detalle.length) registrarHistorial_('DOCUMENTOS', key, 'Vencimientos actualizados -> ' + detalle.join(', '));
-      return;
+      return true;
     }
   }
+  return false;
+}
+
+/** Guarda vencimientos y enlaces de los documentos del vehiculo. */
+function guardarDocumentos_(cedula, dates, urls) {
+  const cols = {};
+  const detalle = [];
+  Object.keys(dates || {}).forEach(function (k) {
+    if (HSQ_DOC_COLS[k]) { cols[HSQ_DOC_COLS[k]] = dates[k]; detalle.push(k + ': ' + dates[k]); }
+  });
+  Object.keys(urls || {}).forEach(function (k) {
+    if (HSQ_DOC_URL_COLS[k]) cols[HSQ_DOC_URL_COLS[k]] = urls[k];
+  });
+  if (!Object.keys(cols).length) return;
+  actualizarFilaMatriz_(cedula, cols);
+  if (detalle.length) registrarHistorial_('DOCUMENTOS', normalizeId_(cedula), 'Vencimientos actualizados -> ' + detalle.join(', '));
+}
+
+/** Observacion del coordinador (por que esta inactivo). */
+function obsCoordinador_(persona) {
+  for (let i = 0; i < HSQ_OBS_COORD_COLS.length; i++) {
+    const v = persona[HSQ_OBS_COORD_COLS[i]];
+    if (v !== undefined && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
 }
 
 function getAdminSpreadsheet_() {

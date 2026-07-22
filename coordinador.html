@@ -45,6 +45,13 @@
   </header>
 
   <main class="container">
+    <nav class="tabs" role="tablist">
+      <button class="tab active" type="button" data-view="exportar">Exportar</button>
+      <button class="tab" type="button" data-view="cumplimiento">Cumplimiento</button>
+      <button class="tab" type="button" data-view="dashboard">Dashboard</button>
+    </nav>
+
+    <section id="view-exportar" class="view">
     <div class="split">
       <div class="col-side">
         <section class="card">
@@ -121,6 +128,77 @@
         <div id="matrizStatus" class="status" aria-live="polite"></div>
       </div>
     </section>
+    </section>
+
+    <!-- ============ CUMPLIMIENTO DIARIO ============ -->
+    <section id="view-cumplimiento" class="view hidden">
+      <section class="card">
+        <div class="card__head"><p class="card__title">Cumplimiento por día</p></div>
+        <div class="card__body">
+          <p class="hint-inline" style="margin-top:0">
+            Muestra los quickers <b>activos</b> del proyecto y quién diligenció los registros ese día.
+            A quien no marcó puedes dejarle una <b>justificación</b> (descanso, permiso, incapacidad…).
+          </p>
+          <div class="field-grid two" style="display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:12px">
+            <div class="field">
+              <span class="label">Fecha</span>
+              <input id="cumFecha" type="date">
+            </div>
+            <div class="field">
+              <span class="label">Proyecto</span>
+              <input id="cumProyecto" list="proyDatalist" autocomplete="off" placeholder="Todos">
+            </div>
+          </div>
+          <button id="btnCumplimiento" class="btn btn--primary btn--block" type="button" style="margin-top:10px">
+            <svg viewBox="0 0 24 24" fill="none"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Consultar
+          </button>
+          <div id="cumStatus" class="status" aria-live="polite"></div>
+          <div id="cumResumen" class="hidden" style="margin-top:14px"></div>
+        </div>
+      </section>
+      <div id="cumLista"></div>
+    </section>
+
+    <!-- ============ DASHBOARD ============ -->
+    <section id="view-dashboard" class="view hidden">
+      <section class="card">
+        <div class="card__head"><p class="card__title">Cumplimiento por periodo</p></div>
+        <div class="card__body">
+          <p class="hint-inline" style="margin-top:0">
+            Porcentaje de quickers que completaron <b>todos</b> sus registros, agrupado por semana o por mes.
+          </p>
+          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:12px">
+            <div class="field">
+              <span class="label">Desde</span>
+              <input id="dashDesde" type="date">
+            </div>
+            <div class="field">
+              <span class="label">Hasta</span>
+              <input id="dashHasta" type="date">
+            </div>
+          </div>
+          <div class="field" style="margin-top:12px">
+            <span class="label">Proyecto</span>
+            <input id="dashProyecto" list="proyDatalist" autocomplete="off" placeholder="Todos">
+          </div>
+          <div class="field" style="margin-top:12px">
+            <span class="label">Agrupar por</span>
+            <select id="dashAgrupacion">
+              <option value="semana">Semana</option>
+              <option value="mes">Mes</option>
+            </select>
+          </div>
+          <button id="btnDashboard" class="btn btn--primary btn--block" type="button" style="margin-top:12px">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Generar dashboard
+          </button>
+          <p class="hint-inline">Rango máximo 62 días. Puede tardar unos segundos según el periodo.</p>
+          <div id="dashStatus" class="status" aria-live="polite"></div>
+        </div>
+      </section>
+      <div id="dashResultado"></div>
+    </section>
   </main>
 
   <script src="assets/config.js"></script>
@@ -151,12 +229,29 @@
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
     $('exportar').addEventListener('click', generarExportable);
     $('btnMatriz').addEventListener('click', actualizarMatriz);
+    $('btnCumplimiento').addEventListener('click', consultarCumplimiento);
+    $('btnDashboard').addEventListener('click', generarDashboard);
+
+    /* ---------- Pestañas ---------- */
+    document.querySelectorAll('.tab').forEach((t) => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
+        t.classList.add('active');
+        document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
+        $('view-' + t.dataset.view).classList.remove('hidden');
+      });
+    });
+
     init();
 
     async function init() {
       const today = new Date().toISOString().slice(0, 10);
       $('fechaInicio').value = today;
       $('fechaFin').value = today;
+      $('cumFecha').value = today;
+      $('dashHasta').value = today;
+      const hace30 = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+      $('dashDesde').value = hace30;
       try {
         const data = await HSQ_API.call('getBootstrap');
         $('filtroFormulario').innerHTML = (data.formularios || []).map((f) =>
@@ -171,6 +266,175 @@
         showStatus(err.message, 'error');
       }
       cargarMatrizInfo();
+    }
+
+    /* ================= CUMPLIMIENTO DIARIO ================= */
+    async function consultarCumplimiento() {
+      const fecha = $('cumFecha').value;
+      if (!fecha) return showCum('Selecciona la fecha.', 'error');
+      setBtn($('btnCumplimiento'), true);
+      showCum('Consultando…', 'info');
+      $('cumLista').innerHTML = '';
+      $('cumResumen').classList.add('hidden');
+      try {
+        const r = await HSQ_API.call('getCumplimientoDia', {
+          fecha,
+          proyecto: resolverTexto($('cumProyecto').value),
+        });
+        pintarCumplimiento(r);
+        showCum(`${r.resumen.completos} de ${r.resumen.total} completaron (${r.resumen.porcentaje}%).`,
+          r.resumen.pendientes ? 'warn' : 'ok');
+      } catch (err) {
+        showCum(err.message, 'error');
+      } finally {
+        setBtn($('btnCumplimiento'), false);
+      }
+    }
+
+    function pintarCumplimiento(r) {
+      const res = r.resumen;
+      $('cumResumen').classList.remove('hidden');
+      $('cumResumen').innerHTML = `
+        <div class="person show">
+          <div class="person__grid">
+            <div class="person__item"><b>Activos</b><span>${res.total}</span></div>
+            <div class="person__item"><b>Completos</b><span>${res.completos}</span></div>
+            <div class="person__item"><b>Pendientes</b><span>${res.pendientes}</span></div>
+            <div class="person__item"><b>Cumplimiento</b><span>${res.porcentaje}%</span></div>
+          </div>
+        </div>`;
+
+      if (!r.personas.length) {
+        $('cumLista').innerHTML = '<div class="card"><div class="card__body"><p class="hint-inline">No hay quickers activos con ese filtro.</p></div></div>';
+        return;
+      }
+
+      $('cumLista').innerHTML = `
+        <div class="card" style="margin-top:14px">
+          <div class="card__head"><p class="card__title">Detalle (${r.personas.length})</p></div>
+          <div class="card__body" style="padding:0">
+            ${r.personas.map((p) => filaPersona(p, r)).join('')}
+          </div>
+        </div>`;
+
+      $('cumLista').querySelectorAll('[data-just]').forEach((btn) => {
+        btn.addEventListener('click', () => justificar(btn.dataset.just, btn.dataset.nombre, btn.dataset.proyecto, r.fecha));
+      });
+    }
+
+    function filaPersona(p, r) {
+      const chips = r.formularios.map((f) => {
+        const e = p.estados[f.id] || {};
+        return `<span class="badge ${e.hecho ? 'badge--ok' : 'badge--req'}">${e.hecho ? '✓' : '✗'} ${escapeHtml(f.nombre)}${e.hora ? ' · ' + escapeHtml(e.hora) : ''}</span>`;
+      }).join(' ');
+      const just = p.justificacion
+        ? `<div class="hint-inline" style="margin-top:6px">📝 <b>Justificación:</b> ${escapeHtml(p.justificacion)}</div>`
+        : '';
+      const boton = p.completo ? '' : `
+        <button class="btn btn--ghost" type="button" style="margin-top:8px;min-height:42px"
+          data-just="${escapeHtml(p.cedula)}" data-nombre="${escapeHtml(p.nombre)}" data-proyecto="${escapeHtml(p.proyecto)}">
+          ${p.justificacion ? 'Editar justificación' : 'Agregar justificación'}
+        </button>`;
+      return `
+        <div class="question" style="border-top:1px solid var(--line)">
+          <div style="font-weight:800;color:var(--brand)">${escapeHtml(p.nombre || '(sin nombre)')}</div>
+          <div class="hint-inline">CC ${escapeHtml(p.cedula)}${p.placa ? ' · ' + escapeHtml(p.placa) : ''}${p.proyecto ? ' · ' + escapeHtml(p.proyecto) : ''}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${chips}</div>
+          ${just}${boton}
+        </div>`;
+    }
+
+    async function justificar(cedula, nombre, proyecto, fecha) {
+      const motivo = prompt(`Justificación para ${nombre} (${fecha}):\n\nEj: descanso programado, permiso, incapacidad, vacaciones…`);
+      if (motivo === null) return;
+      if (!motivo.trim()) return showCum('La justificación no puede estar vacía.', 'error');
+      showCum('Guardando justificación…', 'info');
+      try {
+        await HSQ_API.call('guardarJustificacion', { cedula, nombre, proyecto, fecha, motivo: motivo.trim() });
+        showCum('✓ Justificación guardada.', 'ok');
+        consultarCumplimiento();
+      } catch (err) {
+        showCum(err.message, 'error');
+      }
+    }
+
+    function showCum(msg, type) {
+      const n = $('cumStatus');
+      n.className = `status show status--${type}`;
+      n.textContent = msg;
+    }
+
+    /* ================= DASHBOARD ================= */
+    async function generarDashboard() {
+      const desde = $('dashDesde').value, hasta = $('dashHasta').value;
+      if (!desde || !hasta) return showDash('Selecciona el rango de fechas.', 'error');
+      setBtn($('btnDashboard'), true);
+      showDash('Calculando… puede tardar unos segundos.', 'info');
+      $('dashResultado').innerHTML = '';
+      try {
+        const r = await HSQ_API.call('getResumenCumplimiento', {
+          desde, hasta,
+          proyecto: resolverTexto($('dashProyecto').value),
+          agrupacion: $('dashAgrupacion').value,
+        });
+        pintarDashboard(r);
+        showDash(`Cumplimiento general: ${r.total.porcentaje}% (${r.totalPersonas} quickers activos).`,
+          r.total.porcentaje >= 90 ? 'ok' : 'warn');
+      } catch (err) {
+        showDash(err.message, 'error');
+      } finally {
+        setBtn($('btnDashboard'), false);
+      }
+    }
+
+    function pintarDashboard(r) {
+      if (!r.periodos.length) {
+        $('dashResultado').innerHTML = '<div class="card" style="margin-top:14px"><div class="card__body"><p class="hint-inline">Sin datos en ese rango.</p></div></div>';
+        return;
+      }
+      const barras = r.periodos.map((p) => {
+        const color = p.porcentaje >= 90 ? 'var(--success)' : (p.porcentaje >= 70 ? 'var(--warning)' : 'var(--danger)');
+        return `
+          <div style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;color:var(--brand)">
+              <span>${escapeHtml(p.etiqueta)}</span>
+              <span>${p.porcentaje}%</span>
+            </div>
+            <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:999px;height:16px;overflow:hidden;margin-top:5px">
+              <div style="width:${Math.max(p.porcentaje, 1)}%;height:100%;background:${color}"></div>
+            </div>
+            <div class="hint-inline">${p.completos} de ${p.esperados} marcaciones · ${p.dias} día(s)</div>
+          </div>`;
+      }).join('');
+
+      $('dashResultado').innerHTML = `
+        <div class="card" style="margin-top:14px">
+          <div class="card__head"><p class="card__title">Cumplimiento por ${escapeHtml(r.agrupacion)}</p></div>
+          <div class="card__body">
+            <div class="person show" style="margin-bottom:16px">
+              <div class="person__grid">
+                <div class="person__item"><b>Quickers activos</b><span>${r.totalPersonas}</span></div>
+                <div class="person__item"><b>General</b><span>${r.total.porcentaje}%</span></div>
+                <div class="person__item"><b>Completos</b><span>${r.total.completos}</span></div>
+                <div class="person__item"><b>Esperados</b><span>${r.total.esperados}</span></div>
+              </div>
+            </div>
+            ${barras}
+          </div>
+        </div>`;
+    }
+
+    function showDash(msg, type) {
+      const n = $('dashStatus');
+      n.className = `status show status--${type}`;
+      n.textContent = msg;
+    }
+
+    // Convierte el texto del proyecto a su id cuando coincide con la lista.
+    function resolverTexto(txt) {
+      const t = String(txt || '').trim();
+      if (!t) return '';
+      return proyectosMap[t.toLowerCase()] || proyectosMap[t] || t;
     }
 
     async function cargarMatrizInfo() {
