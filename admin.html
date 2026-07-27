@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d3b2a">
+  <title>Administración HSQ · Gestión HSEQ Motos</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header__inner">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="#ffc21f"/></svg>
+      </div>
+      <img class="brand-logo hidden" src="assets/logo-quick.png" alt="Quick"
+           onload="this.classList.remove('hidden');this.previousElementSibling.classList.add('hidden')" onerror="this.remove()">
+      <div class="brand-text">
+        <h1>Administración HSQ</h1>
+        <p>Matriz de colaboradores</p>
+      </div>
+      <a class="header-back" href="index.html">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Inicio
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Login -->
+    <section id="loginCard" class="card" style="max-width:440px;margin:24px auto">
+      <div class="card__head"><p class="card__title">Ingreso encargado HSQ</p></div>
+      <div class="card__body">
+        <div class="field">
+          <span class="label">Correo</span>
+          <input id="email" type="email" autocomplete="username" placeholder="tucorreo@empresa.com">
+        </div>
+        <div class="field" style="margin-top:12px">
+          <span class="label">Contraseña</span>
+          <input id="password" type="password" autocomplete="current-password" placeholder="••••••••">
+        </div>
+        <button id="btnLogin" class="btn btn--primary btn--block" type="button" style="margin-top:16px">Iniciar sesión</button>
+        <div id="loginStatus" class="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- Panel (tras login) -->
+    <section id="panel" class="hidden">
+      <section class="card">
+        <div class="card__head">
+          <p class="card__title">Buscar colaborador</p>
+          <button id="btnSalir" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Salir</button>
+        </div>
+        <div class="card__body">
+          <div class="input-row">
+            <input id="q" autocomplete="off" placeholder="Cédula o nombre…">
+            <button id="btnBuscar" class="btn btn--dark btn--icon" type="button" title="Buscar">
+              <svg viewBox="0 0 24 24" fill="none"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div id="buscarStatus" class="status" aria-live="polite"></div>
+          <div id="resultados" style="margin-top:12px"></div>
+        </div>
+      </section>
+
+      <!-- Ficha para editar -->
+      <section id="ficha" class="card hidden">
+        <div class="card__head"><p id="fichaTitulo" class="card__title">Editar colaborador</p></div>
+        <div class="card__body">
+          <input id="f_cedula" type="hidden">
+          <p class="hint-inline" style="margin-top:0"><b id="f_nombre"></b> · <span id="f_meta"></span></p>
+
+          <div class="field" style="margin-top:14px">
+            <span class="label">Estado</span>
+            <select id="f_activo">
+              <option value="true">✅ Activo (puede registrar)</option>
+              <option value="false">⛔ Inactivo (no puede registrar)</option>
+            </select>
+          </div>
+          <div class="field" style="margin-top:12px">
+            <span class="label">Motivo si está inactivo (restricción, incapacidad…)</span>
+            <textarea id="f_obs" placeholder="Ej: Incapacidad hasta 30-jul"></textarea>
+          </div>
+
+          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:12px">
+            <div class="field"><span class="label">Placa</span><input id="f_placa" style="text-transform:uppercase"></div>
+            <div class="field"><span class="label">Tipo vehículo</span><input id="f_tipo" placeholder="MOTO"></div>
+            <div class="field"><span class="label">Marca</span><input id="f_marca"></div>
+            <div class="field"><span class="label">Cilindraje (CC)</span><input id="f_cc"></div>
+          </div>
+
+          <p class="label" style="margin-top:16px">Vencimiento de documentos</p>
+          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr 1fr">
+            <div class="field"><span class="label">SOAT</span><input id="f_soat" type="date"></div>
+            <div class="field"><span class="label">Tecnomecánica</span><input id="f_tecno" type="date"></div>
+            <div class="field"><span class="label">Licencia</span><input id="f_lic" type="date"></div>
+          </div>
+
+          <button id="btnGuardar" class="btn btn--primary btn--block" type="button" style="margin-top:18px">Guardar cambios</button>
+          <div id="fichaStatus" class="status" aria-live="polite"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="assets/config.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const CFG = window.HSQ_CONFIG || {};
+    const BASE = (CFG.SUPABASE_URL || '').replace(/\/$/, '');
+    let token = sessionStorage.getItem('hsq_admin_token') || '';
+    let resultados = [];
+
+    if (token) mostrarPanel();
+
+    $('btnLogin').addEventListener('click', login);
+    $('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+    $('btnSalir').addEventListener('click', salir);
+    $('btnBuscar').addEventListener('click', buscar);
+    $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(); });
+    $('btnGuardar').addEventListener('click', guardar);
+    $('f_activo').addEventListener('change', pintarEstado);
+
+    async function login() {
+      const email = $('email').value.trim();
+      const password = $('password').value;
+      if (!email || !password) return setStatus('loginStatus', 'Escribe correo y contraseña.', 'error');
+      setStatus('loginStatus', 'Ingresando…', 'info');
+      try {
+        const res = await fetch(BASE + '/auth/v1/token?grant_type=password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.access_token) {
+          throw new Error(data.error_description || data.msg || data.error || 'Correo o contraseña incorrectos.');
+        }
+        token = data.access_token;
+        sessionStorage.setItem('hsq_admin_token', token);
+        mostrarPanel();
+      } catch (err) {
+        setStatus('loginStatus', err.message, 'error');
+      }
+    }
+
+    function salir() {
+      sessionStorage.removeItem('hsq_admin_token');
+      token = '';
+      $('panel').classList.add('hidden');
+      $('loginCard').classList.remove('hidden');
+      $('password').value = '';
+    }
+
+    function mostrarPanel() {
+      $('loginCard').classList.add('hidden');
+      $('panel').classList.remove('hidden');
+    }
+
+    async function adminCall(action, payload) {
+      let res;
+      try {
+        res = await fetch(BASE + '/rest/v1/rpc/hseq_admin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: CFG.SUPABASE_KEY,
+            Authorization: 'Bearer ' + token,
+          },
+          body: JSON.stringify({ action, payload }),
+        });
+      } catch (e) { throw new Error('No se pudo conectar con la base de datos.'); }
+      const data = await res.json();
+      if (data && data.message && data.ok === undefined) {
+        // Token vencido o inválido
+        salir();
+        throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
+      }
+      if (!data || data.ok !== true) throw new Error((data && data.error) || 'Error del servidor.');
+      return data.result;
+    }
+
+    async function buscar() {
+      const q = $('q').value.trim();
+      if (!q) return setStatus('buscarStatus', 'Escribe una cédula o nombre.', 'error');
+      setStatus('buscarStatus', 'Buscando…', 'info');
+      $('ficha').classList.add('hidden');
+      try {
+        resultados = await adminCall('buscarColaborador', { q });
+        pintarResultados();
+        clearStatus('buscarStatus');
+      } catch (err) {
+        setStatus('buscarStatus', err.message, 'error');
+      }
+    }
+
+    function pintarResultados() {
+      if (!resultados.length) {
+        $('resultados').innerHTML = '<p class="hint-inline">No se encontró ningún colaborador.</p>';
+        return;
+      }
+      $('resultados').innerHTML = resultados.map((c, i) => `
+        <button type="button" class="checkitem ${c.activo ? 'done' : 'pending'}" data-i="${i}" style="width:100%;text-align:left">
+          <span class="checkitem__body">
+            <span class="checkitem__title">${esc(c.nombre)}</span>
+            <span class="checkitem__status">CC ${esc(c.cedula)} · ${esc(c.proyecto || '—')} · ${c.activo ? '✅ activo' : '⛔ inactivo'}</span>
+          </span>
+          <span class="checkitem__chev"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>`).join('');
+      $('resultados').querySelectorAll('[data-i]').forEach((b) => {
+        b.addEventListener('click', () => abrirFicha(resultados[b.dataset.i]));
+      });
+    }
+
+    function abrirFicha(c) {
+      $('f_cedula').value = c.cedula;
+      $('f_nombre').textContent = c.nombre || '(sin nombre)';
+      $('f_meta').textContent = 'CC ' + c.cedula + (c.proyecto ? ' · ' + c.proyecto : '') + (c.ciudad ? ' · ' + c.ciudad : '');
+      $('f_activo').value = c.activo ? 'true' : 'false';
+      $('f_obs').value = c.observacion_coordinador || '';
+      $('f_placa').value = c.placa_moto || '';
+      $('f_tipo').value = c.tipo_vehiculo || '';
+      $('f_marca').value = c.marca_vehiculo || '';
+      $('f_cc').value = c.cilindraje || '';
+      $('f_soat').value = c.soat_vence || '';
+      $('f_tecno').value = c.tecnomecanica_vence || '';
+      $('f_lic').value = c.licencia_vence || '';
+      clearStatus('fichaStatus');
+      pintarEstado();
+      $('ficha').classList.remove('hidden');
+      $('ficha').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function pintarEstado() {
+      const inactivo = $('f_activo').value === 'false';
+      $('f_obs').closest('.field').style.opacity = inactivo ? '1' : '.6';
+    }
+
+    async function guardar() {
+      const payload = {
+        cedula: $('f_cedula').value,
+        activo: $('f_activo').value,
+        observacion_coordinador: $('f_obs').value.trim(),
+        placa_moto: $('f_placa').value.trim().toUpperCase(),
+        tipo_vehiculo: $('f_tipo').value.trim(),
+        marca_vehiculo: $('f_marca').value.trim(),
+        cilindraje: $('f_cc').value.trim(),
+        soat_vence: $('f_soat').value,
+        tecnomecanica_vence: $('f_tecno').value,
+        licencia_vence: $('f_lic').value,
+      };
+      if ($('f_activo').value === 'false' && !payload.observacion_coordinador) {
+        return setStatus('fichaStatus', 'Escribe el motivo por el que queda inactivo.', 'error');
+      }
+      $('btnGuardar').disabled = true;
+      setStatus('fichaStatus', 'Guardando…', 'info');
+      try {
+        await adminCall('guardarColaborador', payload);
+        setStatus('fichaStatus', '✓ Cambios guardados.', 'ok');
+        buscar(); // refresca la lista
+      } catch (err) {
+        setStatus('fichaStatus', err.message, 'error');
+      } finally {
+        $('btnGuardar').disabled = false;
+      }
+    }
+
+    function setStatus(id, msg, type) { const n = $(id); n.className = `status show status--${type}`; n.textContent = msg; }
+    function clearStatus(id) { $(id).className = 'status'; }
+    function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+  </script>
+</body>
+</html>
