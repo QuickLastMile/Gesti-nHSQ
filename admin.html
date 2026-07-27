@@ -52,12 +52,26 @@
           <button id="btnSalir" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Salir</button>
         </div>
         <div class="card__body">
-          <div class="input-row">
+          <span class="label">Buscar por cédula o nombre</span>
+          <div class="input-row" style="margin-top:6px">
             <input id="q" autocomplete="off" placeholder="Cédula o nombre…">
             <button id="btnBuscar" class="btn btn--dark btn--icon" type="button" title="Buscar">
               <svg viewBox="0 0 24 24" fill="none"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
           </div>
+
+          <div style="border-top:1px solid var(--line);margin:16px 0 12px"></div>
+          <span class="label">O elegir de un listado por proyecto</span>
+          <div style="display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-top:6px">
+            <select id="filProyecto"><option value="">Todos los proyectos</option></select>
+            <select id="filEstado">
+              <option value="todos">Todos</option>
+              <option value="activos">Solo activos</option>
+              <option value="inactivos">Solo inactivos</option>
+            </select>
+          </div>
+          <button id="btnListar" class="btn btn--ghost btn--block" type="button" style="margin-top:10px">Ver listado</button>
+
           <div id="buscarStatus" class="status" aria-live="polite"></div>
           <div id="resultados" style="margin-top:12px"></div>
         </div>
@@ -96,6 +110,9 @@
             <div class="field"><span class="label">Licencia</span><input id="f_lic" type="date"></div>
           </div>
 
+          <p class="label" style="margin-top:16px">Documentos adjuntos</p>
+          <div id="docsView" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+
           <button id="btnGuardar" class="btn btn--primary btn--block" type="button" style="margin-top:18px">Guardar cambios</button>
           <div id="fichaStatus" class="status" aria-live="polite"></div>
         </div>
@@ -110,6 +127,7 @@
     const BASE = (CFG.SUPABASE_URL || '').replace(/\/$/, '');
     let token = sessionStorage.getItem('hsq_admin_token') || '';
     let resultados = [];
+    let fichaActual = null;
 
     if (token) mostrarPanel();
 
@@ -118,6 +136,7 @@
     $('btnSalir').addEventListener('click', salir);
     $('btnBuscar').addEventListener('click', buscar);
     $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(); });
+    $('btnListar').addEventListener('click', listar);
     $('btnGuardar').addEventListener('click', guardar);
     $('f_activo').addEventListener('change', pintarEstado);
 
@@ -155,6 +174,30 @@
     function mostrarPanel() {
       $('loginCard').classList.add('hidden');
       $('panel').classList.remove('hidden');
+      cargarProyectos();
+    }
+
+    async function cargarProyectos() {
+      try {
+        const proys = await adminCall('proyectos', {});
+        $('filProyecto').innerHTML = '<option value="">Todos los proyectos</option>' +
+          (proys || []).map((p) => `<option value="${esc(p.proyecto)}">${esc(p.proyecto)}</option>`).join('');
+      } catch (e) { /* si falla, queda solo "Todos" */ }
+    }
+
+    async function listar() {
+      setStatus('buscarStatus', 'Cargando listado…', 'info');
+      $('ficha').classList.add('hidden');
+      try {
+        resultados = await adminCall('listar', {
+          proyecto: $('filProyecto').value,
+          estado: $('filEstado').value,
+        });
+        pintarResultados();
+        clearStatus('buscarStatus');
+      } catch (err) {
+        setStatus('buscarStatus', err.message, 'error');
+      }
     }
 
     async function adminCall(action, payload) {
@@ -199,20 +242,26 @@
         $('resultados').innerHTML = '<p class="hint-inline">No se encontró ningún colaborador.</p>';
         return;
       }
-      $('resultados').innerHTML = resultados.map((c, i) => `
+      $('resultados').innerHTML =
+        `<p class="hint-inline" style="margin:0 0 8px">${resultados.length} colaborador(es)</p>` +
+        resultados.map((c, i) => {
+          const motivo = (!c.activo && c.observacion_coordinador) ? ' · 📝 ' + esc(c.observacion_coordinador) : '';
+          return `
         <button type="button" class="checkitem ${c.activo ? 'done' : 'pending'}" data-i="${i}" style="width:100%;text-align:left">
           <span class="checkitem__body">
-            <span class="checkitem__title">${esc(c.nombre)}</span>
-            <span class="checkitem__status">CC ${esc(c.cedula)} · ${esc(c.proyecto || '—')} · ${c.activo ? '✅ activo' : '⛔ inactivo'}</span>
+            <span class="checkitem__title">${esc(c.nombre)} ${c.activo ? '' : '⛔'}</span>
+            <span class="checkitem__status">CC ${esc(c.cedula)} · ${esc(c.proyecto || '—')} · ${c.activo ? '✅ activo' : 'inactivo'}${motivo}</span>
           </span>
           <span class="checkitem__chev"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        </button>`).join('');
+        </button>`;
+        }).join('');
       $('resultados').querySelectorAll('[data-i]').forEach((b) => {
         b.addEventListener('click', () => abrirFicha(resultados[b.dataset.i]));
       });
     }
 
     function abrirFicha(c) {
+      fichaActual = c;
       $('f_cedula').value = c.cedula;
       $('f_nombre').textContent = c.nombre || '(sin nombre)';
       $('f_meta').textContent = 'CC ' + c.cedula + (c.proyecto ? ' · ' + c.proyecto : '') + (c.ciudad ? ' · ' + c.ciudad : '');
@@ -227,8 +276,51 @@
       $('f_lic').value = c.licencia_vence || '';
       clearStatus('fichaStatus');
       pintarEstado();
+      renderDocs(c);
       $('ficha').classList.remove('hidden');
       $('ficha').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Botones para ver cada documento adjunto (si existe).
+    function renderDocs(c) {
+      const docs = [
+        { k: 'SOAT', label: 'SOAT', url: c.soat_url },
+        { k: 'TECNOMECANICA', label: 'Tecnomecánica', url: c.tecnomecanica_url },
+        { k: 'LICENCIA', label: 'Licencia', url: c.licencia_url },
+      ].filter((d) => d.url);
+      if (!docs.length) {
+        $('docsView').innerHTML = '<span class="hint-inline">Sin documentos adjuntos.</span>';
+        return;
+      }
+      $('docsView').innerHTML = docs.map((d) =>
+        `<button type="button" class="btn btn--ghost" style="min-height:42px" data-doc="${esc(d.url)}">📄 Ver ${d.label}</button>`).join('');
+      $('docsView').querySelectorAll('[data-doc]').forEach((b) => {
+        b.addEventListener('click', () => verDoc(b.dataset.doc, b));
+      });
+    }
+
+    // Genera un enlace firmado (temporal) y abre el documento.
+    async function verDoc(url, btn) {
+      const marca = '/evidencias/';
+      const i = url.indexOf(marca);
+      if (i === -1) { window.open(url, '_blank'); return; }
+      const path = url.slice(i + marca.length);
+      const txt = btn.textContent;
+      btn.disabled = true; btn.textContent = 'Abriendo…';
+      try {
+        const res = await fetch(BASE + '/storage/v1/object/sign/evidencias/' + path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ expiresIn: 3600 }),
+        });
+        const data = await res.json();
+        if (!data.signedURL) throw new Error(data.message || 'No se pudo abrir el documento.');
+        window.open(BASE + '/storage/v1' + data.signedURL, '_blank');
+      } catch (err) {
+        setStatus('fichaStatus', err.message, 'error');
+      } finally {
+        btn.disabled = false; btn.textContent = txt;
+      }
     }
 
     function pintarEstado() {

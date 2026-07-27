@@ -139,22 +139,35 @@
     };
   }
 
+  // Documentos del vehículo: ruta FIJA por persona -> al renovar, el archivo
+  // nuevo reemplaza al anterior (no se acumula). Evidencias normales: ruta única.
+  const DOC_ARCHIVO = { DOC_SOAT: 'SOAT', DOC_TECNOMECANICA: 'TECNOMECANICA', DOC_LICENCIA_TRANSITO: 'LICENCIA' };
+
   async function subirEvidencia(a, cedula, fid) {
     const blob = dataURLaBlob(a.dataUrl);
-    const stamp = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    const hoy = new Date().toISOString().slice(0, 10);
-    const path = [cedula || 'sin_cedula', hoy, fid + '_' + a.id_pregunta + '_' + stamp + '.jpg']
-      .map(encodeURIComponent).join('/');
     const base = CFG.SUPABASE_URL.replace(/\/$/, '');
+    const ced = cedula || 'sin_cedula';
+    let path, reemplaza;
+    if (DOC_ARCHIVO[a.id_pregunta]) {
+      path = ['documentos', ced, DOC_ARCHIVO[a.id_pregunta] + '.jpg'].map(encodeURIComponent).join('/');
+      reemplaza = true;
+    } else {
+      const stamp = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      const hoy = new Date().toISOString().slice(0, 10);
+      path = [ced, hoy, fid + '_' + a.id_pregunta + '_' + stamp + '.jpg'].map(encodeURIComponent).join('/');
+      reemplaza = false;
+    }
+    const headers = {
+      apikey: CFG.SUPABASE_KEY,
+      Authorization: 'Bearer ' + CFG.SUPABASE_KEY,
+      'Content-Type': blob.type || 'image/jpeg',
+    };
+    if (reemplaza) headers['x-upsert'] = 'true';
     let res;
     try {
       res = await fetch(base + '/storage/v1/object/evidencias/' + path, {
         method: 'POST',
-        headers: {
-          apikey: CFG.SUPABASE_KEY,
-          Authorization: 'Bearer ' + CFG.SUPABASE_KEY,
-          'Content-Type': blob.type || 'image/jpeg',
-        },
+        headers: headers,
         body: blob,
       });
     } catch (e) {
