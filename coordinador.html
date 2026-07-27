@@ -227,6 +227,10 @@
     })();
 
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
+    if (HSQ_API.backend === 'supabase') {
+      $('demoBanner').textContent = 'Modo base de datos (prueba) · conectado a Supabase';
+      $('demoBanner').classList.remove('hidden');
+    }
     $('exportar').addEventListener('click', generarExportable);
     $('btnMatriz').addEventListener('click', actualizarMatriz);
     $('btnCumplimiento').addEventListener('click', consultarCumplimiento);

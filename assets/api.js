@@ -12,7 +12,13 @@
     CFG.API_URL.indexOf('/exec') !== -1 &&
     !/PEGUE_AQUI|TU_URL/i.test(CFG.API_URL);
 
+  // Modo base de datos (Supabase): solo si la URL trae ?db=1. Producción no se afecta.
+  const supaCfg = CFG.SUPABASE_URL && CFG.SUPABASE_KEY && /supabase\.co/.test(CFG.SUPABASE_URL);
+  let supaOn = false;
+  try { supaOn = supaCfg && new URLSearchParams(location.search).get('db') === '1'; } catch (e) { supaOn = false; }
+
   async function call(action, payload = {}) {
+    if (supaOn) return supabaseCall(action, payload);
     if (!configured) return demo(action, payload);
 
     let res;
@@ -38,6 +44,79 @@
       throw new Error((data && data.error) || 'Error del servidor.');
     }
     return data.result;
+  }
+
+  /* -------------------- Modo BASE DE DATOS (Supabase) -------------------- */
+  async function supabaseCall(action, payload = {}) {
+    let res;
+    try {
+      res = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/hseq_api', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: CFG.SUPABASE_KEY,
+          Authorization: 'Bearer ' + CFG.SUPABASE_KEY,
+        },
+        body: JSON.stringify({ action, payload }),
+      });
+    } catch (err) {
+      throw new Error('No se pudo conectar con la base de datos. Revisa tu conexión.');
+    }
+    let data;
+    try { data = await res.json(); } catch (e) {
+      throw new Error('La base de datos respondió en un formato inesperado.');
+    }
+    // Si PostgREST devuelve un error propio (permiso, función inexistente…)
+    if (data && data.message && data.ok === undefined) {
+      throw new Error('Base de datos: ' + data.message);
+    }
+    if (!data || data.ok !== true) {
+      throw new Error((data && data.error) || 'Error de la base de datos.');
+    }
+    let result = data.result;
+    if (action === 'cargarFormulario' && payload && payload.id_formulario === 'PREOPERACIONAL') {
+      result = inyectarDocsPreoperacional(result);
+    }
+    return result;
+  }
+
+  // Bloque de documentación que se antepone al preoperacional (igual que el backend).
+  const DOCS_PREOP = [
+    { id_pregunta: 'DOC_PRIMERA_O_RENOVACION', orden: 0, seccion: 'Documentación del vehículo', pregunta: '¿Es la primera inspección del vehículo, o renovaste el SOAT o la Tecnomecánica?', tipo_respuesta: 'si_no', obligatorio: 'SI', ayuda: 'Si respondes SÍ, debes adjuntar la documentación del vehículo.' },
+    { id_pregunta: 'DOC_LICENCIA_TRANSITO', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Licencia de Tránsito (Tarjeta de Propiedad)', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI', documento: 'LICENCIA' },
+    { id_pregunta: 'DOC_SOAT', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'SOAT', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI', documento: 'SOAT' },
+    { id_pregunta: 'DOC_TECNOMECANICA', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Revisión Tecnomecánica', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI', documento: 'TECNOMECANICA' },
+    { id_pregunta: 'DOC_MARCA_VEHICULO', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Marca del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
+    { id_pregunta: 'DOC_CILINDRAJE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Tipo de cilindraje (CC)', tipo_respuesta: 'numero', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
+  ];
+  function sinT(s) {
+    return String(s == null ? '' : s)
+      .replace(/[áàäâÁÀÄÂ]/g, 'A').replace(/[éèëêÉÈËÊ]/g, 'E').replace(/[íìïîÍÌÏÎ]/g, 'I')
+      .replace(/[óòöôÓÒÖÔ]/g, 'O').replace(/[úùüûÚÙÜÛ]/g, 'U').replace(/[ñÑ]/g, 'N').toUpperCase();
+  }
+  function docKeyApi(q) {
+    if (String(q.tipo_respuesta || '').trim() !== 'fecha') return '';
+    const doc = sinT(q.documento).trim();
+    if (doc === 'SOAT' || doc === 'TECNOMECANICA' || doc === 'LICENCIA') return doc;
+    const t = sinT(q.pregunta);
+    if (t.indexOf('SOAT') !== -1) return 'SOAT';
+    if (/TECNO|TECNIC|MECANIC/.test(t)) return 'TECNOMECANICA';
+    if (t.indexOf('LICENCIA') !== -1) return 'LICENCIA';
+    return '';
+  }
+  function inyectarDocsPreoperacional(data) {
+    const pregs = (data && data.preguntas) || [];
+    const fechasHoja = {}, resto = [];
+    pregs.forEach((q) => { const k = docKeyApi(q); if (k && !fechasHoja[k]) fechasHoja[k] = q; else resto.push(q); });
+    const bloque = [];
+    DOCS_PREOP.forEach((d) => {
+      bloque.push(d);
+      const k = sinT(d.documento).trim();
+      if (k && fechasHoja[k]) { bloque.push(fechasHoja[k]); delete fechasHoja[k]; }
+    });
+    Object.keys(fechasHoja).forEach((k) => bloque.push(fechasHoja[k]));
+    data.preguntas = bloque.concat(resto);
+    return data;
   }
 
   /* -------------------- Modo DEMO -------------------- */
@@ -179,5 +258,9 @@
     return Promise.reject(new Error('Acción demo no soportada: ' + action));
   }
 
-  window.HSQ_API = { call, isDemo: !configured };
+  window.HSQ_API = {
+    call,
+    isDemo: !supaOn && !configured,
+    backend: supaOn ? 'supabase' : (configured ? 'appsscript' : 'demo'),
+  };
 })();
