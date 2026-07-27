@@ -48,6 +48,12 @@
 
   /* -------------------- Modo BASE DE DATOS (Supabase) -------------------- */
   async function supabaseCall(action, payload = {}) {
+    // Al guardar registro, primero se suben las fotos al almacenamiento y se
+    // reemplazan por sus enlaces (una función SQL no puede recibir archivos).
+    if (action === 'guardarRegistro') {
+      payload = await prepararRegistro(payload);
+    }
+
     let res;
     try {
       res = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/hseq_api', {
@@ -117,6 +123,63 @@
     Object.keys(fechasHoja).forEach((k) => bloque.push(fechasHoja[k]));
     data.preguntas = bloque.concat(resto);
     return data;
+  }
+
+  // Sube las fotos al almacenamiento y arma el registro con sus enlaces.
+  async function prepararRegistro(payload) {
+    const evidencias = [];
+    for (const a of (payload.archivos || [])) {
+      evidencias.push(await subirEvidencia(a, payload.cedula, payload.id_formulario));
+    }
+    return {
+      cedula: payload.cedula,
+      id_formulario: payload.id_formulario,
+      respuestas: payload.respuestas,
+      evidencias,
+    };
+  }
+
+  async function subirEvidencia(a, cedula, fid) {
+    const blob = dataURLaBlob(a.dataUrl);
+    const stamp = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const hoy = new Date().toISOString().slice(0, 10);
+    const path = [cedula || 'sin_cedula', hoy, fid + '_' + a.id_pregunta + '_' + stamp + '.jpg']
+      .map(encodeURIComponent).join('/');
+    const base = CFG.SUPABASE_URL.replace(/\/$/, '');
+    let res;
+    try {
+      res = await fetch(base + '/storage/v1/object/evidencias/' + path, {
+        method: 'POST',
+        headers: {
+          apikey: CFG.SUPABASE_KEY,
+          Authorization: 'Bearer ' + CFG.SUPABASE_KEY,
+          'Content-Type': blob.type || 'image/jpeg',
+        },
+        body: blob,
+      });
+    } catch (e) {
+      throw new Error('No se pudo subir la evidencia. Revisa tu conexión.');
+    }
+    if (!res.ok) {
+      let msg = '';
+      try { msg = (await res.json()).message || ''; } catch (e) { /* noop */ }
+      throw new Error('No se pudo subir la evidencia' + (msg ? ': ' + msg : '') + '. Verifica el permiso del bucket "evidencias".');
+    }
+    return {
+      id_pregunta: a.id_pregunta,
+      nombre: a.nombre || 'evidencia.jpg',
+      path: path,
+      url: base + '/storage/v1/object/public/evidencias/' + path,
+    };
+  }
+
+  function dataURLaBlob(dataUrl) {
+    const partes = String(dataUrl || '').split(',');
+    const mime = (partes[0].match(/data:(.*?);base64/) || [])[1] || 'image/jpeg';
+    const bin = atob(partes[1] || '');
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
   }
 
   /* -------------------- Modo DEMO -------------------- */
