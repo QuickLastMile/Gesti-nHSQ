@@ -646,12 +646,46 @@
     function item(label, value) {
       return `<div class="person__item"><b>${escapeHtml(label)}</b><span>${escapeHtml(value || '—')}</span></div>`;
     }
-    function fileToPayload(idPregunta, file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve({ id_pregunta: idPregunta, nombre: file.name, tipo: file.type, dataUrl: reader.result });
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+    async function fileToPayload(idPregunta, file) {
+      // La página comprime la foto SOLA antes de enviarla (el mensajero no hace nada).
+      const dataUrl = await comprimirImagen(file);
+      const nombre = /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)
+        ? file.name.replace(/\.[^.]+$/, '.jpg')
+        : file.name;
+      return { id_pregunta: idPregunta, nombre, tipo: 'image/jpeg', dataUrl };
+    }
+
+    // Reduce la imagen a máx 1280px y la reencoda como JPEG (~70%).
+    // Si no es imagen o algo falla, devuelve el archivo original sin tocar.
+    function comprimirImagen(file, maxLado = 1280, calidad = 0.7) {
+      return new Promise((resolve) => {
+        const leerOriginal = () => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = () => resolve('');
+          r.readAsDataURL(file);
+        };
+        if (!file || !/^image\//i.test(file.type)) return leerOriginal();
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let { width: w, height: h } = img;
+            const escala = Math.min(1, maxLado / Math.max(w, h));
+            w = Math.round(w * escala); h = Math.round(h * escala);
+            const cv = document.createElement('canvas');
+            cv.width = w; cv.height = h;
+            cv.getContext('2d').drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(url);
+            const out = cv.toDataURL('image/jpeg', calidad);
+            resolve(out && out.length > 24 ? out : '');
+          } catch (e) {
+            URL.revokeObjectURL(url);
+            leerOriginal();
+          }
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); leerOriginal(); };
+        img.src = url;
       });
     }
     /* ---------- Documentos del vehículo ---------- */
