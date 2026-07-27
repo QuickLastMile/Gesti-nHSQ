@@ -182,7 +182,7 @@ begin
   update colaboradores set
     placa_moto = nplaca, actualizado_en = now(),
     observaciones_hsq = case when es_cambio then
-      btrim(both ' |' from coalesce(observaciones_hsq,'') || ' | Placa ' || anterior || ' -> ' || nplaca || ' (' || sello || '): ' || obs)
+      btrim(coalesce(observaciones_hsq,'') || ' | Placa ' || anterior || ' -> ' || nplaca || ' (' || sello || '): ' || obs, ' |')
       else observaciones_hsq end
   where regexp_replace(cedula,'\D','','g') = ncedula;
 
