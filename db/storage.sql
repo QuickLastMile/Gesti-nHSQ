@@ -18,8 +18,9 @@ create policy "anon_reemplaza_documentos" on storage.objects
   using (bucket_id = 'evidencias' and name like 'documentos/%')
   with check (bucket_id = 'evidencias' and name like 'documentos/%');
 
--- 3) El encargado de HSQ (autenticado) puede VER los archivos (para el panel).
+-- 3) VER los archivos: solo usuarios con sesión REAL (encargado HSQ),
+--    no los anónimos que se crean para subir fotos.
 drop policy if exists "hsq_ve_evidencias" on storage.objects;
 create policy "hsq_ve_evidencias" on storage.objects
   for select to authenticated
-  using (bucket_id = 'evidencias');
+  using (bucket_id = 'evidencias' and coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) = false);

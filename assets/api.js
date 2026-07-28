@@ -139,6 +139,31 @@
     };
   }
 
+  // Sesión anónima: Storage necesita un token de usuario (no solo la llave anon)
+  // para permitir la subida. Se crea un usuario temporal y se reutiliza su token.
+  let _stToken = null;
+  async function tokenStorage() {
+    if (_stToken) return _stToken;
+    const cache = sessionStorage.getItem('hsq_st_token');
+    if (cache) { _stToken = cache; return _stToken; }
+    const base = CFG.SUPABASE_URL.replace(/\/$/, '');
+    let res;
+    try {
+      res = await fetch(base + '/auth/v1/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY },
+        body: JSON.stringify({}),
+      });
+    } catch (e) { throw new Error('No se pudo preparar la subida de fotos (conexión).'); }
+    const data = await res.json();
+    if (!data || !data.access_token) {
+      throw new Error('Para subir fotos, activa "Anonymous sign-ins" en Supabase (Authentication).');
+    }
+    _stToken = data.access_token;
+    sessionStorage.setItem('hsq_st_token', _stToken);
+    return _stToken;
+  }
+
   // Documentos del vehículo: ruta FIJA por persona -> al renovar, el archivo
   // nuevo reemplaza al anterior (no se acumula). Evidencias normales: ruta única.
   const DOC_ARCHIVO = { DOC_SOAT: 'SOAT', DOC_TECNOMECANICA: 'TECNOMECANICA', DOC_LICENCIA_TRANSITO: 'LICENCIA' };
@@ -157,9 +182,10 @@
       path = [ced, hoy, fid + '_' + a.id_pregunta + '_' + stamp + '.jpg'].map(encodeURIComponent).join('/');
       reemplaza = false;
     }
+    const st = await tokenStorage();
     const headers = {
       apikey: CFG.SUPABASE_KEY,
-      Authorization: 'Bearer ' + CFG.SUPABASE_KEY,
+      Authorization: 'Bearer ' + st,
       'Content-Type': blob.type || 'image/jpeg',
     };
     if (reemplaza) headers['x-upsert'] = 'true';

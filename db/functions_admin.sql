@@ -99,7 +99,9 @@ create or replace function hseq_admin(action text, payload jsonb default '{}'::j
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare result jsonb;
 begin
-  if coalesce((select auth.role()), 'anon') <> 'authenticated' then
+  -- Debe ser un usuario con sesion REAL (no un anonimo de subida de fotos).
+  if coalesce((select auth.role()), 'anon') <> 'authenticated'
+     or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
     return jsonb_build_object('ok', false, 'error', 'Debes iniciar sesion como HSQ.');
   end if;
   case action
