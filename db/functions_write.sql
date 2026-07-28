@@ -42,7 +42,7 @@ declare
   ahora time := (now() at time zone 'America/Bogota')::time;
   rid uuid;
   gate boolean;
-  p record; f record; r record; ev jsonb;
+  p record; f record; r record;
   dk text; val text;
   v_soat_v date; v_tecno_v date; v_lic_v date;
   v_soat_u text; v_tecno_u text; v_lic_u text;
@@ -87,12 +87,9 @@ begin
 
   -- Enlaces de documentos (solo al actualizar).
   if gate then
-    for ev in select value from jsonb_array_elements(evidencias) loop
-      if ev->>'id_pregunta' = 'DOC_SOAT' then v_soat_u := ev->>'url';
-      elsif ev->>'id_pregunta' = 'DOC_TECNOMECANICA' then v_tecno_u := ev->>'url';
-      elsif ev->>'id_pregunta' = 'DOC_LICENCIA_TRANSITO' then v_lic_u := ev->>'url';
-      end if;
-    end loop;
+    select e->>'url' into v_soat_u  from jsonb_array_elements(evidencias) e where e->>'id_pregunta' = 'DOC_SOAT' limit 1;
+    select e->>'url' into v_tecno_u from jsonb_array_elements(evidencias) e where e->>'id_pregunta' = 'DOC_TECNOMECANICA' limit 1;
+    select e->>'url' into v_lic_u   from jsonb_array_elements(evidencias) e where e->>'id_pregunta' = 'DOC_LICENCIA_TRANSITO' limit 1;
   end if;
 
   -- Inserta el registro (con snapshot de la persona).
@@ -124,6 +121,8 @@ begin
       soat_url = coalesce(v_soat_u, soat_url),
       tecnomecanica_url = coalesce(v_tecno_u, tecnomecanica_url),
       licencia_url = coalesce(v_lic_u, licencia_url),
+      marca_vehiculo = coalesce(nullif(btrim(coalesce(respuestas->>'DOC_MARCA_VEHICULO','')), ''), marca_vehiculo),
+      cilindraje = coalesce(nullif(btrim(coalesce(respuestas->>'DOC_CILINDRAJE','')), ''), cilindraje),
       actualizado_en = now()
     where regexp_replace(cedula,'\D','','g') = ncedula;
     insert into historial (tipo, cedula, detalle) values ('DOCUMENTOS', ncedula, 'Actualizados desde registro');
