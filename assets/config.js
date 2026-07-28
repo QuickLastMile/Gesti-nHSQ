@@ -22,5 +22,6 @@ window.HSQ_CONFIG = {
   // con base de datos, agrega ?db=1 al final del link (ej:
   // mensajero.html?db=1). Producción no se afecta.
   SUPABASE_URL: 'https://scemoysbcgwxajgoybwc.supabase.co',
-  SUPABASE_KEY: 'sb_publishable_7Tj8BR6k6H0DocqLyujPTQ_m1pix_44',
+  // Llave anon "legacy" (JWT). Storage la acepta para subir evidencias.
+  SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjZW1veXNiY2d3eGFqZ295YndjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUxNTY1MzUsImV4cCI6MjEwMDczMjUzNX0.yqxM8PUc4FeCAcbxjEXimMVFj_0shpmPPjbO7d3ALFo',
 };
