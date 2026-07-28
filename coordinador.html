@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Exportar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=7">
+  <link rel="stylesheet" href="assets/styles.css?v=8">
 </head>
 <body>
   <!-- Gate de PIN -->
@@ -48,7 +48,6 @@
     <nav class="tabs" role="tablist">
       <button class="tab active" type="button" data-view="exportar">Exportar</button>
       <button class="tab" type="button" data-view="cumplimiento">Cumplimiento</button>
-      <button class="tab" type="button" data-view="dashboard">Dashboard</button>
     </nav>
 
     <section id="view-exportar" class="view">
@@ -190,39 +189,10 @@
       </div>
     </div>
 
-    <!-- ============ DASHBOARD ============ -->
-    <section id="view-dashboard" class="view hidden">
-      <section class="card">
-        <div class="card__head"><p class="card__title">Cumplimiento por periodo</p></div>
-        <div class="card__body">
-          <div class="dash-filtros">
-            <div class="field"><span class="label">Año</span><select id="dashAnio"></select></div>
-            <div class="field"><span class="label">Mes</span>
-              <select id="dashMes">
-                <option value="">Todo el año</option>
-                <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-                <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
-                <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-              </select>
-            </div>
-            <div class="field"><span class="label">Proyecto</span>
-              <input id="dashProyecto" list="proyDatalist" autocomplete="off" placeholder="Todos">
-            </div>
-            <button id="btnDashboard" class="btn btn--primary" type="button">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h16M8 15v-4m4 4V8m4 7v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Ver
-            </button>
-          </div>
-          <div id="dashStatus" class="status" aria-live="polite"></div>
-        </div>
-      </section>
-      <div id="dashResultado"></div>
-    </section>
   </main>
 
-  <script src="assets/config.js?v=7"></script>
-  <script src="assets/api.js?v=7"></script>
+  <script src="assets/config.js?v=8"></script>
+  <script src="assets/api.js?v=8"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -254,7 +224,6 @@
     $('exportar').addEventListener('click', generarExportable);
     $('btnMatriz').addEventListener('click', actualizarMatriz);
     $('btnCumplimiento').addEventListener('click', consultarCumplimiento);
-    $('btnDashboard').addEventListener('click', generarDashboard);
     $('justTipo').addEventListener('change', toggleJustRango);
     $('justGuardar').addEventListener('click', guardarJust);
     $('justCerrar').addEventListener('click', () => $('justModal').classList.remove('show'));
@@ -276,10 +245,6 @@
       $('fechaInicio').value = today;
       $('fechaFin').value = today;
       $('cumFecha').value = today;
-      const anioActual = new Date().getFullYear();
-      $('dashAnio').innerHTML = [anioActual, anioActual - 1, anioActual - 2]
-        .map((a) => `<option value="${a}">${a}</option>`).join('');
-      $('dashMes').value = String(new Date().getMonth() + 1);
       try {
         const data = await HSQ_API.call('getBootstrap');
         $('filtroFormulario').innerHTML = (data.formularios || []).map((f) =>
