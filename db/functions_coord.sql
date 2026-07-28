@@ -20,7 +20,7 @@ create index if not exists idx_just_rango on justificaciones (cedula, fecha_inic
 create or replace function api_cumplimiento_dia(payload jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
-  fecha date := coalesce(nullif(payload->>'fecha','')::date, (now() at time zone 'America/Bogota')::date);
+  dia date := coalesce(nullif(payload->>'fecha','')::date, (now() at time zone 'America/Bogota')::date);
   filtro_proy text := btrim(coalesce(payload->>'proyecto',''));
   forms jsonb;
   personas jsonb := '[]'::jsonb;
@@ -44,7 +44,7 @@ begin
       h := null;
       select to_char(r.hora,'HH24:MI') into h from registros r
         where regexp_replace(r.cedula,'\D','','g') = regexp_replace(rec.cedula,'\D','','g')
-          and r.formulario_id = f.id and r.fecha = fecha limit 1;
+          and r.formulario_id = f.id and r.fecha = dia limit 1;
       if h is not null then
         estados := estados || jsonb_build_object(f.id, jsonb_build_object('hecho', true, 'hora', h));
         hechos := hechos + 1;
@@ -56,7 +56,7 @@ begin
     jt := null; jm := null;
     select j.tipo, j.motivo into jt, jm from justificaciones j
       where regexp_replace(j.cedula,'\D','','g') = regexp_replace(rec.cedula,'\D','','g')
-        and fecha between coalesce(j.fecha_inicio, j.fecha) and coalesce(j.fecha_fin, j.fecha)
+        and dia between coalesce(j.fecha_inicio, j.fecha) and coalesce(j.fecha_fin, j.fecha)
       order by j.creado_en desc limit 1;
     es_just := found;
     es_completo := (nforms > 0 and hechos = nforms);
@@ -76,7 +76,7 @@ begin
   end loop;
 
   return jsonb_build_object(
-    'fecha', to_char(fecha,'YYYY-MM-DD'), 'proyecto', filtro_proy, 'formularios', forms,
+    'fecha', to_char(dia,'YYYY-MM-DD'), 'proyecto', filtro_proy, 'formularios', forms,
     'personas', personas,
     'resumen', jsonb_build_object(
       'total', total, 'completos', completos, 'justificados', justificados,
