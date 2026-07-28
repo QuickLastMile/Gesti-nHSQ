@@ -327,13 +327,15 @@
       ];
       const personas = [
         { cedula: '1017654321', nombre: 'ANA DEMO', proyecto: 'Proyecto de ejemplo', ciudad: 'MEDELLÍN', placa: 'ABC12D',
-          estados: { PREOPERACIONAL: { hecho: false, hora: '' }, LIMPIEZA_MOTO: { hecho: false, hora: '' } }, completo: false, justificacion: '' },
+          estados: { PREOPERACIONAL: { hecho: false, hora: '' }, LIMPIEZA_MOTO: { hecho: false, hora: '' } }, completo: false, justificado: false, justificacion: null },
         { cedula: '1020304050', nombre: 'CARLOS DEMO', proyecto: 'Proyecto de ejemplo', ciudad: 'BOGOTÁ', placa: 'XYZ98Z',
-          estados: { PREOPERACIONAL: { hecho: true, hora: '06:12' }, LIMPIEZA_MOTO: { hecho: true, hora: '07:40' } }, completo: true, justificacion: '' },
+          estados: { PREOPERACIONAL: { hecho: true, hora: '06:12' }, LIMPIEZA_MOTO: { hecho: true, hora: '07:40' } }, completo: true, justificado: false, justificacion: null },
+        { cedula: '1030405060', nombre: 'LUIS DEMO', proyecto: 'Proyecto de ejemplo', ciudad: 'CALI', placa: 'JKL45M',
+          estados: { PREOPERACIONAL: { hecho: false, hora: '' }, LIMPIEZA_MOTO: { hecho: false, hora: '' } }, completo: false, justificado: true, justificacion: { tipo: 'VACACIONES', motivo: 'Vacaciones' } },
       ];
       return wait({
         fecha: payload.fecha, proyecto: payload.proyecto || '', formularios: forms, personas: personas,
-        resumen: { total: 2, completos: 1, pendientes: 1, porcentaje: 50 },
+        resumen: { total: 3, completos: 1, pendientes: 1, justificados: 1, esperados: 2, porcentaje: 50 },
       });
     }
     if (action === 'guardarJustificacion') {
