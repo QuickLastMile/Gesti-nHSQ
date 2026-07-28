@@ -94,6 +94,9 @@
     { id_pregunta: 'DOC_TECNOMECANICA', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Revisión Tecnomecánica', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI', documento: 'TECNOMECANICA' },
     { id_pregunta: 'DOC_MARCA_VEHICULO', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Marca del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
     { id_pregunta: 'DOC_CILINDRAJE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Tipo de cilindraje (CC)', tipo_respuesta: 'numero', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
+    { id_pregunta: 'DOC_PROP_NOMBRE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Nombre del propietario del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
+    { id_pregunta: 'DOC_PROP_CEDULA', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Cédula del propietario del vehículo', tipo_respuesta: 'numero', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
+    { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
   ];
   function sinT(s) {
     return String(s == null ? '' : s)

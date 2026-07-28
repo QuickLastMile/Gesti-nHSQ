@@ -61,6 +61,18 @@ const HSQ_DOCS_PREOPERACIONAL = [
     id_pregunta: 'DOC_CILINDRAJE', orden: 0, seccion: 'Documentacion del vehiculo',
     pregunta: 'Tipo de cilindraje (CC)', tipo_respuesta: 'numero', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
   },
+  {
+    id_pregunta: 'DOC_PROP_NOMBRE', orden: 0, seccion: 'Documentacion del vehiculo',
+    pregunta: 'Nombre del propietario del vehiculo', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
+  },
+  {
+    id_pregunta: 'DOC_PROP_CEDULA', orden: 0, seccion: 'Documentacion del vehiculo',
+    pregunta: 'Cedula del propietario del vehiculo', tipo_respuesta: 'numero', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
+  },
+  {
+    id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentacion del vehiculo',
+    pregunta: 'VIN (Numero de Identificacion Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: HSQ_GATE_DOC, depende_valor: 'SI',
+  },
 ];
 
 /**
