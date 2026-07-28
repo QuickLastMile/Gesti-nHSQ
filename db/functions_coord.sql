@@ -36,7 +36,7 @@ begin
   for rec in
     select c.cedula, c.nombre, c.proyecto, c.ciudad, c.placa_moto
     from colaboradores c
-    where c.activo and (filtro_proy = '' or c.proyecto = filtro_proy)
+    where c.activo and (filtro_proy = '' or c.proyecto = filtro_proy or c.proyecto_id::text = filtro_proy)
     order by c.nombre
   loop
     estados := '{}'::jsonb; hechos := 0;
@@ -149,7 +149,7 @@ declare
   rec record; rp bigint; ep bigint;
 begin
   select count(*) into nforms from formularios where activo;
-  select count(*) into activos from colaboradores where activo and (filtro_proy = '' or proyecto = filtro_proy);
+  select count(*) into activos from colaboradores where activo and (filtro_proy = '' or proyecto = filtro_proy or proyecto_id::text = filtro_proy);
 
   if mes is not null then
     desde := make_date(anio, mes, 1);
@@ -162,7 +162,7 @@ begin
   dias_total := (hasta - desde) + 1;
 
   select count(*) into real_total from registros r
-    where r.fecha between desde and hasta and (filtro_proy = '' or r.proyecto = filtro_proy);
+    where r.fecha between desde and hasta and (filtro_proy = '' or r.proyecto = filtro_proy or r.proyecto_id::text = filtro_proy);
   esp_total := activos::bigint * dias_total * nforms;
 
   for m in extract(month from desde)::int .. extract(month from hasta)::int loop
@@ -170,7 +170,7 @@ begin
     mh := least(hasta, (make_date(anio, m, 1) + interval '1 month - 1 day')::date);
     dd := (mh - md) + 1;
     select count(*) into real_m from registros r
-      where r.fecha between md and mh and (filtro_proy = '' or r.proyecto = filtro_proy);
+      where r.fecha between md and mh and (filtro_proy = '' or r.proyecto = filtro_proy or r.proyecto_id::text = filtro_proy);
     esp_m := activos::bigint * dd * nforms;
     por_mes := por_mes || jsonb_build_array(jsonb_build_object(
       'etiqueta', to_char(md,'YYYY-MM'), 'realizadas', real_m, 'esperadas', esp_m,
