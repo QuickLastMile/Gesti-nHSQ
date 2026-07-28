@@ -409,6 +409,23 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .cmp-btn { border: 1px solid var(--accent); color: var(--accent-dark); background: var(--card); border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; flex: 0 0 auto; }
 .cmp-btn:hover { background: var(--accent-soft); }
 
+/* ---------- Dashboard (gráficas de barras) ---------- */
+.dash-filtros { display: grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap: 12px; align-items: end; }
+.dash-filtros .btn { min-height: 54px; }
+@media (max-width: 680px) { .dash-filtros { grid-template-columns: 1fr 1fr; } .dash-filtros .btn { grid-column: 1 / -1; } }
+
+.bar-row { padding: 10px 0; border-top: 1px solid var(--line); }
+.bar-row:first-child { border-top: 0; padding-top: 2px; }
+.bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.bar-lbl { font-weight: 700; color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+.bar-pct { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 15px; }
+.bar-pct--ok { color: var(--success); } .bar-pct--warn { color: var(--warning); } .bar-pct--crit { color: var(--danger); }
+.bar-track { height: 14px; border-radius: 999px; background: var(--danger-soft); overflow: hidden; margin: 6px 0 5px; }
+.bar-fill { height: 100%; border-radius: 999px; transition: width .4s ease; }
+.bar-fill--ok { background: var(--success); } .bar-fill--warn { background: var(--warning); } .bar-fill--crit { background: var(--danger); }
+.bar-sub { font-size: 12px; color: var(--muted); }
+.bar-sub b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
 .hidden { display: none !important; }
 .spin { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

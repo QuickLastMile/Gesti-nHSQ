@@ -131,6 +131,79 @@ end;
 $$;
 
 -- ------------------------------------------------------------
+--  Dashboard: marcaciones realizadas vs esperadas, por mes y por
+--  proyecto. Filtros: anio, mes (opcional), proyecto (opcional).
+-- ------------------------------------------------------------
+create or replace function api_dashboard(payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  hoy date := (now() at time zone 'America/Bogota')::date;
+  anio int := coalesce(nullif(payload->>'anio','')::int, extract(year from hoy)::int);
+  mes int := nullif(payload->>'mes','')::int;
+  filtro_proy text := btrim(coalesce(payload->>'proyecto',''));
+  desde date; hasta date;
+  nforms int; activos int; dias_total int;
+  real_total bigint; esp_total bigint;
+  por_mes jsonb := '[]'::jsonb; por_proy jsonb := '[]'::jsonb;
+  m int; md date; mh date; dd int; real_m bigint; esp_m bigint;
+  rec record; rp bigint; ep bigint;
+begin
+  select count(*) into nforms from formularios where activo;
+  select count(*) into activos from colaboradores where activo and (filtro_proy = '' or proyecto = filtro_proy);
+
+  if mes is not null then
+    desde := make_date(anio, mes, 1);
+    hasta := least((desde + interval '1 month - 1 day')::date, hoy);
+  else
+    desde := make_date(anio, 1, 1);
+    hasta := least(make_date(anio, 12, 31), hoy);
+  end if;
+  if hasta < desde then hasta := desde; end if;
+  dias_total := (hasta - desde) + 1;
+
+  select count(*) into real_total from registros r
+    where r.fecha between desde and hasta and (filtro_proy = '' or r.proyecto = filtro_proy);
+  esp_total := activos::bigint * dias_total * nforms;
+
+  for m in extract(month from desde)::int .. extract(month from hasta)::int loop
+    md := greatest(desde, make_date(anio, m, 1));
+    mh := least(hasta, (make_date(anio, m, 1) + interval '1 month - 1 day')::date);
+    dd := (mh - md) + 1;
+    select count(*) into real_m from registros r
+      where r.fecha between md and mh and (filtro_proy = '' or r.proyecto = filtro_proy);
+    esp_m := activos::bigint * dd * nforms;
+    por_mes := por_mes || jsonb_build_array(jsonb_build_object(
+      'etiqueta', to_char(md,'YYYY-MM'), 'realizadas', real_m, 'esperadas', esp_m,
+      'no_realizadas', greatest(esp_m - real_m, 0),
+      'porcentaje', case when esp_m > 0 then round(real_m::numeric * 1000 / esp_m) / 10 else 0 end));
+  end loop;
+
+  if filtro_proy = '' then
+    for rec in
+      select proyecto as proy, count(*) as act
+      from colaboradores where activo and coalesce(proyecto,'') <> ''
+      group by proyecto order by proyecto
+    loop
+      select count(*) into rp from registros r where r.fecha between desde and hasta and r.proyecto = rec.proy;
+      ep := rec.act::bigint * dias_total * nforms;
+      por_proy := por_proy || jsonb_build_array(jsonb_build_object(
+        'proyecto', rec.proy, 'realizadas', rp, 'esperadas', ep,
+        'no_realizadas', greatest(ep - rp, 0),
+        'porcentaje', case when ep > 0 then round(rp::numeric * 1000 / ep) / 10 else 0 end));
+    end loop;
+  end if;
+
+  return jsonb_build_object(
+    'anio', anio, 'mes', mes, 'proyecto', filtro_proy,
+    'resumen', jsonb_build_object('activos', activos, 'realizadas', real_total, 'esperadas', esp_total,
+      'no_realizadas', greatest(esp_total - real_total, 0),
+      'porcentaje', case when esp_total > 0 then round(real_total::numeric * 1000 / esp_total) / 10 else 0 end),
+    'por_mes', por_mes, 'por_proyecto', por_proy
+  );
+end;
+$$;
+
+-- ------------------------------------------------------------
 --  Router actualizado con las acciones del coordinador.
 -- ------------------------------------------------------------
 create or replace function hseq_api(action text, payload jsonb default '{}'::jsonb)
@@ -145,6 +218,7 @@ begin
     when 'registrarPlaca'      then result := api_registrar_placa(payload);
     when 'getCumplimientoDia'  then result := api_cumplimiento_dia(payload);
     when 'guardarJustificacion' then result := api_guardar_justificacion(payload);
+    when 'getDashboard'        then result := api_dashboard(payload);
     else raise exception 'Accion no reconocida: %', action;
   end case;
   return jsonb_build_object('ok', true, 'result', result);

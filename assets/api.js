@@ -341,16 +341,18 @@
     if (action === 'guardarJustificacion') {
       return wait({ ok: true, actualizado: false });
     }
-    if (action === 'getResumenCumplimiento') {
+    if (action === 'getDashboard') {
       return wait({
-        agrupacion: payload.agrupacion || 'semana',
-        totalPersonas: 12,
-        periodos: [
-          { etiqueta: '2026 · Sem 27', esperados: 84, completos: 79, dias: 7, porcentaje: 94 },
-          { etiqueta: '2026 · Sem 28', esperados: 84, completos: 68, dias: 7, porcentaje: 81 },
-          { etiqueta: '2026 · Sem 29', esperados: 60, completos: 39, dias: 5, porcentaje: 65 },
+        anio: Number(payload.anio) || 2026, mes: payload.mes ? Number(payload.mes) : null, proyecto: payload.proyecto || '',
+        resumen: { activos: 90, realizadas: 2480, esperadas: 5040, no_realizadas: 2560, porcentaje: 49.2 },
+        por_mes: [
+          { etiqueta: '2026-06', realizadas: 79, esperadas: 180, no_realizadas: 101, porcentaje: 43.9 },
+          { etiqueta: '2026-07', realizadas: 2401, esperadas: 4860, no_realizadas: 2459, porcentaje: 49.4 },
         ],
-        total: { esperados: 228, completos: 186, porcentaje: 81.6 },
+        por_proyecto: [
+          { proyecto: 'ICONTEC - INT. COL NORMAS TECNICAS', realizadas: 1200, esperadas: 2000, no_realizadas: 800, porcentaje: 60 },
+          { proyecto: 'GASES LINDE COLOMBIA S.A.', realizadas: 1280, esperadas: 3040, no_realizadas: 1760, porcentaje: 42.1 },
+        ],
       });
     }
     if (action === 'getMatrizInfo') {
