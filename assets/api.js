@@ -172,15 +172,13 @@
     const blob = dataURLaBlob(a.dataUrl);
     const base = CFG.SUPABASE_URL.replace(/\/$/, '');
     const ced = cedula || 'sin_cedula';
-    let path, reemplaza;
+    const stamp = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    let path;
     if (DOC_ARCHIVO[a.id_pregunta]) {
-      path = ['documentos', ced, DOC_ARCHIVO[a.id_pregunta] + '.jpg'].map(encodeURIComponent).join('/');
-      reemplaza = true;
+      path = ['documentos', ced, DOC_ARCHIVO[a.id_pregunta] + '_' + stamp + '.jpg'].map(encodeURIComponent).join('/');
     } else {
-      const stamp = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
       const hoy = new Date().toISOString().slice(0, 10);
       path = [ced, hoy, fid + '_' + a.id_pregunta + '_' + stamp + '.jpg'].map(encodeURIComponent).join('/');
-      reemplaza = false;
     }
     const st = await tokenStorage();
     const headers = {
@@ -188,7 +186,6 @@
       Authorization: 'Bearer ' + st,
       'Content-Type': blob.type || 'image/jpeg',
     };
-    if (reemplaza) headers['x-upsert'] = 'true';
     let res;
     try {
       res = await fetch(base + '/storage/v1/object/evidencias/' + path, {
