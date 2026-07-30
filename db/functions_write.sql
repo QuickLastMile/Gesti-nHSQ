@@ -105,6 +105,21 @@ begin
     select e->>'url' into v_soat_u  from jsonb_array_elements(evidencias) e where e->>'id_pregunta' = 'DOC_SOAT' limit 1;
     select e->>'url' into v_tecno_u from jsonb_array_elements(evidencias) e where e->>'id_pregunta' = 'DOC_TECNOMECANICA' limit 1;
     select e->>'url' into v_lic_u   from jsonb_array_elements(evidencias) e where e->>'id_pregunta' = 'DOC_LICENCIA_TRANSITO' limit 1;
+    if coalesce(btrim(v_soat_u),'') = '' then raise exception 'Debes adjuntar el SOAT completo.'; end if;
+    if coalesce(btrim(v_tecno_u),'') = '' then raise exception 'Debes adjuntar la tecnomecanica completa.'; end if;
+    if coalesce(btrim(v_lic_u),'') = '' then raise exception 'Debes adjuntar frente y reverso de la licencia.'; end if;
+    if v_soat_v is null or v_tecno_v is null or v_lic_v is null then
+      raise exception 'Debes registrar las tres fechas de vencimiento.';
+    end if;
+    if v_soat_v < hoy - interval '10 years' or v_soat_v > hoy + interval '2 years' then
+      raise exception 'La fecha de vencimiento del SOAT no parece valida.';
+    end if;
+    if v_tecno_v < hoy - interval '10 years' or v_tecno_v > hoy + interval '2 years' then
+      raise exception 'La fecha de vencimiento de la tecnomecanica no parece valida.';
+    end if;
+    if v_lic_v < hoy - interval '10 years' or v_lic_v > hoy + interval '20 years' then
+      raise exception 'La fecha de vencimiento de la licencia no parece valida.';
+    end if;
   end if;
 
   -- Defensa de servidor: después de combinar documentos nuevos y existentes,

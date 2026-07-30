@@ -147,7 +147,7 @@
   </div>
 
   <script src="assets/config.js?v=10"></script>
-  <script src="assets/api.js?v=12"></script>
+  <script src="assets/api.js?v=13"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -480,7 +480,17 @@
           return `<input name="${id}" type="date" ${req}>`;
         }
         case 'hora': return `<input name="${id}" type="time" value="${ahoraHM()}" readonly ${req}><span class="auto-tag">Registrada automáticamente</span>`;
-        case 'archivo': return `<input name="${id}" type="file" accept="image/*" capture="environment" ${req}>`;
+        case 'archivo': {
+          if (q.id_pregunta === 'DOC_LICENCIA_TRANSITO') {
+            return `<input name="${id}" type="file" accept="image/*" multiple ${req}>
+                    <span class="auto-tag">Selecciona exactamente 2 fotos claras: frente y reverso de la licencia.</span>`;
+          }
+          if (['DOC_SOAT', 'DOC_TECNOMECANICA'].includes(q.id_pregunta)) {
+            return `<input name="${id}" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" ${req}>
+                    <span class="auto-tag">Adjunta el PDF completo o una foto clara donde se vea todo el documento.</span>`;
+          }
+          return `<input name="${id}" type="file" accept="image/*" capture="environment" ${req}>`;
+        }
         case 'si_no': return `<select name="${id}" ${req}><option value="">Selecciona…</option><option>SI</option><option>NO</option></select>`;
         case 'desplegable': return `<select name="${id}" ${req}><option value="">Selecciona…</option>${options.map((o) => `<option>${escapeHtml(o)}</option>`).join('')}</select>`;
         case 'checkbox': return `<div class="checks">${options.map((o) => `<label><input type="checkbox" name="${id}" value="${escapeHtml(o)}">${escapeHtml(o)}</label>`).join('')}</div>`;
@@ -518,9 +528,25 @@
           respuestas[q.id_pregunta] = marcadas;
           if (obligatoria && !marcadas.length) faltantes.push(q.pregunta);
         } else if (q.tipo_respuesta === 'archivo') {
-          const file = nodes[0] && nodes[0].files[0];
-          if (file) archivos.push(await fileToPayload(q.id_pregunta, file));
-          else if (obligatoria) faltantes.push(q.pregunta);
+          const files = nodes[0] ? Array.from(nodes[0].files || []) : [];
+          if (q.id_pregunta === 'DOC_LICENCIA_TRANSITO' && files.length) {
+            if (files.length !== 2) {
+              return showStatus('La licencia requiere exactamente dos fotos: frente y reverso.', 'error');
+            }
+            try {
+              const unida = await unirLicencia(files[0], files[1]);
+              archivos.push(await fileToPayload(q.id_pregunta, unida));
+            } catch (err) {
+              return showStatus(err.message, 'error');
+            }
+          } else if (files[0]) {
+            try {
+              await validarArchivoDocumento(q.id_pregunta, files[0]);
+              archivos.push(await fileToPayload(q.id_pregunta, files[0]));
+            } catch (err) {
+              return showStatus(err.message, 'error');
+            }
+          } else if (obligatoria) faltantes.push(q.pregunta);
         } else {
           const valor = nodes[0] ? nodes[0].value : '';
           respuestas[q.id_pregunta] = valor;
@@ -531,6 +557,11 @@
       if (faltantes.length) {
         const lista = faltantes.slice(0, 3).join(' · ') + (faltantes.length > 3 ? ` (y ${faltantes.length - 3} más)` : '');
         return showStatus(`Faltan ${faltantes.length} pregunta(s) obligatoria(s): ${lista}`, 'error');
+      }
+
+      if (gateSel === 'SI') {
+        try { validarFechasDocumentos(form); }
+        catch (err) { return showStatus(err.message, 'error'); }
       }
 
       const payload = { cedula: state.persona.cedula, id_formulario: state.currentForm, respuestas, archivos };
@@ -676,12 +707,113 @@
       return `<div class="person__item"><b>${escapeHtml(label)}</b><span>${escapeHtml(value || '—')}</span></div>`;
     }
     async function fileToPayload(idPregunta, file) {
+      if (file && file.type === 'application/pdf') {
+        const dataUrl = await leerArchivo(file);
+        return { id_pregunta: idPregunta, nombre: file.name, tipo: file.type, dataUrl };
+      }
       // La página comprime la foto SOLA antes de enviarla (el mensajero no hace nada).
       const dataUrl = await comprimirImagen(file);
       const nombre = /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)
         ? file.name.replace(/\.[^.]+$/, '.jpg')
         : file.name;
       return { id_pregunta: idPregunta, nombre, tipo: 'image/jpeg', dataUrl };
+    }
+
+    function leerArchivo(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+        r.readAsDataURL(file);
+      });
+    }
+
+    async function validarArchivoDocumento(idPregunta, file) {
+      const esPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+      const esImagen = /^image\/(jpeg|png|webp)$/i.test(file.type || '');
+      if (!esPdf && !esImagen) {
+        throw new Error('SOAT y tecnomecánica solo admiten PDF, JPG, PNG o WEBP.');
+      }
+      if (file.size < 12000) throw new Error('El archivo es demasiado pequeño para contener un documento legible.');
+      if (file.size > 12 * 1024 * 1024) throw new Error('El documento supera el máximo permitido de 12 MB.');
+      if (esImagen) await validarCalidadImagen(file);
+      if (['DOC_SOAT', 'DOC_TECNOMECANICA'].includes(idPregunta) && esPdf && file.size < 25000) {
+        throw new Error('El PDF parece incompleto. Adjunta el documento completo.');
+      }
+    }
+
+    function cargarImagen(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo abrir la imagen.')); };
+        img.src = url;
+      });
+    }
+
+    async function validarCalidadImagen(file) {
+      const img = await cargarImagen(file);
+      if (img.width < 900 || img.height < 550) {
+        throw new Error('La foto no tiene suficiente resolución. Acerca el documento y vuelve a tomarla completa.');
+      }
+      const cv = document.createElement('canvas');
+      const escala = Math.min(1, 700 / Math.max(img.width, img.height));
+      cv.width = Math.max(1, Math.round(img.width * escala));
+      cv.height = Math.max(1, Math.round(img.height * escala));
+      const x = cv.getContext('2d', { willReadFrequently: true });
+      x.drawImage(img, 0, 0, cv.width, cv.height);
+      const px = x.getImageData(0, 0, cv.width, cv.height).data;
+      let suma = 0, suma2 = 0, n = 0, oscuros = 0, claros = 0;
+      for (let i = 0; i < px.length; i += 16) {
+        const y = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+        suma += y; suma2 += y * y; n++;
+        if (y < 25) oscuros++;
+        if (y > 245) claros++;
+      }
+      const variacion = suma2 / n - Math.pow(suma / n, 2);
+      if (variacion < 420 || oscuros / n > 0.72 || claros / n > 0.88) {
+        throw new Error('La foto está borrosa, oscura o sobreexpuesta. Tómala nuevamente con buena luz y texto visible.');
+      }
+    }
+
+    async function unirLicencia(frente, reverso) {
+      if (!/^image\//i.test(frente.type) || !/^image\//i.test(reverso.type)) {
+        throw new Error('La licencia debe adjuntarse como dos fotografías.');
+      }
+      await validarCalidadImagen(frente);
+      await validarCalidadImagen(reverso);
+      const imgs = [await cargarImagen(frente), await cargarImagen(reverso)];
+      const ancho = 1400;
+      const altos = imgs.map((img) => Math.round(img.height * ancho / img.width));
+      const cv = document.createElement('canvas');
+      cv.width = ancho;
+      cv.height = altos[0] + altos[1] + 24;
+      const x = cv.getContext('2d');
+      x.fillStyle = '#ffffff'; x.fillRect(0, 0, cv.width, cv.height);
+      x.drawImage(imgs[0], 0, 0, ancho, altos[0]);
+      x.drawImage(imgs[1], 0, altos[0] + 24, ancho, altos[1]);
+      const blob = await new Promise((resolve) => cv.toBlob(resolve, 'image/jpeg', 0.86));
+      if (!blob) throw new Error('No se pudieron unir las dos caras de la licencia.');
+      return new File([blob], 'licencia_frente_reverso.jpg', { type: 'image/jpeg' });
+    }
+
+    function validarFechasDocumentos(form) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const limites = { SOAT: 2, TECNOMECANICA: 2, LICENCIA: 20 };
+      form.querySelectorAll('input[data-doc]').forEach((inp) => {
+        const tipo = inp.dataset.doc;
+        if (!inp.value) throw new Error(`Falta la fecha de vencimiento de ${tipo}.`);
+        const fecha = new Date(inp.value + 'T00:00:00');
+        const max = new Date(hoy);
+        max.setFullYear(max.getFullYear() + (limites[tipo] || 2));
+        const min = new Date(hoy);
+        min.setFullYear(min.getFullYear() - 10);
+        if (fecha < min || fecha > max) {
+          throw new Error(`La fecha de ${tipo} (${inp.value}) no parece válida. Verifica la fecha directamente en el documento.`);
+        }
+      });
     }
 
     // Reduce la imagen a máx 1280px y la reencoda como JPEG (~70%).

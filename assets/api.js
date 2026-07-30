@@ -162,16 +162,16 @@
       .concat(evIds.map((id) => 'Evidencia ' + id));
 
     const esc = (v) => '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"';
-    const lineas = [encabezados.map(esc).join(',')];
+    const lineas = [encabezados.map(esc).join(';')];
     (r.filas || []).forEach((f) => {
       const fila = base.map((c) => f[c])
         .concat(preg.map((q) => (f.respuestas || {})[q.id] || ''))
         .concat(evIds.map((id) => (f.evidencias || {})[id] || ''));
-      lineas.push(fila.map(esc).join(','));
+      lineas.push(fila.map(esc).join(';'));
     });
 
     // BOM UTF-8 + CRLF para que Excel muestre bien tildes y columnas.
-    const csv = '﻿' + lineas.join('\r\n');
+    const csv = '﻿sep=;\r\n' + lineas.join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const sufijo = p.cedula ? '_CC' + p.cedula : '';
     const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '').slice(0, 15);
@@ -231,11 +231,12 @@
     const ced = cedula || 'sin_cedula';
     const stamp = Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     let path;
+    const extension = blob.type === 'application/pdf' ? '.pdf' : '.jpg';
     if (DOC_ARCHIVO[a.id_pregunta]) {
-      path = ['documentos', ced, DOC_ARCHIVO[a.id_pregunta] + '_' + stamp + '.jpg'].map(encodeURIComponent).join('/');
+      path = ['documentos', ced, DOC_ARCHIVO[a.id_pregunta] + '_' + stamp + extension].map(encodeURIComponent).join('/');
     } else {
       const hoy = new Date().toISOString().slice(0, 10);
-      path = [ced, hoy, fid + '_' + a.id_pregunta + '_' + stamp + '.jpg'].map(encodeURIComponent).join('/');
+      path = [ced, hoy, fid + '_' + a.id_pregunta + '_' + stamp + extension].map(encodeURIComponent).join('/');
     }
     const st = await tokenStorage();
     const headers = {
