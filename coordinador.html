@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Exportar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=8">
+  <link rel="stylesheet" href="assets/styles.css?v=9">
 </head>
 <body>
   <!-- Gate de PIN -->
@@ -92,8 +92,8 @@
         </div>
         <div class="card__body">
           <p class="hint-inline" style="margin-top:0">
-            Genera un archivo CSV con los registros del formulario y rango seleccionados. Se guarda en tu Drive,
-            en <b>Registros HSQ / Exportables HSQ</b>, y podrás abrirlo o descargarlo directamente.
+            Genera un archivo CSV con los registros del formulario y rango seleccionados,
+            listo para descargar y abrir en Excel.
           </p>
           <div id="result" class="hidden" style="margin:16px 0"></div>
           <button id="exportar" class="btn btn--primary btn--block" type="button">
@@ -191,8 +191,8 @@
 
   </main>
 
-  <script src="assets/config.js?v=8"></script>
-  <script src="assets/api.js?v=8"></script>
+  <script src="assets/config.js?v=9"></script>
+  <script src="assets/api.js?v=9"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -545,11 +545,13 @@
 
     function showResult(resp) {
       const box = $('result');
-      const dl = resp.downloadUrl && resp.downloadUrl !== '#'
-        ? `<a class="btn btn--primary btn--block" style="margin-top:10px" href="${escapeHtml(resp.downloadUrl)}">
-             <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-             Descargar CSV directo
-           </a>` : '';
+      const icono = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      // Desde la base de datos el CSV se arma en el navegador (no pasa por Drive).
+      const acciones = resp.esArchivoLocal
+        ? `<a class="btn btn--primary btn--block" style="margin-top:12px" href="${escapeHtml(resp.downloadUrl)}" download="${escapeHtml(resp.nombre)}">${icono} Descargar CSV</a>`
+        : `<a class="btn btn--ghost btn--block" style="margin-top:12px" href="${escapeHtml(resp.url)}" target="_blank" rel="noopener">Abrir en Drive</a>` +
+          (resp.downloadUrl && resp.downloadUrl !== '#'
+            ? `<a class="btn btn--primary btn--block" style="margin-top:10px" href="${escapeHtml(resp.downloadUrl)}">${icono} Descargar CSV directo</a>` : '');
       box.innerHTML = `
         <div class="person show" style="background:var(--info-soft);border-color:#cfe1f4">
           <div class="person__name" style="font-size:15px">${escapeHtml(resp.nombre)}</div>
@@ -557,8 +559,7 @@
             <div class="person__item"><b>Filas</b><span>${escapeHtml(resp.filas)}</span></div>
             <div class="person__item"><b>Columnas</b><span>${escapeHtml(resp.columnas)}</span></div>
           </div>
-          <a class="btn btn--ghost btn--block" style="margin-top:12px" href="${escapeHtml(resp.url)}" target="_blank" rel="noopener">Abrir en Drive</a>
-          ${dl}
+          ${acciones}
         </div>`;
       box.classList.remove('hidden');
     }

@@ -47,13 +47,8 @@
   }
 
   /* -------------------- Modo BASE DE DATOS (Supabase) -------------------- */
-  async function supabaseCall(action, payload = {}) {
-    // Al guardar registro, primero se suben las fotos al almacenamiento y se
-    // reemplazan por sus enlaces (una función SQL no puede recibir archivos).
-    if (action === 'guardarRegistro') {
-      payload = await prepararRegistro(payload);
-    }
-
+  // Llamada base a la función hseq_api de Postgres.
+  async function rpc(action, payload = {}) {
     let res;
     try {
       res = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/hseq_api', {
@@ -79,7 +74,21 @@
     if (!data || data.ok !== true) {
       throw new Error((data && data.error) || 'Error de la base de datos.');
     }
-    let result = data.result;
+    return data.result;
+  }
+
+  async function supabaseCall(action, payload = {}) {
+    // Al guardar registro, primero se suben las fotos al almacenamiento y se
+    // reemplazan por sus enlaces (una función SQL no puede recibir archivos).
+    if (action === 'guardarRegistro') {
+      payload = await prepararRegistro(payload);
+    }
+    // El exportable se arma en el navegador a partir de los datos de la base.
+    if (action === 'generarExportable') {
+      return exportableSupabase(payload);
+    }
+
+    let result = await rpc(action, payload);
     if (action === 'cargarFormulario' && payload && payload.id_formulario === 'PREOPERACIONAL') {
       result = inyectarDocsPreoperacional(result);
     }
@@ -126,6 +135,51 @@
     Object.keys(fechasHoja).forEach((k) => bloque.push(fechasHoja[k]));
     data.preguntas = bloque.concat(resto);
     return data;
+  }
+
+  // Pide los datos a la base y arma el CSV en el navegador (sin Drive).
+  async function exportableSupabase(filtros) {
+    const p = {
+      formulario: (filtros.formularios && filtros.formularios[0]) || filtros.formulario || '',
+      fechaInicio: filtros.fechaInicio,
+      fechaFin: filtros.fechaFin,
+      proyecto: (filtros.proyectos && filtros.proyectos[0]) || filtros.proyecto || '',
+      cedula: filtros.cedula || '',
+    };
+    const r = await rpc('generarExportable', p);
+
+    const base = ['fecha', 'hora', 'cedula', 'nombre', 'cargo', 'proyecto_id', 'proyecto',
+      'ciudad', 'placa_moto', 'tipo_vehiculo', 'estado', 'id_registro'];
+    const preg = r.preguntas || [];
+    // Solo columnas de evidencia que realmente tengan algún archivo.
+    const evIds = [];
+    (r.filas || []).forEach((f) => Object.keys(f.evidencias || {}).forEach((k) => {
+      if (evIds.indexOf(k) === -1) evIds.push(k);
+    }));
+
+    const encabezados = base
+      .concat(preg.map((q) => q.id + ' - ' + q.pregunta))
+      .concat(evIds.map((id) => 'Evidencia ' + id));
+
+    const esc = (v) => '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"';
+    const lineas = [encabezados.map(esc).join(',')];
+    (r.filas || []).forEach((f) => {
+      const fila = base.map((c) => f[c])
+        .concat(preg.map((q) => (f.respuestas || {})[q.id] || ''))
+        .concat(evIds.map((id) => (f.evidencias || {})[id] || ''));
+      lineas.push(fila.map(esc).join(','));
+    });
+
+    // BOM UTF-8 + CRLF para que Excel muestre bien tildes y columnas.
+    const csv = '﻿' + lineas.join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const sufijo = p.cedula ? '_CC' + p.cedula : '';
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '').slice(0, 15);
+    return {
+      ok: true, filas: r.total || 0, columnas: encabezados.length,
+      nombre: 'Exportable_' + p.formulario + sufijo + '_' + stamp + '.csv',
+      url: url, downloadUrl: url, esArchivoLocal: true,
+    };
   }
 
   // Sube las fotos al almacenamiento y arma el registro con sus enlaces.
