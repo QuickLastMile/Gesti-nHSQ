@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=9">
+  <link rel="stylesheet" href="assets/styles.css?v=10">
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demostración · datos de ejemplo, no se guarda nada real</div>
@@ -146,8 +146,8 @@
     </div>
   </div>
 
-  <script src="assets/config.js?v=9"></script>
-  <script src="assets/api.js?v=9"></script>
+  <script src="assets/config.js?v=10"></script>
+  <script src="assets/api.js?v=10"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -495,19 +495,41 @@
       const respuestas = {};
       const archivos = [];
 
+      // Si no está actualizando documentos, deben estar todos al día (igual que la placa).
+      const faltanDocs = documentosPendientes();
+      const gateSel = String(gateValue('DOC_PRIMERA_O_RENOVACION')).trim().toUpperCase();
+      if (faltanDocs.length && gateSel !== 'SI') {
+        const sel = $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
+        if (sel) { sel.value = 'SI'; sel.dispatchEvent(new Event('change')); }
+        $('questions').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return showStatus('Debes actualizar tu documentación (' + faltanDocs.join(', ') + '). Responde SÍ en la primera pregunta, adjunta los documentos y escribe sus fechas de vencimiento.', 'error');
+      }
+
+      const faltantes = [];
       for (const q of state.formData.preguntas) {
         // Si es una pregunta condicional oculta, no se envía ni se valida.
         const cont = form.querySelector(`.question[data-qid="${cssEscape(q.id_pregunta)}"]`);
         if (cont && cont.classList.contains('cond') && cont.classList.contains('hidden')) continue;
+        const obligatoria = String(q.obligatorio).toUpperCase() === 'SI';
         const nodes = Array.from(form.querySelectorAll(`[name="${cssEscape(q.id_pregunta)}"]`));
         if (q.tipo_respuesta === 'checkbox') {
-          respuestas[q.id_pregunta] = nodes.filter((n) => n.checked).map((n) => n.value);
+          const marcadas = nodes.filter((n) => n.checked).map((n) => n.value);
+          respuestas[q.id_pregunta] = marcadas;
+          if (obligatoria && !marcadas.length) faltantes.push(q.pregunta);
         } else if (q.tipo_respuesta === 'archivo') {
           const file = nodes[0] && nodes[0].files[0];
           if (file) archivos.push(await fileToPayload(q.id_pregunta, file));
+          else if (obligatoria) faltantes.push(q.pregunta);
         } else {
-          respuestas[q.id_pregunta] = nodes[0] ? nodes[0].value : '';
+          const valor = nodes[0] ? nodes[0].value : '';
+          respuestas[q.id_pregunta] = valor;
+          if (obligatoria && !String(valor).trim()) faltantes.push(q.pregunta);
         }
+      }
+
+      if (faltantes.length) {
+        const lista = faltantes.slice(0, 3).join(' · ') + (faltantes.length > 3 ? ` (y ${faltantes.length - 3} más)` : '');
+        return showStatus(`Faltan ${faltantes.length} pregunta(s) obligatoria(s): ${lista}`, 'error');
       }
 
       const payload = { cedula: state.persona.cedula, id_formulario: state.currentForm, respuestas, archivos };
@@ -747,6 +769,17 @@
           inp.value = info.fecha || '';
         }
       });
+    }
+
+    // Documentos sin registrar o vencidos. Vacío si el formulario no pide documentos.
+    function documentosPendientes() {
+      if (!state.documentos) return [];
+      const hayGate = $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
+      if (!hayGate) return [];
+      const nombres = { SOAT: 'SOAT', TECNOMECANICA: 'Tecnomecánica', LICENCIA: 'Licencia de tránsito' };
+      return Object.keys(state.documentos)
+        .filter((k) => ['vencido', 'sin_dato'].includes(state.documentos[k].estado))
+        .map((k) => nombres[k] || k);
     }
 
     // Si algo está vencido o sin registrar, se obliga a actualizar documentos.

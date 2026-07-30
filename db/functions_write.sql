@@ -64,6 +64,20 @@ begin
 
   gate := upper(coalesce(respuestas->>'DOC_PRIMERA_O_RENOVACION','')) = 'SI';
 
+  -- Si el formulario pide documentos y NO los esta actualizando, deben estar
+  -- todos registrados y vigentes (igual que la placa).
+  if (respuestas ? 'DOC_PRIMERA_O_RENOVACION') and not gate then
+    declare faltan text := '';
+    begin
+      if c.soat_vence is null or c.soat_vence < hoy then faltan := faltan || 'SOAT, '; end if;
+      if c.tecnomecanica_vence is null or c.tecnomecanica_vence < hoy then faltan := faltan || 'Tecnomecanica, '; end if;
+      if c.licencia_vence is null or c.licencia_vence < hoy then faltan := faltan || 'Licencia, '; end if;
+      if faltan <> '' then
+        raise exception 'Debes actualizar tu documentacion (%). Responde SI en la primera pregunta y adjunta los documentos con sus fechas.', btrim(faltan, ', ');
+      end if;
+    end;
+  end if;
+
   -- Fechas de vencimiento de documentos.
   for p in select id, pregunta, tipo_respuesta, documento from preguntas
            where formulario_id = fid and activo loop
