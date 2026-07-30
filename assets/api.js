@@ -14,8 +14,7 @@
 
   // Modo base de datos (Supabase): solo si la URL trae ?db=1. Producción no se afecta.
   const supaCfg = CFG.SUPABASE_URL && CFG.SUPABASE_KEY && /supabase\.co/.test(CFG.SUPABASE_URL);
-  let supaOn = false;
-  try { supaOn = supaCfg && new URLSearchParams(location.search).get('db') === '1'; } catch (e) { supaOn = false; }
+  const supaOn = Boolean(supaCfg);
 
   async function call(action, payload = {}) {
     if (supaOn) return supabaseCall(action, payload);
