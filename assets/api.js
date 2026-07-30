@@ -179,6 +179,7 @@
       ok: true, filas: r.total || 0, columnas: encabezados.length,
       nombre: 'Exportable_' + p.formulario + sufijo + '_' + stamp + '.csv',
       url: url, downloadUrl: url, esArchivoLocal: true,
+      registros: r.filas || [],
     };
   }
 

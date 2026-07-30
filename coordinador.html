@@ -192,7 +192,7 @@
   </main>
 
   <script src="assets/config.js?v=10"></script>
-  <script src="assets/api.js?v=13"></script>
+  <script src="assets/api.js?v=14"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -563,7 +563,47 @@
           </div>
           ${acciones}
         </div>`;
+      const registros = resp.registros || [];
+      if (registros.length) {
+        box.innerHTML += `
+          <div style="margin-top:16px">
+            <p class="label">Administrar registros consultados</p>
+            <p class="hint-inline">Anula únicamente registros con documentación incorrecta. Se conservará la auditoría.</p>
+            <div style="display:grid;gap:8px;margin-top:10px">
+              ${registros.map((r) => `
+                <div style="border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+                  <div>
+                    <b>${escapeHtml(r.nombre || 'Sin nombre')}</b>
+                    <div class="hint-inline">CC ${escapeHtml(r.cedula)} · ${escapeHtml(r.fecha)} ${escapeHtml(r.hora || '')}</div>
+                    <div class="hint-inline">ID: ${escapeHtml(r.id_registro)}</div>
+                  </div>
+                  <button class="btn btn--ghost" type="button" data-anular="${escapeHtml(r.id_registro)}" data-nombre="${escapeHtml(r.nombre || '')}">Anular registro</button>
+                </div>`).join('')}
+            </div>
+          </div>`;
+      }
       box.classList.remove('hidden');
+      box.querySelectorAll('[data-anular]').forEach((btn) =>
+        btn.addEventListener('click', () => anularRegistro(btn.dataset.anular, btn.dataset.nombre)));
+    }
+
+    async function anularRegistro(idRegistro, nombre) {
+      const motivo = prompt(`Motivo para anular el registro de ${nombre || 'este mensajero'}:`);
+      if (motivo === null) return;
+      if (motivo.trim().length < 5) return showStatus('Escribe un motivo de al menos 5 caracteres.', 'error');
+      if (!confirm('El registro dejará de contar en cumplimiento y exportables. ¿Confirmas la anulación?')) return;
+      showStatus('Anulando registro…', 'info');
+      try {
+        await HSQ_API.call('anularRegistro', {
+          id_registro: idRegistro,
+          motivo: motivo.trim(),
+          pin: String((window.HSQ_CONFIG && HSQ_CONFIG.COORD_PIN) || ''),
+        });
+        showStatus('✓ Registro anulado. Se conservó la trazabilidad.', 'ok');
+        await generarExportable();
+      } catch (err) {
+        showStatus(err.message, 'error');
+      }
     }
 
     function setLoading(loading) { $('exportar').disabled = loading; $('exportar').style.opacity = loading ? '.7' : ''; }

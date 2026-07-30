@@ -130,6 +130,7 @@ begin
                       where registro_id = r.id and coalesce(url,'') <> '' order by pregunta_id, subido_en desc) ev), '{}'::jsonb) as evid
     from registros r
     where r.formulario_id = fid and r.fecha between fi and ff
+      and coalesce(r.estado,'') <> 'ANULADO'
       and (filtro_proy = '' or r.proyecto = filtro_proy or r.proyecto_id::text = filtro_proy)
       and (ncedula = '' or regexp_replace(r.cedula,'\D','','g') = ncedula)
     order by r.fecha, r.hora
@@ -152,6 +153,38 @@ end;
 $$;
 
 -- ------------------------------------------------------------
+--  Anular registro: no borra evidencias ni respuestas; conserva auditoria.
+-- ------------------------------------------------------------
+create or replace function api_anular_registro(payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  rid uuid := nullif(payload->>'id_registro','')::uuid;
+  motivo text := btrim(coalesce(payload->>'motivo',''));
+  pin text := coalesce(payload->>'pin','');
+  r registros%rowtype;
+begin
+  if pin <> '1234' then raise exception 'PIN de coordinador incorrecto.'; end if;
+  if rid is null then raise exception 'Falta el ID del registro.'; end if;
+  if length(motivo) < 5 then raise exception 'Escribe un motivo de al menos 5 caracteres.'; end if;
+
+  select * into r from registros where id = rid for update;
+  if not found then raise exception 'Registro no encontrado.'; end if;
+  if r.estado = 'ANULADO' then raise exception 'El registro ya estaba anulado.'; end if;
+
+  update registros set
+    estado = 'ANULADO',
+    alertas = concat_ws(' | ', nullif(alertas,''), 'ANULADO: ' || motivo)
+  where id = rid;
+
+  insert into historial(tipo, cedula, detalle)
+  values ('ANULACION_REGISTRO', r.cedula,
+    'Registro ' || rid::text || ' (' || r.formulario_id || ', ' || to_char(r.fecha,'YYYY-MM-DD') || '): ' || motivo);
+
+  return jsonb_build_object('idRegistro', rid, 'anulado', true, 'motivo', motivo);
+end;
+$$;
+
+-- ------------------------------------------------------------
 --  Router completo (todas las acciones).
 -- ------------------------------------------------------------
 create or replace function hseq_api(action text, payload jsonb default '{}'::jsonb)
@@ -168,6 +201,7 @@ begin
     when 'guardarJustificacion' then result := api_guardar_justificacion(payload);
     when 'getDashboard'         then result := api_dashboard(payload);
     when 'generarExportable'    then result := api_exportable(payload);
+    when 'anularRegistro'       then result := api_anular_registro(payload);
     when 'actualizarMatriz'     then result := api_actualizar_matriz(payload);
     when 'getMatrizInfo'        then result := api_matriz_info();
     else raise exception 'Accion no reconocida: %', action;

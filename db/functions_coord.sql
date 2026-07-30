@@ -45,7 +45,8 @@ begin
       h := null;
       select to_char(r.hora,'HH24:MI') into h from registros r
         where regexp_replace(r.cedula,'\D','','g') = regexp_replace(rec.cedula,'\D','','g')
-          and r.formulario_id = f.id and r.fecha = dia limit 1;
+          and r.formulario_id = f.id and r.fecha = dia
+          and coalesce(r.estado,'') <> 'ANULADO' limit 1;
       if h is not null then
         estados := estados || jsonb_build_object(f.id, jsonb_build_object('hecho', true, 'hora', h));
         hechos := hechos + 1;
