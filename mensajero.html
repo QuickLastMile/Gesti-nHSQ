@@ -147,7 +147,7 @@
   </div>
 
   <script src="assets/config.js?v=10"></script>
-  <script src="assets/api.js?v=10"></script>
+  <script src="assets/api.js?v=11"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -495,14 +495,15 @@
       const respuestas = {};
       const archivos = [];
 
-      // Si no está actualizando documentos, deben estar todos al día (igual que la placa).
+      // Si no está actualizando documentos, deben existir los tres archivos.
+      // El vencimiento genera alerta, pero no bloquea el registro.
       const faltanDocs = documentosPendientes();
       const gateSel = String(gateValue('DOC_PRIMERA_O_RENOVACION')).trim().toUpperCase();
       if (faltanDocs.length && gateSel !== 'SI') {
         const sel = $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
         if (sel) { sel.value = 'SI'; sel.dispatchEvent(new Event('change')); }
         $('questions').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return showStatus('Debes actualizar tu documentación (' + faltanDocs.join(', ') + '). Responde SÍ en la primera pregunta, adjunta los documentos y escribe sus fechas de vencimiento.', 'error');
+        return showStatus('Falta adjuntar: ' + faltanDocs.join(', ') + '. Responde SÍ en la primera pregunta y carga los documentos.', 'error');
       }
 
       const faltantes = [];
@@ -544,7 +545,9 @@
         $('bottombar').classList.add('hidden');
         $('guardar').disabled = true;
         renderChecklist();
-        if (resp.completo) {
+        if (resp.alertas && resp.alertas.length) {
+          showStatus('⚠️ Registro guardado con alerta: ' + resp.alertas.join(' | '), 'warn');
+        } else if (resp.completo) {
           abrirComprobante(resp.comprobante, false);
         } else {
           showStatus('✓ Registro guardado. Falta el otro registro del día, complétalo abajo.', 'ok');
@@ -771,34 +774,34 @@
       });
     }
 
-    // Documentos sin registrar o vencidos. Vacío si el formulario no pide documentos.
+    // Solo documentos sin archivo. Los vencidos no bloquean.
     function documentosPendientes() {
       if (!state.documentos) return [];
       const hayGate = $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
       if (!hayGate) return [];
       const nombres = { SOAT: 'SOAT', TECNOMECANICA: 'Tecnomecánica', LICENCIA: 'Licencia de tránsito' };
       return Object.keys(state.documentos)
-        .filter((k) => ['vencido', 'sin_dato'].includes(state.documentos[k].estado))
+        .filter((k) => !String(state.documentos[k].url || '').trim())
         .map((k) => nombres[k] || k);
     }
 
-    // Si algo está vencido o sin registrar, se obliga a actualizar documentos.
+    // Si falta el archivo se obliga a adjuntar. Si está vencido, solo alerta.
     function revisarDocumentos() {
       if (!state.documentos) return;
       // Solo aplica en formularios que piden documentos (preoperacional).
       const hayDocs = $('questions').querySelector('input[data-doc]')
         || $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
       if (!hayDocs) return;
-      const criticos = Object.keys(state.documentos).filter((k) => {
-        const e = state.documentos[k].estado;
-        return e === 'vencido' || e === 'sin_dato';
-      });
+      const criticos = Object.keys(state.documentos).filter((k) => !String(state.documentos[k].url || '').trim());
+      const vencidos = Object.keys(state.documentos).filter((k) => state.documentos[k].estado === 'vencido');
       const porVencer = Object.keys(state.documentos).filter((k) => state.documentos[k].estado === 'por_vencer');
 
       if (criticos.length) {
         const sel = $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
         if (sel) { sel.value = 'SI'; sel.dispatchEvent(new Event('change')); }
-        showStatus('Debes actualizar: ' + criticos.join(', ') + '. Adjunta el documento y escribe su fecha de vencimiento.', 'error');
+        showStatus('Falta adjuntar: ' + criticos.join(', ') + '. Carga los documentos para continuar.', 'error');
+      } else if (vencidos.length) {
+        showStatus('⚠️ Documento(s) vencido(s): ' + vencidos.map((k) => `${k} (${state.documentos[k].fecha || 'sin fecha'})`).join(', ') + '. Puedes continuar; el registro quedará con alerta.', 'warn');
       } else if (porVencer.length) {
         showStatus('⚠️ Próximo(s) a vencer: ' + porVencer.map((k) => `${k} (${state.documentos[k].dias} días)`).join(', ') + '.', 'warn');
       }

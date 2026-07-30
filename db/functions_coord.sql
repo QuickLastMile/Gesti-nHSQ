@@ -28,6 +28,7 @@ declare
   rec record; f record;
   estados jsonb; hechos int; nforms int;
   h text; jt text; jm text; es_just boolean; es_completo boolean;
+  alertas_persona text;
 begin
   forms := coalesce((select jsonb_agg(jsonb_build_object('id', id, 'nombre', nombre) order by orden)
                      from formularios where activo), '[]'::jsonb);
@@ -39,7 +40,7 @@ begin
     where c.activo and (filtro_proy = '' or c.proyecto = filtro_proy or c.proyecto_id::text = filtro_proy)
     order by c.nombre
   loop
-    estados := '{}'::jsonb; hechos := 0;
+    estados := '{}'::jsonb; hechos := 0; alertas_persona := '';
     for f in select id, nombre from formularios where activo order by orden loop
       h := null;
       select to_char(r.hora,'HH24:MI') into h from registros r
@@ -52,6 +53,11 @@ begin
         estados := estados || jsonb_build_object(f.id, jsonb_build_object('hecho', false));
       end if;
     end loop;
+
+    select coalesce(string_agg(r.alertas, ' | ' order by r.hora), '') into alertas_persona
+      from registros r
+      where regexp_replace(r.cedula,'\D','','g') = regexp_replace(rec.cedula,'\D','','g')
+        and r.fecha = dia and coalesce(r.alertas,'') <> '';
 
     jt := null; jm := null;
     select j.tipo, j.motivo into jt, jm from justificaciones j
@@ -70,6 +76,8 @@ begin
       'cedula', rec.cedula, 'nombre', coalesce(rec.nombre,''), 'proyecto', coalesce(rec.proyecto,''),
       'ciudad', coalesce(rec.ciudad,''), 'placa', coalesce(rec.placa_moto,''),
       'estados', estados, 'completo', es_completo,
+      'alertas_documentales', coalesce(alertas_persona,''),
+      'requiere_gestion', coalesce(alertas_persona,'') <> '',
       'justificado', (es_just and not es_completo),
       'justificacion', case when es_just then jsonb_build_object('tipo', coalesce(jt,''), 'motivo', coalesce(jm,'')) else null end
     ));

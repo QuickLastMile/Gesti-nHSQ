@@ -121,7 +121,7 @@ begin
 
   for rec in
     select r.id, r.fecha, r.hora, r.cedula, r.nombre, r.cargo, r.proyecto_id, r.proyecto,
-           r.ciudad, r.placa_moto, r.tipo_vehiculo, r.estado,
+           r.ciudad, r.placa_moto, r.tipo_vehiculo, r.estado, r.alertas,
       coalesce((select jsonb_object_agg(pregunta_id, valor)
                 from (select distinct on (pregunta_id) pregunta_id, valor from respuestas
                       where registro_id = r.id order by pregunta_id) rp), '{}'::jsonb) as resp,
@@ -140,7 +140,10 @@ begin
       'cargo', coalesce(rec.cargo,''), 'proyecto_id', coalesce(rec.proyecto_id,''),
       'proyecto', coalesce(rec.proyecto,''), 'ciudad', coalesce(rec.ciudad,''),
       'placa_moto', coalesce(rec.placa_moto,''), 'tipo_vehiculo', coalesce(rec.tipo_vehiculo,''),
-      'estado', coalesce(rec.estado,''), 'respuestas', rec.resp, 'evidencias', rec.evid));
+      'estado', coalesce(rec.estado,''),
+      'estado_cumplimiento', case when coalesce(rec.alertas,'') <> '' then 'REQUIERE_GESTION' else 'CUMPLE' end,
+      'alertas_documentales', coalesce(rec.alertas,''),
+      'respuestas', rec.resp, 'evidencias', rec.evid));
   end loop;
 
   return jsonb_build_object('formulario', fid, 'preguntas', preguntas, 'filas', filas,

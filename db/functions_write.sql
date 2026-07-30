@@ -46,6 +46,7 @@ declare
   dk text; val text;
   v_soat_v date; v_tecno_v date; v_lic_v date;
   v_soat_u text; v_tecno_u text; v_lic_u text;
+  alertas_doc text := '';
   estado jsonb := '{}'::jsonb;
   regs jsonb := '[]'::jsonb;
   completo boolean := true;
@@ -64,16 +65,16 @@ begin
 
   gate := upper(coalesce(respuestas->>'DOC_PRIMERA_O_RENOVACION','')) = 'SI';
 
-  -- Si el formulario pide documentos y NO los esta actualizando, deben estar
-  -- todos registrados y vigentes (igual que la placa).
+  -- Solo la AUSENCIA del archivo bloquea. Un documento vencido permite
+  -- registrar y queda como alerta para seguimiento disciplinario/operativo.
   if (respuestas ? 'DOC_PRIMERA_O_RENOVACION') and not gate then
     declare faltan text := '';
     begin
-      if c.soat_vence is null or c.soat_vence < hoy then faltan := faltan || 'SOAT, '; end if;
-      if c.tecnomecanica_vence is null or c.tecnomecanica_vence < hoy then faltan := faltan || 'Tecnomecanica, '; end if;
-      if c.licencia_vence is null or c.licencia_vence < hoy then faltan := faltan || 'Licencia, '; end if;
+      if coalesce(btrim(c.soat_url),'') = '' then faltan := faltan || 'SOAT, '; end if;
+      if coalesce(btrim(c.tecnomecanica_url),'') = '' then faltan := faltan || 'Tecnomecanica, '; end if;
+      if coalesce(btrim(c.licencia_url),'') = '' then faltan := faltan || 'Licencia, '; end if;
       if faltan <> '' then
-        raise exception 'Debes actualizar tu documentacion (%). Responde SI en la primera pregunta y adjunta los documentos con sus fechas.', btrim(faltan, ', ');
+        raise exception 'Falta adjuntar documentacion (%). Responde SI en la primera pregunta y adjunta los archivos.', btrim(faltan, ', ');
       end if;
     end;
   end if;
@@ -106,10 +107,42 @@ begin
     select e->>'url' into v_lic_u   from jsonb_array_elements(evidencias) e where e->>'id_pregunta' = 'DOC_LICENCIA_TRANSITO' limit 1;
   end if;
 
+  -- Defensa de servidor: después de combinar documentos nuevos y existentes,
+  -- ninguno puede quedar sin archivo.
+  if coalesce(btrim(coalesce(v_soat_u, c.soat_url)),'') = '' then
+    raise exception 'Falta adjuntar el SOAT.';
+  end if;
+  if coalesce(btrim(coalesce(v_tecno_u, c.tecnomecanica_url)),'') = '' then
+    raise exception 'Falta adjuntar la revision tecnomecanica.';
+  end if;
+  if coalesce(btrim(coalesce(v_lic_u, c.licencia_url)),'') = '' then
+    raise exception 'Falta adjuntar la licencia de transito.';
+  end if;
+
+  -- Las vigencias vencidas o sin fecha generan alerta, pero NO bloquean.
+  if coalesce(v_soat_v, c.soat_vence) is null then
+    alertas_doc := alertas_doc || 'SOAT sin fecha de vencimiento | ';
+  elsif coalesce(v_soat_v, c.soat_vence) < hoy then
+    alertas_doc := alertas_doc || 'SOAT vencido el ' || to_char(coalesce(v_soat_v, c.soat_vence),'YYYY-MM-DD') || ' | ';
+  end if;
+  if coalesce(v_tecno_v, c.tecnomecanica_vence) is null then
+    alertas_doc := alertas_doc || 'Tecnomecanica sin fecha de vencimiento | ';
+  elsif coalesce(v_tecno_v, c.tecnomecanica_vence) < hoy then
+    alertas_doc := alertas_doc || 'Tecnomecanica vencida el ' || to_char(coalesce(v_tecno_v, c.tecnomecanica_vence),'YYYY-MM-DD') || ' | ';
+  end if;
+  if coalesce(v_lic_v, c.licencia_vence) is null then
+    alertas_doc := alertas_doc || 'Licencia sin fecha de vencimiento | ';
+  elsif coalesce(v_lic_v, c.licencia_vence) < hoy then
+    alertas_doc := alertas_doc || 'Licencia vencida el ' || to_char(coalesce(v_lic_v, c.licencia_vence),'YYYY-MM-DD') || ' | ';
+  end if;
+  alertas_doc := rtrim(alertas_doc, ' |');
+
   -- Inserta el registro (con snapshot de la persona).
-  insert into registros (cedula, formulario_id, fecha, hora, estado,
+  insert into registros (cedula, formulario_id, fecha, hora, estado, alertas,
     nombre, cargo, proyecto_id, proyecto, ciudad, placa_moto, tipo_vehiculo)
-  values (ncedula, fid, hoy, ahora, 'OK',
+  values (ncedula, fid, hoy, ahora,
+    case when alertas_doc <> '' then 'CON_ALERTA' else 'OK' end,
+    nullif(alertas_doc, ''),
     c.nombre, c.cargo, c.proyecto_id, c.proyecto, c.ciudad, c.placa_moto, c.tipo_vehiculo)
   returning id into rid;
 
@@ -159,7 +192,9 @@ begin
   end loop;
 
   return jsonb_build_object(
-    'idRegistro', rid, 'estado', 'OK', 'alertas', '[]'::jsonb,
+    'idRegistro', rid,
+    'estado', case when alertas_doc <> '' then 'CON_ALERTA' else 'OK' end,
+    'alertas', case when alertas_doc <> '' then jsonb_build_array(alertas_doc) else '[]'::jsonb end,
     'estadoDiario', estado, 'completo', completo, 'archivoDiaUrl', '#',
     'comprobante', jsonb_build_object(
       'nombre', c.nombre, 'cedula', ncedula, 'placa_moto', coalesce(c.placa_moto,''),

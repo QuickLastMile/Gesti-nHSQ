@@ -149,7 +149,8 @@
     const r = await rpc('generarExportable', p);
 
     const base = ['fecha', 'hora', 'cedula', 'nombre', 'cargo', 'proyecto_id', 'proyecto',
-      'ciudad', 'placa_moto', 'tipo_vehiculo', 'estado', 'id_registro'];
+      'ciudad', 'placa_moto', 'tipo_vehiculo', 'estado', 'estado_cumplimiento',
+      'alertas_documentales', 'id_registro'];
     const preg = r.preguntas || [];
     // Solo columnas de evidencia que realmente tengan algún archivo.
     const evIds = [];

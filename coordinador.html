@@ -192,7 +192,7 @@
   </main>
 
   <script src="assets/config.js?v=10"></script>
-  <script src="assets/api.js?v=10"></script>
+  <script src="assets/api.js?v=11"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -332,6 +332,8 @@
       }).join('');
       const jtxt = p.justificado && p.justificacion
         ? `<span class="cmp-just">${escapeHtml(p.justificacion.tipo)}</span>` : '';
+      const alerta = p.alertas_documentales
+        ? `<span class="cmp-just" title="${escapeHtml(p.alertas_documentales)}">⚠ Requiere gestión</span>` : '';
       const boton = p.completo ? '' :
         `<button class="cmp-btn" type="button" data-just="${escapeHtml(p.cedula)}" data-nombre="${escapeHtml(p.nombre)}" data-proyecto="${escapeHtml(p.proyecto)}">${p.justificado ? 'Editar' : 'Justificar'}</button>`;
       return `
@@ -340,7 +342,7 @@
             <span class="cmp-nombre">${escapeHtml(p.nombre || '(sin nombre)')}</span>
             <span class="cmp-sub">CC ${escapeHtml(p.cedula)}${p.proyecto ? ' · ' + escapeHtml(p.proyecto) : ''}</span>
           </div>
-          <div class="cmp-dots">${chips}${jtxt}</div>
+          <div class="cmp-dots">${chips}${jtxt}${alerta}</div>
           ${boton}
         </div>`;
     }
