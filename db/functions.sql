@@ -85,7 +85,7 @@ begin
           jsonb_build_object('fecha','', 'dias', null, 'estado','sin_dato','url', coalesce(d.url,'')));
       else
         dias := d.ven - hoy;
-        est := case when dias < 0 then 'vencido' when dias <= 30 then 'por_vencer' else 'ok' end;
+        est := case when dias < 0 then 'vencido' when dias <= 15 then 'por_vencer' else 'ok' end;
         docs := docs || jsonb_build_object(d.k,
           jsonb_build_object('fecha', to_char(d.ven,'YYYY-MM-DD'), 'dias', dias, 'estado', est, 'url', coalesce(d.url,'')));
       end if;

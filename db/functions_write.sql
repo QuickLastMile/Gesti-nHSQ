@@ -139,16 +139,22 @@ begin
     alertas_doc := alertas_doc || 'SOAT sin fecha de vencimiento | ';
   elsif coalesce(v_soat_v, c.soat_vence) < hoy then
     alertas_doc := alertas_doc || 'SOAT vencido el ' || to_char(coalesce(v_soat_v, c.soat_vence),'YYYY-MM-DD') || ' | ';
+  elsif coalesce(v_soat_v, c.soat_vence) <= hoy + 15 then
+    alertas_doc := alertas_doc || 'SOAT proximo a vencer el ' || to_char(coalesce(v_soat_v, c.soat_vence),'YYYY-MM-DD') || ' | ';
   end if;
   if coalesce(v_tecno_v, c.tecnomecanica_vence) is null then
     alertas_doc := alertas_doc || 'Tecnomecanica sin fecha de vencimiento | ';
   elsif coalesce(v_tecno_v, c.tecnomecanica_vence) < hoy then
     alertas_doc := alertas_doc || 'Tecnomecanica vencida el ' || to_char(coalesce(v_tecno_v, c.tecnomecanica_vence),'YYYY-MM-DD') || ' | ';
+  elsif coalesce(v_tecno_v, c.tecnomecanica_vence) <= hoy + 15 then
+    alertas_doc := alertas_doc || 'Tecnomecanica proxima a vencer el ' || to_char(coalesce(v_tecno_v, c.tecnomecanica_vence),'YYYY-MM-DD') || ' | ';
   end if;
   if coalesce(v_lic_v, c.licencia_vence) is null then
     alertas_doc := alertas_doc || 'Licencia sin fecha de vencimiento | ';
   elsif coalesce(v_lic_v, c.licencia_vence) < hoy then
     alertas_doc := alertas_doc || 'Licencia vencida el ' || to_char(coalesce(v_lic_v, c.licencia_vence),'YYYY-MM-DD') || ' | ';
+  elsif coalesce(v_lic_v, c.licencia_vence) <= hoy + 15 then
+    alertas_doc := alertas_doc || 'Licencia proxima a vencer el ' || to_char(coalesce(v_lic_v, c.licencia_vence),'YYYY-MM-DD') || ' | ';
   end if;
   alertas_doc := rtrim(alertas_doc, ' |');
 
