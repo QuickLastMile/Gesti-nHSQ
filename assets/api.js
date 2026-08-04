@@ -48,6 +48,7 @@
   /* -------------------- Modo BASE DE DATOS (Supabase) -------------------- */
   // Llamada base a la función hseq_api de Postgres.
   async function rpc(action, payload = {}) {
+    const sessionToken = sessionStorage.getItem('hsq_coord_token') || sessionStorage.getItem('hsq_admin_token') || '';
     let res;
     try {
       res = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/hseq_api', {
@@ -55,7 +56,7 @@
         headers: {
           'Content-Type': 'application/json',
           apikey: CFG.SUPABASE_KEY,
-          Authorization: 'Bearer ' + CFG.SUPABASE_KEY,
+          Authorization: 'Bearer ' + (sessionToken || CFG.SUPABASE_KEY),
         },
         body: JSON.stringify({ action, payload }),
       });
@@ -146,6 +147,7 @@
       cedula: filtros.cedula || '',
     };
     const r = await rpc('generarExportable', p);
+    await firmarEvidenciasExportable(r.filas || []);
 
     const base = ['fecha', 'hora', 'cedula', 'nombre', 'cargo', 'proyecto_id', 'proyecto',
       'ciudad', 'placa_moto', 'tipo_vehiculo', 'estado', 'estado_cumplimiento',
@@ -181,6 +183,35 @@
       url: url, downloadUrl: url, esArchivoLocal: true,
       registros: r.filas || [],
     };
+  }
+
+  async function firmarEvidenciasExportable(filas) {
+    const token = sessionStorage.getItem('hsq_coord_token') || sessionStorage.getItem('hsq_admin_token') || '';
+    if (!token) return;
+    const base = CFG.SUPABASE_URL.replace(/\/$/, '');
+    const cache = {};
+    const entradas = [];
+    (filas || []).forEach((fila) => Object.entries(fila.evidencias || {}).forEach(([id, valor]) => {
+      entradas.push({ fila, id, valor: String(valor || '') });
+    }));
+    await Promise.all(entradas.map(async (item) => {
+      let path = item.valor;
+      const marca = '/evidencias/';
+      const pos = path.indexOf(marca);
+      if (pos !== -1) path = path.slice(pos + marca.length);
+      path = decodeURIComponent(path).replace(/^\/+/, '');
+      if (!path) return;
+      if (!cache[path]) cache[path] = (async () => {
+        const res = await fetch(base + '/storage/v1/object/sign/evidencias/' + path.split('/').map(encodeURIComponent).join('/'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ expiresIn: 604800 }),
+        });
+        const data = await res.json();
+        return data.signedURL ? base + '/storage/v1' + data.signedURL : '';
+      })();
+      item.fila.evidencias[item.id] = await cache[path];
+    }));
   }
 
   // Sube las fotos al almacenamiento y arma el registro con sus enlaces.
@@ -264,7 +295,7 @@
       id_pregunta: a.id_pregunta,
       nombre: a.nombre || 'evidencia.jpg',
       path: path,
-      url: base + '/storage/v1/object/public/evidencias/' + path,
+      url: base + '/storage/v1/object/authenticated/evidencias/' + path,
     };
   }
 

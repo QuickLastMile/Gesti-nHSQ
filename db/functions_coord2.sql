@@ -125,9 +125,12 @@ begin
       coalesce((select jsonb_object_agg(pregunta_id, valor)
                 from (select distinct on (pregunta_id) pregunta_id, valor from respuestas
                       where registro_id = r.id order by pregunta_id) rp), '{}'::jsonb) as resp,
-      coalesce((select jsonb_object_agg(pregunta_id, url)
-                from (select distinct on (pregunta_id) pregunta_id, url from evidencias
-                      where registro_id = r.id and coalesce(url,'') <> '' order by pregunta_id, subido_en desc) ev), '{}'::jsonb) as evid
+      coalesce((select jsonb_object_agg(pregunta_id, archivo)
+                from (select distinct on (pregunta_id) pregunta_id,
+                        coalesce(nullif(storage_path,''), url) as archivo
+                      from evidencias where registro_id = r.id
+                        and (coalesce(storage_path,'') <> '' or coalesce(url,'') <> '')
+                      order by pregunta_id, subido_en desc) ev), '{}'::jsonb) as evid
     from registros r
     where r.formulario_id = fid and r.fecha between fi and ff
       and coalesce(r.estado,'') <> 'ANULADO'
@@ -160,10 +163,8 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   rid uuid := nullif(payload->>'id_registro','')::uuid;
   motivo text := btrim(coalesce(payload->>'motivo',''));
-  pin text := coalesce(payload->>'pin','');
   r registros%rowtype;
 begin
-  if pin <> '1234' then raise exception 'PIN de coordinador incorrecto.'; end if;
   if rid is null then raise exception 'Falta el ID del registro.'; end if;
   if length(motivo) < 5 then raise exception 'Escribe un motivo de al menos 5 caracteres.'; end if;
 
@@ -191,6 +192,11 @@ create or replace function hseq_api(action text, payload jsonb default '{}'::jso
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare result jsonb;
 begin
+  if action in ('getCumplimientoDia','guardarJustificacion','getDashboard',
+                'generarExportable','anularRegistro','actualizarMatriz','getMatrizInfo')
+     and not hseq_tiene_rol(array['ADMIN','HSEQ','COORDINADOR']) then
+    return jsonb_build_object('ok', false, 'error', 'Debes iniciar sesion como coordinador autorizado.');
+  end if;
   case action
     when 'getBootstrap'         then result := api_get_bootstrap();
     when 'buscarActivo'         then result := api_buscar_activo(payload);

@@ -101,7 +101,8 @@ declare result jsonb;
 begin
   -- Debe ser un usuario con sesion REAL (no un anonimo de subida de fotos).
   if coalesce((select auth.role()), 'anon') <> 'authenticated'
-     or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
+     or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false)
+     or not hseq_tiene_rol(array['ADMIN','HSEQ']) then
     return jsonb_build_object('ok', false, 'error', 'Debes iniciar sesion como HSQ.');
   end if;
   case action

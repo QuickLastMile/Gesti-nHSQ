@@ -13,10 +13,6 @@ window.HSQ_CONFIG = {
   APP_NAME: 'Gestión HSEQ Motos',
   SUBTITLE: 'Registro operativo de motos',
 
-  // 🔒 PIN para entrar a la página del Coordinador (exportables).
-  // Cámbialo por el que quieras. Déjalo en '' (vacío) para desactivar el PIN.
-  COORD_PIN: '1234',
-
   // ── Migración a base de datos (Supabase) ──────────────────
   // La app sigue usando Apps Script por defecto. Para PROBAR la versión
   // con base de datos, agrega ?db=1 al final del link (ej:
