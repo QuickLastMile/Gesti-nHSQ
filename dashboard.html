@@ -120,6 +120,7 @@
       .filterbar{position:static}.content{padding:0 15px 30px}
       .grid{grid-template-columns:1fr}.wide{grid-column:auto}.search{min-width:0;width:100%}
     }
+    @media(min-width:1051px){.filters{grid-template-columns:1.35fr 1fr .65fr .75fr 1fr auto auto}}
   </style>
 </head>
 <body>
@@ -159,6 +160,7 @@
         <div class="filterbar">
           <div class="filters">
             <div class="field"><label>Proyecto</label><select id="project"><option value="">Todos los proyectos</option></select></div>
+            <div class="field"><label>Gestión</label><select id="formType"><option value="PREOPERACIONAL">Preoperacional</option><option value="LIMPIEZA_MOTO">Limpieza de moto</option></select></div>
             <div class="field"><label>Año</label><select id="year"></select></div>
             <div class="field"><label>Mes</label><select id="month"><option value="">Todo el año</option></select></div>
             <div class="field"><label>Día</label><input id="day" type="date"></div>
@@ -316,15 +318,15 @@
       setStatus('Actualizando información…');
       try {
         data = await HSQ_API.call('getDashboard', {
-          anio: $('year').value, mes: $('month').value,
+          anio: $('year').value, mes: $('month').value, formulario: $('formType').value,
           dia: $('day').value, proyecto: $('project').value,
         });
         render();
         const f = data.filtros || {};
         const periodo = f.dia ? ('día ' + f.dia) : (f.desde + ' a ' + f.hasta);
-        setStatus('Periodo: ' + periodo + ' · actualizado ' + (data.actualizado || 'ahora'));
+        setStatus('Gestión: ' + $('formType').selectedOptions[0].text + ' · periodo: ' + periodo + ' · actualizado ' + (data.actualizado || 'ahora'));
       } catch (e) {
-        if (/sesion|coordinador|autorizado|permission/i.test(e.message)) $('gate').classList.remove('hidden');
+        if (/sesion|coordinador|autorizado|permission|jwt|expired/i.test(e.message)) { sessionStorage.removeItem('hsq_coord_token'); $('gate').classList.remove('hidden'); $('loginMsg').textContent='Tu sesión venció. Ingresa nuevamente para continuar.'; }
         else setStatus(e.message, true);
       }
     }

@@ -12,6 +12,7 @@ declare
   anio_f int := coalesce(nullif(payload->>'anio','')::int, extract(year from hoy)::int);
   mes_f int := nullif(payload->>'mes','')::int;
   proy text := btrim(coalesce(payload->>'proyecto',''));
+  form_f text := upper(btrim(coalesce(payload->>'formulario','PREOPERACIONAL')));
   desde date;
   hasta date;
   ndias int;
@@ -32,16 +33,22 @@ begin
   end if;
   ndias := greatest((hasta-desde)+1,0);
 
-  select count(*) into nforms from formularios where activo;
+  if form_f = '' or form_f = 'TODOS' then
+    form_f := '';
+    select count(*) into nforms from formularios where activo;
+  else
+    nforms := 1;
+  end if;
   select count(*) into activos from colaboradores c
    where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy);
   select count(*) into realizadas from registros r
    where r.fecha between desde and hasta and coalesce(r.estado,'') <> 'ANULADO'
+     and (form_f='' or r.formulario_id=form_f)
      and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy);
   esperadas := activos::bigint * ndias * nforms;
 
   return jsonb_build_object(
-    'filtros',jsonb_build_object('anio',anio_f,'mes',mes_f,'dia',dia_f,'proyecto',proy,
+    'filtros',jsonb_build_object('anio',anio_f,'mes',mes_f,'dia',dia_f,'proyecto',proy,'formulario',form_f,
       'desde',desde,'hasta',hasta,'dias',ndias),
     'resumen',jsonb_build_object(
       'activos',activos,'realizadas',realizadas,'esperadas',esperadas,
@@ -49,6 +56,7 @@ begin
       'porcentaje',case when esperadas>0 then round(realizadas::numeric*1000/esperadas)/10 else 0 end,
       'con_alerta',(select count(*) from registros r where r.fecha between desde and hasta
         and coalesce(r.alertas,'')<>'' and coalesce(r.estado,'')<>'ANULADO'
+        and (form_f='' or r.formulario_id=form_f)
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy))
     ),
 
@@ -58,6 +66,7 @@ begin
              count(*) filter(where coalesce(r.alertas,'')<>'') con_alerta
       from registros r
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and (form_f='' or r.formulario_id=form_f)
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       group by r.fecha
     ) x),'[]'::jsonb),
@@ -67,6 +76,7 @@ begin
       select to_char(r.fecha,'YYYY-MM') mes, count(*) realizadas
       from registros r
       where extract(year from r.fecha)=anio_f and coalesce(r.estado,'')<>'ANULADO'
+        and (form_f='' or r.formulario_id=form_f)
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       group by to_char(r.fecha,'YYYY-MM')
     ) x),'[]'::jsonb),
@@ -74,6 +84,7 @@ begin
     'por_anio',coalesce((select jsonb_agg(x order by x.anio) from (
       select extract(year from r.fecha)::int anio,count(*) realizadas
       from registros r where coalesce(r.estado,'')<>'ANULADO'
+       and (form_f='' or r.formulario_id=form_f)
        and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       group by extract(year from r.fecha)
     ) x),'[]'::jsonb),
@@ -98,6 +109,7 @@ begin
                count(*) filter(where coalesce(r.alertas,'')<>'') con_alerta
         from registros r
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+          and (form_f='' or r.formulario_id=form_f)
           and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
         group by coalesce(r.proyecto,'Sin proyecto')
       ) reg on reg.proyecto=p.proyecto
@@ -120,6 +132,7 @@ begin
                max(r.fecha) ultimo
         from registros r
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+          and (form_f='' or r.formulario_id=form_f)
         group by regexp_replace(r.cedula,'\D','','g')
       ) reg on reg.ced = regexp_replace(c.cedula,'\D','','g')
       where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
