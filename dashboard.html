@@ -6,52 +6,605 @@
   <meta name="theme-color" content="#082f25">
   <title>Dashboard ejecutivo · Gestión HSEQ</title>
   <style>
-    :root{--ink:#10231d;--muted:#687a73;--green:#0a4938;--green2:#12785a;--lime:#b8d43f;--bg:#f3f7f5;--card:#fff;--line:#dce7e2;--danger:#c43e3e;--warn:#d98b17;--shadow:0 12px 30px rgba(7,49,37,.08)}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,Segoe UI,Arial,sans-serif}.hidden{display:none!important}
-    button,select,input{font:inherit}.layout{min-height:100vh;display:grid;grid-template-columns:245px 1fr}.side{position:sticky;top:0;height:100vh;padding:26px 18px;background:linear-gradient(165deg,#07382b,#0b503d 65%,#073629);color:white;display:flex;flex-direction:column}.logo{font-weight:900;font-size:27px;letter-spacing:-1.5px}.logo i{color:var(--lime);font-style:normal}.side small{color:#bcd1c9}.nav{margin-top:35px;display:grid;gap:8px}.nav button,.side-link{border:0;text-decoration:none;color:#d9e9e3;background:transparent;border-radius:12px;padding:13px 14px;text-align:left;font-weight:700;cursor:pointer}.nav button.active,.nav button:hover,.side-link:hover{color:white;background:rgba(255,255,255,.12)}.side-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.15);padding-top:18px}.main{min-width:0}.top{height:78px;padding:0 28px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px}.top h1{margin:0;font-size:21px}.top p{margin:2px 0 0;color:var(--muted)}.live{color:var(--green2);font-weight:800}.content{padding:24px 28px 40px;max-width:1600px;margin:auto}.filters{display:grid;grid-template-columns:1.25fr .8fr .8fr auto;gap:12px;background:white;border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)}.field label{display:block;font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:0 0 5px}.field select,.field input{width:100%;border:1px solid #cadbd4;border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}.apply{align-self:end;border:0;border-radius:11px;padding:11px 20px;background:var(--green2);color:white;font-weight:850;cursor:pointer}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:18px 0}.kpi{background:white;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow);position:relative;overflow:hidden}.kpi:before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--green2)}.kpi.warn:before{background:var(--warn)}.kpi.danger:before{background:var(--danger)}.kpi .num{font-size:28px;font-weight:900;letter-spacing:-1px}.kpi .label{color:var(--muted);font-weight:700}.kpi .detail{margin-top:7px;color:#8a9993;font-size:12px}.grid{display:grid;grid-template-columns:1.35fr 1fr;gap:16px}.card{background:white;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}.card-head{padding:18px 19px 8px}.card-head h2{font-size:16px;margin:0}.card-head p{margin:3px 0;color:var(--muted);font-size:12px}.card-body{padding:10px 18px 20px}.canvas-wrap{height:285px;position:relative}.canvas-wrap canvas{width:100%;height:100%}.wide{grid-column:1/-1}.section{display:none}.section.active{display:block}.alerts-head{display:flex;justify-content:space-between;align-items:end;gap:12px}.search{border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-width:270px}.table-wrap{overflow:auto;max-height:560px}table{width:100%;border-collapse:collapse;min-width:900px}th{position:sticky;top:0;background:#eef5f2;color:#516860;font-size:11px;text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:12px}td{padding:12px;border-top:1px solid #edf2f0}.badge{display:inline-block;border-radius:20px;padding:4px 9px;font-weight:850;font-size:11px}.badge.bad{background:#ffe5e5;color:#a52727}.badge.warn{background:#fff1d9;color:#9b6100}.empty{text-align:center;padding:50px 20px;color:var(--muted)}.status{margin-top:12px;color:var(--muted)}.gate{position:fixed;inset:0;z-index:10;background:rgba(4,30,23,.8);display:grid;place-items:center;padding:20px}.gate-card{width:min(410px,100%);background:white;border-radius:20px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.25)}.gate-card h2{margin:0}.gate-card p{color:var(--muted)}.gate-card input{display:block;width:100%;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px}.gate-card button{width:100%;margin-top:12px;padding:12px;border:0;border-radius:10px;background:var(--green);color:white;font-weight:800}.error{color:var(--danger)}
-    @media(max-width:1050px){.layout{grid-template-columns:78px 1fr}.side{padding:22px 10px}.logo{font-size:18px}.side small,.nav span,.side-foot span{display:none}.nav button,.side-link{text-align:center}.kpis{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:720px){.layout{display:block}.side{position:static;height:auto;display:flex;flex-direction:row;align-items:center;padding:12px 15px}.side small,.side-foot{display:none}.nav{margin:0 0 0 auto;display:flex}.nav button{padding:9px}.top{padding:0 15px}.content{padding:15px}.filters{grid-template-columns:1fr 1fr}.apply{grid-column:1/-1}.kpis{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.search{min-width:0;width:100%}}
+    :root{
+      --ink:#10231d;--muted:#5d716a;--green:#0a4938;--green2:#12785a;--lime:#b8d43f;
+      --bg:#eef3f1;--card:#fff;--line:#d5e3dd;--danger:#c43e3e;--warn:#d98b17;
+      --plot:#e8f0ec;--plot-line:#cfe0d8;--chip:#dce9e3;
+      --shadow:0 12px 30px rgba(7,49,37,.08)
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,Segoe UI,Arial,sans-serif}
+    .hidden{display:none!important}
+    button,select,input{font:inherit}
+
+    .layout{min-height:100vh;display:grid;grid-template-columns:245px 1fr}
+    .side{position:sticky;top:0;height:100vh;padding:26px 18px;background:linear-gradient(165deg,#07382b,#0b503d 65%,#073629);color:#fff;display:flex;flex-direction:column}
+    .logo{font-weight:900;font-size:27px;letter-spacing:-1.5px}
+    .logo i{color:var(--lime);font-style:normal}
+    .side small{color:#bcd1c9}
+    .nav{margin-top:35px;display:grid;gap:8px}
+    .nav button{border:0;color:#d9e9e3;background:transparent;border-radius:12px;padding:13px 14px;text-align:left;font-weight:700;cursor:pointer}
+    .nav button.active,.nav button:hover{color:#fff;background:rgba(255,255,255,.12)}
+    .side-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.15);padding-top:18px;color:#bcd1c9;font-size:12px}
+    .main{min-width:0}
+
+    .top{position:sticky;top:0;z-index:6;height:74px;padding:0 28px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .top h1{margin:0;font-size:21px}
+    .top p{margin:2px 0 0;color:var(--muted);font-size:13px}
+    .live{color:var(--green2);font-weight:800;white-space:nowrap}
+    .content{padding:0 28px 40px;max-width:1600px;margin:auto}
+
+    /* Filtros fijos al hacer scroll */
+    .filterbar{position:sticky;top:74px;z-index:5;padding:16px 0 12px;background:var(--bg)}
+    .filters{display:grid;grid-template-columns:1.4fr .7fr .8fr 1fr auto auto;gap:12px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+    .field label{display:block;font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:0 0 5px}
+    .field select,.field input{width:100%;border:1px solid #bfd3cb;border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}
+    .apply,.ghost{align-self:end;border:0;border-radius:11px;padding:11px 18px;font-weight:850;cursor:pointer;white-space:nowrap}
+    .apply{background:var(--green2);color:#fff}
+    .ghost{background:var(--chip);color:var(--green)}
+
+    .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:6px 0 18px}
+    .kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+    .kpi:before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--green2)}
+    .kpi.warn:before{background:var(--warn)}
+    .kpi.danger:before{background:var(--danger)}
+    .kpi .num{font-size:28px;font-weight:900;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+    /* Etiquetas sobre fondo oscuro para que resalten */
+    .kpi .label{display:inline-block;margin-top:6px;background:var(--green);color:#eaf4ef;font-weight:800;font-size:11px;letter-spacing:.5px;text-transform:uppercase;padding:4px 9px;border-radius:7px}
+    .kpi .detail{margin-top:7px;color:#7d8f88;font-size:12px}
+
+    .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:16px}
+    .card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+    .card-head{padding:18px 19px 8px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+    .card-head h2{font-size:16px;margin:0}
+    .card-head p{margin:3px 0;color:var(--muted);font-size:12px}
+    .card-body{padding:10px 18px 20px}
+    .canvas-wrap{height:285px;position:relative}
+    .canvas-wrap canvas{width:100%;height:100%;display:block}
+    .wide{grid-column:1/-1}
+    .section{display:none}
+    .section.active{display:block}
+
+    /* Tooltip de las gráficas */
+    .tip{position:fixed;z-index:50;pointer-events:none;background:#08281f;color:#eaf4ef;border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.5;box-shadow:0 10px 26px rgba(0,0,0,.28);opacity:0;transition:opacity .12s;max-width:280px}
+    .tip.show{opacity:1}
+    .tip b{color:#fff;display:block;margin-bottom:2px}
+    .tip i{font-style:normal;color:var(--lime);font-weight:800}
+
+    /* Filtros tipo chip */
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:7px 14px;font-weight:800;font-size:12.5px;cursor:pointer}
+    .chip b{color:var(--ink)}
+    .chip.active{background:var(--green);color:#fff;border-color:var(--green)}
+    .chip.active b{color:#fff}
+
+    .search{border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-width:250px}
+
+    /* Tablas con encabezado fijo */
+    .table-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:12px}
+    table{width:100%;border-collapse:separate;border-spacing:0;min-width:860px}
+    th{position:sticky;top:0;z-index:2;background:var(--green);color:#eaf4ef;font-size:11px;text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:12px;white-space:nowrap}
+    td{padding:11px 12px;border-top:1px solid #e9f0ed}
+    tbody tr:hover td{background:#f5faf8}
+    .num-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
+    .badge{display:inline-block;border-radius:20px;padding:4px 9px;font-weight:850;font-size:11px;white-space:nowrap}
+    .badge.bad{background:#ffe5e5;color:#a52727}
+    .badge.warn{background:#fff1d9;color:#9b6100}
+    .badge.ok{background:#e2f3ea;color:#106a44}
+    .rank{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--chip);color:var(--green);font-weight:900;font-size:12px}
+    .rank.top{background:var(--lime);color:#31420a}
+    .rank.low{background:#ffd9d9;color:#a52727}
+    .mini-bar{height:8px;border-radius:999px;background:#e9f0ec;overflow:hidden;min-width:80px}
+    .mini-bar i{display:block;height:100%;border-radius:999px}
+    .empty{text-align:center;padding:46px 20px;color:var(--muted)}
+    .status{margin:0 0 12px;color:var(--muted)}
+    .error{color:var(--danger)}
+
+    .gate{position:fixed;inset:0;z-index:60;background:rgba(4,30,23,.85);display:grid;place-items:center;padding:20px}
+    .gate-card{width:min(410px,100%);background:#fff;border-radius:20px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.25)}
+    .gate-card h2{margin:0}
+    .gate-card p{color:var(--muted)}
+    .gate-card input{display:block;width:100%;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px}
+    .gate-card button{width:100%;margin-top:12px;padding:12px;border:0;border-radius:10px;background:var(--green);color:#fff;font-weight:800;cursor:pointer}
+
+    @media(max-width:1050px){
+      .layout{grid-template-columns:78px 1fr}.side{padding:22px 10px}.logo{font-size:18px}
+      .side small,.nav span,.side-foot{display:none}.nav button{text-align:center}
+      .kpis{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:1fr 1fr}
+      .apply,.ghost{grid-column:span 1}
+    }
+    @media(max-width:720px){
+      .layout{display:block}.side{position:static;height:auto;flex-direction:row;align-items:center;padding:12px 15px}
+      .nav{margin:0 0 0 auto;display:flex}.nav button{padding:9px}
+      .top{position:static;padding:0 15px;height:auto;padding-block:14px}
+      .filterbar{position:static}.content{padding:0 15px 30px}
+      .grid{grid-template-columns:1fr}.wide{grid-column:auto}.search{min-width:0;width:100%}
+    }
   </style>
 </head>
 <body>
-  <div id="gate" class="gate hidden"><form id="loginForm" class="gate-card"><div class="logo" style="color:var(--green)">QU<i>I</i>CK</div><h2>Dashboard HSEQ</h2><p>Ingresa con tu cuenta autorizada de coordinador.</p><input id="email" type="email" autocomplete="username" placeholder="Correo" required><input id="password" type="password" autocomplete="current-password" placeholder="Contraseña" required><button>Iniciar sesión</button><div id="loginMsg" class="status"></div></form></div>
+  <div id="gate" class="gate hidden">
+    <form id="loginForm" class="gate-card">
+      <div class="logo" style="color:var(--green)">QU<i>I</i>CK</div>
+      <h2>Dashboard HSEQ</h2>
+      <p>Ingresa con tu cuenta autorizada de coordinador.</p>
+      <input id="email" type="email" autocomplete="username" placeholder="Correo" required>
+      <input id="password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
+      <button>Iniciar sesión</button>
+      <div id="loginMsg" class="status"></div>
+    </form>
+  </div>
+
+  <div id="tip" class="tip"></div>
+
   <div class="layout">
-    <aside class="side"><div class="logo">QU<i>I</i>CK</div><small>HSEQ Intelligence</small><nav class="nav"><button class="active" data-section="resumen">▦ <span>Resumen ejecutivo</span></button><button data-section="alertas">⚠ <span>Alertas documentos</span></button><a class="side-link" href="coordinador.html">⇩ <span>Exportables</span></a></nav><div class="side-foot"><span>Gestión preventiva<br></span><small>Alertas desde 15 días</small></div></aside>
+    <aside class="side">
+      <div class="logo">QU<i>I</i>CK</div>
+      <small>HSEQ Intelligence</small>
+      <nav class="nav">
+        <button class="active" data-section="resumen">▦ <span>Resumen ejecutivo</span></button>
+        <button data-section="cumplimiento">◎ <span>Cumplimiento</span></button>
+        <button data-section="alertas">⚠ <span>Alertas documentos</span></button>
+      </nav>
+      <div class="side-foot">Gestión preventiva<br><small>Alertas desde 15 días</small></div>
+    </aside>
+
     <main class="main">
-      <header class="top"><div><h1 id="pageTitle">Resumen ejecutivo</h1><p>Control de preoperacionales y documentación</p></div><div class="live">● Datos en vivo</div></header>
+      <header class="top">
+        <div><h1 id="pageTitle">Resumen ejecutivo</h1><p id="pageSub">Control de preoperacionales y documentación</p></div>
+        <div class="live">● Datos en vivo</div>
+      </header>
+
       <div class="content">
-        <div class="filters"><div class="field"><label>Proyecto</label><select id="project"><option value="">Todos los proyectos</option></select></div><div class="field"><label>Año</label><select id="year"></select></div><div class="field"><label>Mes</label><select id="month"><option value="">Todo el año</option></select></div><button id="apply" class="apply">Actualizar panel</button></div>
-        <div id="status" class="status"></div>
+        <div class="filterbar">
+          <div class="filters">
+            <div class="field"><label>Proyecto</label><select id="project"><option value="">Todos los proyectos</option></select></div>
+            <div class="field"><label>Año</label><select id="year"></select></div>
+            <div class="field"><label>Mes</label><select id="month"><option value="">Todo el año</option></select></div>
+            <div class="field"><label>Día</label><input id="day" type="date"></div>
+            <button id="apply" class="apply">Actualizar</button>
+            <button id="clearDay" class="ghost" title="Quitar el filtro de día">Limpiar día</button>
+          </div>
+          <div id="status" class="status" style="margin-top:10px"></div>
+        </div>
+
+        <!-- ================= RESUMEN ================= -->
         <section id="resumen" class="section active">
-          <div class="kpis"><article class="kpi"><div id="kActive" class="num">—</div><div class="label">Colaboradores activos</div><div class="detail">Según proyecto seleccionado</div></article><article class="kpi"><div id="kDone" class="num">—</div><div class="label">Registros realizados</div><div class="detail">En el periodo</div></article><article class="kpi"><div id="kRate" class="num">—</div><div class="label">Cumplimiento</div><div class="detail">Realizados frente a esperados</div></article><article class="kpi warn"><div id="kMissing" class="num">—</div><div class="label">Pendientes</div><div class="detail">Registros no realizados</div></article><article class="kpi danger"><div id="kAlerts" class="num">—</div><div class="label">Alertas del periodo</div><div class="detail">Registros que requieren gestión</div></article></div>
-          <div class="grid"><article class="card"><div class="card-head"><h2>Comportamiento por día</h2><p>Volumen de registros diarios</p></div><div class="card-body"><div class="canvas-wrap"><canvas id="daily"></canvas></div></div></article><article class="card"><div class="card-head"><h2>Tendencia mensual</h2><p>Comparativo del año seleccionado</p></div><div class="card-body"><div class="canvas-wrap"><canvas id="monthly"></canvas></div></div></article><article class="card"><div class="card-head"><h2>Comparativo por año</h2><p>Evolución histórica de registros</p></div><div class="card-body"><div class="canvas-wrap"><canvas id="yearly"></canvas></div></div></article><article class="card"><div class="card-head"><h2>Desempeño por proyecto</h2><p>Registros y alertas del periodo</p></div><div class="card-body"><div class="canvas-wrap"><canvas id="projects"></canvas></div></div></article></div>
+          <div class="kpis">
+            <article class="kpi"><div id="kActive" class="num">—</div><div class="label">Activos</div><div class="detail">Según el filtro aplicado</div></article>
+            <article class="kpi"><div id="kDone" class="num">—</div><div class="label">Realizados</div><div class="detail">Registros del periodo</div></article>
+            <article class="kpi"><div id="kRate" class="num">—</div><div class="label">Cumplimiento</div><div class="detail">Realizados vs esperados</div></article>
+            <article class="kpi warn"><div id="kMissing" class="num">—</div><div class="label">Pendientes</div><div class="detail">Registros no realizados</div></article>
+            <article class="kpi danger"><div id="kAlerts" class="num">—</div><div class="label">Alertas</div><div class="detail">Registros que requieren gestión</div></article>
+          </div>
+          <div class="grid">
+            <article class="card"><div class="card-head"><div><h2>Comportamiento por día</h2><p>Solo días con registros</p></div></div><div class="card-body"><div class="canvas-wrap"><canvas id="daily"></canvas></div></div></article>
+            <article class="card"><div class="card-head"><div><h2>Tendencia mensual</h2><p>Meses con actividad del año</p></div></div><div class="card-body"><div class="canvas-wrap"><canvas id="monthly"></canvas></div></div></article>
+            <article class="card"><div class="card-head"><div><h2>Comparativo por año</h2><p>Evolución histórica</p></div></div><div class="card-body"><div class="canvas-wrap"><canvas id="yearly"></canvas></div></div></article>
+            <article class="card"><div class="card-head"><div><h2>Registros por proyecto</h2><p>Volumen del periodo</p></div></div><div class="card-body"><div class="canvas-wrap"><canvas id="projects"></canvas></div></div></article>
+          </div>
         </section>
-        <section id="alertas" class="section"><article class="card" style="margin-top:18px"><div class="card-head alerts-head"><div><h2>Alertas documentales</h2><p>Documentos vencidos, sin fecha o que vencen en los próximos 15 días</p></div><input id="alertSearch" class="search" placeholder="Buscar nombre, cédula, proyecto o placa"></div><div class="card-body"><div id="alertSummary" class="kpis" style="grid-template-columns:repeat(3,1fr)"></div><div class="table-wrap"><table><thead><tr><th>Estado</th><th>Documento</th><th>Vencimiento</th><th>Días</th><th>Colaborador</th><th>Cédula</th><th>Placa</th><th>Proyecto</th></tr></thead><tbody id="alertRows"></tbody></table><div id="alertEmpty" class="empty hidden">No se encontraron alertas para este filtro.</div></div></div></article></section>
+
+        <!-- ================= CUMPLIMIENTO ================= -->
+        <section id="cumplimiento" class="section">
+          <article class="card">
+            <div class="card-head">
+              <div><h2>Cumplimiento por proyecto</h2><p>Realizados frente a esperados en el periodo</p></div>
+            </div>
+            <div class="card-body">
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Realizados</th><th>Esperados</th><th>Pendientes</th><th>Cumplimiento</th></tr></thead>
+                  <tbody id="projRows"></tbody>
+                </table>
+                <div id="projEmpty" class="empty hidden">Sin proyectos para este filtro.</div>
+              </div>
+            </div>
+          </article>
+
+          <div class="grid" style="margin-top:16px">
+            <article class="card">
+              <div class="card-head"><div><h2>🏆 Más juiciosos</h2><p>Mejor cumplimiento del periodo</p></div></div>
+              <div class="card-body"><div class="table-wrap" style="max-height:none">
+                <table style="min-width:520px"><thead><tr><th>#</th><th>Mensajero</th><th>Proyecto</th><th>Reg.</th><th>Cumpl.</th></tr></thead><tbody id="topRows"></tbody></table>
+              </div></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><h2>⚠ Requieren seguimiento</h2><p>Menor cumplimiento del periodo</p></div></div>
+              <div class="card-body"><div class="table-wrap" style="max-height:none">
+                <table style="min-width:520px"><thead><tr><th>#</th><th>Mensajero</th><th>Proyecto</th><th>Reg.</th><th>Cumpl.</th></tr></thead><tbody id="lowRows"></tbody></table>
+              </div></div>
+            </article>
+          </div>
+
+          <article class="card" style="margin-top:16px">
+            <div class="card-head">
+              <div><h2>Detalle de mensajeros</h2><p id="mensSub">Todos los activos del filtro</p></div>
+              <input id="mensSearch" class="search" placeholder="Buscar nombre, cédula o proyecto">
+            </div>
+            <div class="card-body">
+              <div class="table-wrap">
+                <table><thead><tr><th>Mensajero</th><th>Cédula</th><th>Proyecto</th><th>Placa</th><th>Realizados</th><th>Esperados</th><th>Cumplimiento</th><th>Último registro</th></tr></thead>
+                <tbody id="mensRows"></tbody></table>
+                <div id="mensEmpty" class="empty hidden">Sin resultados.</div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <!-- ================= ALERTAS ================= -->
+        <section id="alertas" class="section">
+          <article class="card">
+            <div class="card-head">
+              <div><h2>Alertas documentales</h2><p>Vencidos, sin fecha o que vencen en los próximos 15 días</p></div>
+              <input id="alertSearch" class="search" placeholder="Buscar nombre, cédula, proyecto o placa">
+            </div>
+            <div class="card-body">
+              <div id="alertChips" class="chips" style="margin-bottom:14px"></div>
+              <div class="table-wrap">
+                <table><thead><tr><th>Estado</th><th>Documento</th><th>Vencimiento</th><th>Días</th><th>Colaborador</th><th>Cédula</th><th>Placa</th><th>Proyecto</th></tr></thead>
+                <tbody id="alertRows"></tbody></table>
+                <div id="alertEmpty" class="empty hidden">No se encontraron alertas para este filtro.</div>
+              </div>
+            </div>
+          </article>
+        </section>
       </div>
     </main>
   </div>
-  <script src="assets/config.js?v=16"></script><script src="assets/api.js?v=16"></script>
+
+  <script src="assets/config.js?v=17"></script>
+  <script src="assets/api.js?v=17"></script>
   <script>
-    const $=id=>document.getElementById(id);let dashboardData=null;
-    const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    function initFilters(){const now=new Date(),y=now.getFullYear();for(let n=y;n>=y-5;n--)$('year').add(new Option(n,n));months.forEach((m,i)=>$('month').add(new Option(m,i+1)));}
-    async function bootstrap(){try{const b=await HSQ_API.call('getBootstrap');(b.proyectos||[]).forEach(p=>$('project').add(new Option(p.proyecto,p.proyecto_id||p.proyecto)));await load();}catch(e){if(/sesion|coordinador|autorizado/i.test(e.message)){sessionStorage.removeItem('hsq_coord_token');$('gate').classList.remove('hidden');}else setStatus(e.message,true)}}
-    $('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginMsg').textContent='Validando…';try{const c=window.HSQ_CONFIG,base=c.SUPABASE_URL.replace(/\/$/,'');const r=await fetch(base+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json',apikey:c.SUPABASE_KEY},body:JSON.stringify({email:$('email').value.trim(),password:$('password').value})});const d=await r.json();if(!r.ok||!d.access_token)throw Error(d.error_description||d.msg||'Credenciales incorrectas');sessionStorage.setItem('hsq_coord_token',d.access_token);$('gate').classList.add('hidden');$('loginMsg').textContent='';await bootstrap()}catch(x){$('loginMsg').className='status error';$('loginMsg').textContent=x.message}});
-    document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===b.dataset.section));$('pageTitle').textContent=b.dataset.section==='alertas'?'Alertas documentales':'Resumen ejecutivo';if(b.dataset.section==='alertas')renderAlerts()});
-    $('apply').onclick=load;$('alertSearch').oninput=renderAlerts;window.addEventListener('resize',()=>dashboardData&&renderCharts());
-    async function load(){setStatus('Actualizando información…');try{dashboardData=await HSQ_API.call('getDashboard',{anio:$('year').value,mes:$('month').value,proyecto:$('project').value});render();setStatus('Actualizado: '+(dashboardData.actualizado||'ahora'))}catch(e){setStatus(e.message,true)}}
-    function setStatus(t,bad){$('status').textContent=t;$('status').className='status'+(bad?' error':'')}
-    function fmt(v){return Number(v||0).toLocaleString('es-CO')}
-    function render(){const r=dashboardData.resumen||{};$('kActive').textContent=fmt(r.activos);$('kDone').textContent=fmt(r.realizadas);$('kRate').textContent=Number(r.porcentaje||0).toFixed(1)+'%';$('kMissing').textContent=fmt(r.no_realizadas);$('kAlerts').textContent=fmt(r.con_alerta);renderCharts();renderAlerts()}
-    function renderCharts(){lineChart('daily',dashboardData.por_dia||[],'fecha','realizadas','#12785a');barChart('monthly',dashboardData.por_mes||[],'mes','realizadas','#0a4938');barChart('yearly',dashboardData.por_anio||[],'anio','realizadas','#b8d43f');barChart('projects',dashboardData.por_proyecto||[],'proyecto','realizadas','#12785a',true)}
-    function prep(id){const c=$(id),d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*d;c.height=h*d;const x=c.getContext('2d');x.scale(d,d);x.clearRect(0,0,w,h);return{x,w,h}}
-    function axes(x,w,h,max){x.strokeStyle='#e2ebe7';x.fillStyle='#71837c';x.font='11px Segoe UI';for(let i=0;i<5;i++){let y=15+(h-50)*i/4;x.beginPath();x.moveTo(38,y);x.lineTo(w-8,y);x.stroke();x.fillText(Math.round(max*(4-i)/4),2,y+4)}}
-    function lineChart(id,data,key,val,color){const {x,w,h}=prep(id);if(!data.length)return emptyChart(x,w,h);const max=Math.max(...data.map(d=>+d[val]||0),1);axes(x,w,h,max);const usable=w-55,step=usable/Math.max(data.length-1,1);x.strokeStyle=color;x.lineWidth=3;x.beginPath();data.forEach((d,i)=>{let px=40+i*step,py=15+(h-50)*(1-(+d[val]||0)/max);i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();x.fillStyle=color;data.forEach((d,i)=>{if(data.length<35||i%Math.ceil(data.length/18)===0){let px=40+i*step,py=15+(h-50)*(1-(+d[val]||0)/max);x.beginPath();x.arc(px,py,3,0,7);x.fill()}})}
-    function barChart(id,data,key,val,color,horizontal){const {x,w,h}=prep(id);if(!data.length)return emptyChart(x,w,h);const shown=data.slice(0,horizontal?10:14),max=Math.max(...shown.map(d=>+d[val]||0),1);if(horizontal){const gap=(h-18)/shown.length;shown.forEach((d,i)=>{let y=6+i*gap,bw=(w-145)*(+d[val]||0)/max;x.fillStyle='#e7f0ec';x.fillRect(125,y,w-140,gap-7);x.fillStyle=color;x.fillRect(125,y,bw,gap-7);x.fillStyle='#52665e';x.font='10px Segoe UI';x.fillText(String(d[key]).slice(0,18),2,y+gap/2+3);x.fillText(fmt(d[val]),130+bw,y+gap/2+3)})}else{axes(x,w,h,max);const gap=(w-52)/shown.length;shown.forEach((d,i)=>{let bh=(h-50)*(+d[val]||0)/max;x.fillStyle=color;x.fillRect(42+i*gap,15+h-50-bh,Math.max(gap-8,5),bh);x.save();x.translate(45+i*gap,h-7);x.rotate(-.45);x.fillStyle='#687a73';x.font='10px Segoe UI';x.fillText(String(d[key]).slice(-7),0,0);x.restore()})}}
-    function emptyChart(x,w,h){x.fillStyle='#7b8b85';x.textAlign='center';x.fillText('Sin datos para el periodo seleccionado',w/2,h/2)}
-    function renderAlerts(){if(!dashboardData)return;const q=$('alertSearch').value.toLowerCase(),all=dashboardData.alertas||[],rows=all.filter(a=>Object.values(a).join(' ').toLowerCase().includes(q));const expired=all.filter(a=>a.estado==='VENCIDO').length,soon=all.filter(a=>a.estado==='PRÓXIMO A VENCER').length,missing=all.filter(a=>a.estado==='SIN FECHA').length;$('alertSummary').innerHTML=`<article class="kpi danger"><div class="num">${expired}</div><div class="label">Vencidos</div></article><article class="kpi warn"><div class="num">${soon}</div><div class="label">Próximos a vencer</div></article><article class="kpi danger"><div class="num">${missing}</div><div class="label">Sin fecha</div></article>`;$('alertRows').innerHTML=rows.map(a=>`<tr><td><span class="badge ${a.estado==='PRÓXIMO A VENCER'?'warn':'bad'}">${esc(a.estado)}</span></td><td><b>${esc(a.documento)}</b></td><td>${esc(a.fecha_vencimiento||'Sin fecha')}</td><td>${a.dias_restantes==null?'—':a.dias_restantes}</td><td>${esc(a.nombre)}</td><td>${esc(a.cedula)}</td><td>${esc(a.placa_moto||'—')}</td><td>${esc(a.proyecto||'Sin proyecto')}</td></tr>`).join('');$('alertEmpty').classList.toggle('hidden',rows.length>0)}
-    function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-    initFilters();if(!sessionStorage.getItem('hsq_coord_token'))$('gate').classList.remove('hidden');else bootstrap();
+    const $ = (id) => document.getElementById(id);
+    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    let data = null, alertFiltro = 'TODOS';
+
+    /* ---------------- arranque ---------------- */
+    initFilters();
+    bootstrap();
+
+    $('apply').addEventListener('click', load);
+    $('clearDay').addEventListener('click', () => { $('day').value = ''; load(); });
+    $('day').addEventListener('change', load);
+    $('alertSearch').addEventListener('input', renderAlerts);
+    $('mensSearch').addEventListener('input', renderMensajeros);
+    document.querySelectorAll('.nav button').forEach((b) => b.addEventListener('click', () => mostrarSeccion(b)));
+    $('loginForm').addEventListener('submit', login);
+    window.addEventListener('resize', () => { if (data) { renderCharts(); } });
+
+    function initFilters() {
+      const y = new Date().getFullYear();
+      for (let n = y; n >= y - 5; n--) $('year').add(new Option(n, n));
+      MESES.forEach((m, i) => $('month').add(new Option(m, i + 1)));
+      $('month').value = String(new Date().getMonth() + 1);
+    }
+
+    async function bootstrap() {
+      try {
+        const b = await HSQ_API.call('getBootstrap');
+        (b.proyectos || []).forEach((p) => $('project').add(new Option(p.proyecto, p.proyecto_id || p.proyecto)));
+        await load();
+      } catch (e) {
+        if (/sesion|coordinador|autorizado|permission/i.test(e.message)) {
+          sessionStorage.removeItem('hsq_coord_token');
+          $('gate').classList.remove('hidden');
+        } else setStatus(e.message, true);
+      }
+    }
+
+    async function login(ev) {
+      ev.preventDefault();
+      $('loginMsg').textContent = 'Ingresando…';
+      try {
+        const base = (window.HSQ_CONFIG.SUPABASE_URL || '').replace(/\/$/, '');
+        const res = await fetch(base + '/auth/v1/token?grant_type=password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: HSQ_CONFIG.SUPABASE_KEY },
+          body: JSON.stringify({ email: $('email').value.trim(), password: $('password').value }),
+        });
+        const d = await res.json();
+        if (!d.access_token) throw new Error(d.error_description || d.msg || 'Credenciales incorrectas.');
+        sessionStorage.setItem('hsq_coord_token', d.access_token);
+        $('gate').classList.add('hidden');
+        $('loginMsg').textContent = '';
+        bootstrap();
+      } catch (e) { $('loginMsg').textContent = e.message; $('loginMsg').className = 'status error'; }
+    }
+
+    async function load() {
+      setStatus('Actualizando información…');
+      try {
+        data = await HSQ_API.call('getDashboard', {
+          anio: $('year').value, mes: $('month').value,
+          dia: $('day').value, proyecto: $('project').value,
+        });
+        render();
+        const f = data.filtros || {};
+        const periodo = f.dia ? ('día ' + f.dia) : (f.desde + ' a ' + f.hasta);
+        setStatus('Periodo: ' + periodo + ' · actualizado ' + (data.actualizado || 'ahora'));
+      } catch (e) {
+        if (/sesion|coordinador|autorizado|permission/i.test(e.message)) $('gate').classList.remove('hidden');
+        else setStatus(e.message, true);
+      }
+    }
+
+    function setStatus(t, bad) { $('status').textContent = t; $('status').className = 'status' + (bad ? ' error' : ''); }
+    function fmt(v) { return Number(v || 0).toLocaleString('es-CO'); }
+    function pct(v) { return Number(v || 0).toFixed(1) + '%'; }
+    function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+    function colorPct(p) { return p >= 90 ? '#106a44' : (p >= 70 ? '#d98b17' : '#c43e3e'); }
+
+    function mostrarSeccion(btn) {
+      document.querySelectorAll('.nav button').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.section').forEach((s) => s.classList.remove('active'));
+      $(btn.dataset.section).classList.add('active');
+      const titulos = {
+        resumen: ['Resumen ejecutivo', 'Control de preoperacionales y documentación'],
+        cumplimiento: ['Cumplimiento', 'Desempeño por proyecto y por mensajero'],
+        alertas: ['Alertas documentos', 'Seguimiento de SOAT, tecnomecánica y licencia'],
+      }[btn.dataset.section];
+      $('pageTitle').textContent = titulos[0];
+      $('pageSub').textContent = titulos[1];
+      if (btn.dataset.section === 'resumen') renderCharts();
+    }
+
+    function render() {
+      const r = data.resumen || {};
+      $('kActive').textContent = fmt(r.activos);
+      $('kDone').textContent = fmt(r.realizadas);
+      $('kRate').textContent = pct(r.porcentaje);
+      $('kRate').style.color = colorPct(r.porcentaje);
+      $('kMissing').textContent = fmt(r.no_realizadas);
+      $('kAlerts').textContent = fmt(r.con_alerta);
+      renderCharts();
+      renderProyectos();
+      renderRankings();
+      renderMensajeros();
+      renderAlerts();
+    }
+
+    /* ================= GRÁFICAS INTERACTIVAS ================= */
+    const hit = {}; // hitboxes por canvas, para el tooltip
+
+    function renderCharts() {
+      lineChart('daily', data.por_dia || [], 'fecha', 'realizadas', '#12785a');
+      barChart('monthly', (data.por_mes || []).map((m) => ({ ...m, etq: nombreMes(m.mes) })), 'etq', 'realizadas', '#0a4938');
+      barChart('yearly', data.por_anio || [], 'anio', 'realizadas', '#7f9e1f');
+      barChartH('projects', data.por_proyecto || [], 'proyecto', 'realizadas', '#12785a');
+    }
+    function nombreMes(m) { const p = String(m).split('-'); return (MESES[Number(p[1]) - 1] || m).slice(0, 3) + ' ' + p[0]; }
+
+    function prep(id) {
+      const c = $(id), d = window.devicePixelRatio || 1;
+      const w = c.clientWidth, h = c.clientHeight;
+      c.width = w * d; c.height = h * d;
+      const x = c.getContext('2d');
+      x.setTransform(d, 0, 0, d, 0, 0);
+      x.clearRect(0, 0, w, h);
+      hit[id] = [];
+      return { x, w, h };
+    }
+
+    // Área de trazado con fondo oscuro suave + rejilla
+    function plotArea(x, w, h, max, pad) {
+      x.fillStyle = '#e4ede9'; // fondo del área de trazado, más oscuro que la tarjeta
+      x.fillRect(pad.l, pad.t, w - pad.l - pad.r, h - pad.t - pad.b);
+      x.strokeStyle = '#cfe0d8'; x.lineWidth = 1;
+      x.fillStyle = '#4a5f57'; x.font = '600 11px Segoe UI'; x.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + (h - pad.t - pad.b) * i / 4;
+        x.beginPath(); x.moveTo(pad.l, y); x.lineTo(w - pad.r, y); x.stroke();
+        x.fillText(fmt(Math.round(max * (4 - i) / 4)), pad.l - 6, y + 4);
+      }
+      x.textAlign = 'left';
+    }
+
+    function vacio(x, w, h) {
+      x.fillStyle = '#7b8b85'; x.textAlign = 'center'; x.font = '13px Segoe UI';
+      x.fillText('Sin datos para el periodo seleccionado', w / 2, h / 2);
+      x.textAlign = 'left';
+    }
+
+    function lineChart(id, datos, key, val, color) {
+      const { x, w, h } = prep(id);
+      if (!datos.length) return vacio(x, w, h);
+      const pad = { l: 46, r: 12, t: 14, b: 34 };
+      const max = Math.max(...datos.map((d) => +d[val] || 0), 1);
+      plotArea(x, w, h, max, pad);
+      const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+      const step = datos.length > 1 ? iw / (datos.length - 1) : 0;
+      const px = (i) => pad.l + (datos.length > 1 ? i * step : iw / 2);
+      const py = (v) => pad.t + ih * (1 - (+v || 0) / max);
+
+      x.beginPath();
+      datos.forEach((d, i) => { const a = px(i), b = py(d[val]); i ? x.lineTo(a, b) : x.moveTo(a, b); });
+      x.lineTo(px(datos.length - 1), pad.t + ih); x.lineTo(px(0), pad.t + ih); x.closePath();
+      x.fillStyle = color + '22'; x.fill();
+
+      x.beginPath(); x.strokeStyle = color; x.lineWidth = 2.5;
+      datos.forEach((d, i) => { const a = px(i), b = py(d[val]); i ? x.lineTo(a, b) : x.moveTo(a, b); });
+      x.stroke();
+
+      datos.forEach((d, i) => {
+        const a = px(i), b = py(d[val]);
+        x.fillStyle = '#fff'; x.beginPath(); x.arc(a, b, 4, 0, 7); x.fill();
+        x.strokeStyle = color; x.lineWidth = 2; x.stroke();
+        hit[id].push({ x: a, y: b, r: 12, titulo: String(d[key]).slice(0, 10),
+          lineas: [fmt(d[val]) + ' registros'].concat(d.con_alerta ? [fmt(d.con_alerta) + ' con alerta'] : []) });
+      });
+
+      x.fillStyle = '#4a5f57'; x.font = '11px Segoe UI'; x.textAlign = 'center';
+      const salto = Math.ceil(datos.length / 8);
+      datos.forEach((d, i) => { if (i % salto === 0) x.fillText(String(d[key]).slice(5, 10), px(i), h - 12); });
+      x.textAlign = 'left';
+    }
+
+    function barChart(id, datos, key, val, color) {
+      const { x, w, h } = prep(id);
+      if (!datos.length) return vacio(x, w, h);
+      const pad = { l: 46, r: 12, t: 14, b: 38 };
+      const shown = datos.slice(-14);
+      const max = Math.max(...shown.map((d) => +d[val] || 0), 1);
+      plotArea(x, w, h, max, pad);
+      const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+      const gap = iw / shown.length, bw = Math.min(Math.max(gap - 12, 8), 54);
+      shown.forEach((d, i) => {
+        const bh = ih * (+d[val] || 0) / max;
+        const bx = pad.l + i * gap + (gap - bw) / 2, by = pad.t + ih - bh;
+        x.fillStyle = color;
+        redondeado(x, bx, by, bw, bh, 6); x.fill();
+        hit[id].push({ x: bx, y: by, w: bw, h: bh, titulo: String(d[key]), lineas: [fmt(d[val]) + ' registros'] });
+        x.fillStyle = '#41564e'; x.font = '600 11px Segoe UI'; x.textAlign = 'center';
+        x.fillText(String(d[key]).slice(0, 8), bx + bw / 2, h - 14);
+      });
+      x.textAlign = 'left';
+    }
+
+    function barChartH(id, datos, key, val, color) {
+      const { x, w, h } = prep(id);
+      if (!datos.length) return vacio(x, w, h);
+      const shown = datos.slice().sort((a, b) => (+b[val] || 0) - (+a[val] || 0)).slice(0, 8);
+      const max = Math.max(...shown.map((d) => +d[val] || 0), 1);
+      const lw = Math.min(150, w * 0.42), gap = h / shown.length, bh = Math.min(gap - 10, 26);
+      shown.forEach((d, i) => {
+        const y = i * gap + (gap - bh) / 2, tw = w - lw - 54;
+        x.fillStyle = '#e0ebe6'; redondeado(x, lw, y, tw, bh, 6); x.fill();
+        const bw = tw * (+d[val] || 0) / max;
+        x.fillStyle = color; redondeado(x, lw, y, Math.max(bw, 2), bh, 6); x.fill();
+        x.fillStyle = '#33463f'; x.font = '600 11px Segoe UI'; x.textAlign = 'right';
+        x.fillText(String(d[key]).slice(0, 20), lw - 8, y + bh / 2 + 4);
+        x.textAlign = 'left'; x.fillStyle = '#33463f'; x.font = '700 11px Segoe UI';
+        x.fillText(fmt(d[val]), lw + Math.max(bw, 2) + 6, y + bh / 2 + 4);
+        hit[id].push({ x: lw, y: y, w: tw, h: bh, titulo: String(d[key]),
+          lineas: [fmt(d[val]) + ' registros'].concat(d.porcentaje != null ? [pct(d.porcentaje) + ' de cumplimiento'] : []) });
+      });
+    }
+
+    function redondeado(x, bx, by, bw, bh, r) {
+      const rr = Math.min(r, bw / 2, Math.max(bh, 1) / 2);
+      x.beginPath();
+      x.moveTo(bx + rr, by); x.lineTo(bx + bw - rr, by); x.quadraticCurveTo(bx + bw, by, bx + bw, by + rr);
+      x.lineTo(bx + bw, by + bh - rr); x.quadraticCurveTo(bx + bw, by + bh, bx + bw - rr, by + bh);
+      x.lineTo(bx + rr, by + bh); x.quadraticCurveTo(bx, by + bh, bx, by + bh - rr);
+      x.lineTo(bx, by + rr); x.quadraticCurveTo(bx, by, bx + rr, by); x.closePath();
+    }
+
+    /* Tooltip al pasar el mouse por cualquier gráfica */
+    ['daily', 'monthly', 'yearly', 'projects'].forEach((id) => {
+      const c = $(id);
+      c.addEventListener('mousemove', (ev) => {
+        const rect = c.getBoundingClientRect();
+        const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+        const encontrado = (hit[id] || []).find((it) => it.r
+          ? Math.hypot(mx - it.x, my - it.y) <= it.r
+          : (mx >= it.x && mx <= it.x + it.w && my >= it.y - 6 && my <= it.y + it.h + 6));
+        if (encontrado) {
+          $('tip').innerHTML = '<b>' + esc(encontrado.titulo) + '</b>' +
+            encontrado.lineas.map((l) => '<i>' + esc(l) + '</i>').join('<br>');
+          $('tip').classList.add('show');
+          $('tip').style.left = Math.min(ev.clientX + 14, window.innerWidth - 250) + 'px';
+          $('tip').style.top = (ev.clientY - 10) + 'px';
+          c.style.cursor = 'pointer';
+        } else { $('tip').classList.remove('show'); c.style.cursor = 'default'; }
+      });
+      c.addEventListener('mouseleave', () => $('tip').classList.remove('show'));
+    });
+
+    /* ================= CUMPLIMIENTO ================= */
+    function barraMini(p) {
+      return `<div style="display:flex;align-items:center;gap:8px">
+        <div class="mini-bar"><i style="width:${Math.max(Math.min(p,100),0)}%;background:${colorPct(p)}"></i></div>
+        <b style="color:${colorPct(p)};font-variant-numeric:tabular-nums">${pct(p)}</b></div>`;
+    }
+
+    function renderProyectos() {
+      const ps = data.por_proyecto || [];
+      $('projEmpty').classList.toggle('hidden', ps.length > 0);
+      $('projRows').innerHTML = ps.map((p, i) => `
+        <tr>
+          <td><span class="rank ${i === 0 ? 'top' : ''}">${i + 1}</span></td>
+          <td><b>${esc(p.proyecto)}</b></td>
+          <td class="num-cell">${fmt(p.activos)}</td>
+          <td class="num-cell">${fmt(p.realizadas)}</td>
+          <td class="num-cell">${fmt(p.esperadas)}</td>
+          <td class="num-cell">${fmt(p.no_realizadas)}</td>
+          <td>${barraMini(p.porcentaje)}</td>
+        </tr>`).join('');
+    }
+
+    function renderRankings() {
+      const ms = (data.mensajeros || []).slice();
+      const conReg = ms.filter((m) => m.realizadas > 0);
+      const top = conReg.slice(0, 10);
+      const low = ms.slice().sort((a, b) => a.porcentaje - b.porcentaje || a.realizadas - b.realizadas).slice(0, 10);
+      const fila = (m, i, clase) => `
+        <tr>
+          <td><span class="rank ${clase}">${i + 1}</span></td>
+          <td><b>${esc(m.nombre)}</b><br><small style="color:var(--muted)">CC ${esc(m.cedula)}</small></td>
+          <td><small>${esc(String(m.proyecto).slice(0, 24))}</small></td>
+          <td class="num-cell">${fmt(m.realizadas)}</td>
+          <td>${barraMini(m.porcentaje)}</td>
+        </tr>`;
+      $('topRows').innerHTML = top.length ? top.map((m, i) => fila(m, i, i < 3 ? 'top' : '')).join('')
+        : '<tr><td colspan="5" class="empty">Sin registros en el periodo.</td></tr>';
+      $('lowRows').innerHTML = low.length ? low.map((m, i) => fila(m, i, 'low')).join('')
+        : '<tr><td colspan="5" class="empty">Sin datos.</td></tr>';
+    }
+
+    function renderMensajeros() {
+      const q = $('mensSearch').value.toLowerCase();
+      const todos = data.mensajeros || [];
+      const rows = todos.filter((m) => (m.nombre + ' ' + m.cedula + ' ' + m.proyecto).toLowerCase().includes(q));
+      $('mensSub').textContent = rows.length + ' de ' + todos.length + ' mensajeros activos';
+      $('mensEmpty').classList.toggle('hidden', rows.length > 0);
+      $('mensRows').innerHTML = rows.map((m) => `
+        <tr>
+          <td><b>${esc(m.nombre)}</b></td>
+          <td class="num-cell">${esc(m.cedula)}</td>
+          <td><small>${esc(m.proyecto)}</small></td>
+          <td>${esc(m.placa || '—')}</td>
+          <td class="num-cell">${fmt(m.realizadas)}</td>
+          <td class="num-cell">${fmt(m.esperadas)}</td>
+          <td>${barraMini(m.porcentaje)}</td>
+          <td class="num-cell">${m.ultimo_registro ? esc(m.ultimo_registro) : '—'}</td>
+        </tr>`).join('');
+    }
+
+    /* ================= ALERTAS ================= */
+    function renderAlerts() {
+      if (!data) return;
+      const all = data.alertas || [];
+      const q = $('alertSearch').value.toLowerCase();
+      const cuenta = (e) => all.filter((a) => a.estado === e).length;
+      const chips = [
+        ['TODOS', 'Todas', all.length],
+        ['VENCIDO', 'Vencidos', cuenta('VENCIDO')],
+        ['PRÓXIMO A VENCER', 'Próximos a vencer', cuenta('PRÓXIMO A VENCER')],
+        ['SIN FECHA', 'Sin fecha', cuenta('SIN FECHA')],
+      ];
+      $('alertChips').innerHTML = chips.map(([k, t, n]) =>
+        `<button type="button" class="chip ${alertFiltro === k ? 'active' : ''}" data-f="${esc(k)}">${t} <b>${n}</b></button>`).join('');
+      $('alertChips').querySelectorAll('[data-f]').forEach((b) =>
+        b.addEventListener('click', () => { alertFiltro = b.dataset.f; renderAlerts(); }));
+
+      const rows = all
+        .filter((a) => alertFiltro === 'TODOS' || a.estado === alertFiltro)
+        .filter((a) => Object.values(a).join(' ').toLowerCase().includes(q));
+      $('alertEmpty').classList.toggle('hidden', rows.length > 0);
+      $('alertRows').innerHTML = rows.map((a) => `
+        <tr>
+          <td><span class="badge ${a.estado === 'PRÓXIMO A VENCER' ? 'warn' : 'bad'}">${esc(a.estado)}</span></td>
+          <td><b>${esc(a.documento)}</b></td>
+          <td class="num-cell">${esc(a.fecha_vencimiento || 'Sin fecha')}</td>
+          <td class="num-cell">${a.dias_restantes == null ? '—' : a.dias_restantes}</td>
+          <td>${esc(a.nombre)}</td>
+          <td class="num-cell">${esc(a.cedula)}</td>
+          <td>${esc(a.placa_moto || '—')}</td>
+          <td><small>${esc(a.proyecto || 'Sin proyecto')}</small></td>
+        </tr>`).join('');
+    }
   </script>
 </body>
 </html>
