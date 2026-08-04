@@ -28,11 +28,11 @@
     .side-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.15);padding-top:18px;color:#bcd1c9;font-size:12px}
     .main{min-width:0}
 
-    .top{position:sticky;top:0;z-index:6;height:74px;padding:0 28px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .top{position:sticky;top:0;z-index:6;padding:10px 22px;background:#fff;border-bottom:1px solid var(--line);display:grid;grid-template-columns:auto minmax(620px,1fr) auto;align-items:end;gap:18px}
     .top h1{margin:0;font-size:21px}
     .top p{margin:2px 0 0;color:var(--muted);font-size:13px}
     .live{color:var(--green2);font-weight:800;white-space:nowrap}
-    .content{padding:0 28px 40px;max-width:1600px;margin:auto}
+    .content{padding:18px 28px 40px;max-width:1600px;margin:auto}
 
     /* Filtros fijos al hacer scroll */
     .filterbar{position:sticky;top:74px;z-index:5;padding:16px 0 12px;background:var(--bg)}
@@ -42,6 +42,11 @@
     .apply,.ghost{align-self:end;border:0;border-radius:11px;padding:11px 18px;font-weight:850;cursor:pointer;white-space:nowrap}
     .apply{background:var(--green2);color:#fff}
     .ghost{background:var(--chip);color:var(--green)}
+    .header-filters{display:grid;grid-template-columns:minmax(170px,1.5fr) minmax(130px,1fr) 82px 96px 132px auto auto;gap:7px;align-items:end}
+    .header-filters .field label{font-size:9px;margin-bottom:2px}
+    .header-filters .field select,.header-filters .field input{padding:7px 8px;border-radius:8px;font-size:12px;height:34px}
+    .header-filters .apply,.header-filters .ghost{padding:7px 10px;border-radius:8px;font-size:12px;height:34px}
+    .stack{display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px}
 
     .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:6px 0 18px}
     .kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
@@ -112,11 +117,13 @@
       .side small,.nav span,.side-foot{display:none}.nav button{text-align:center}
       .kpis{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:1fr 1fr}
       .apply,.ghost{grid-column:span 1}
+      .top{grid-template-columns:1fr auto}.header-filters{grid-column:1/-1;grid-template-columns:repeat(4,1fr)}
     }
     @media(max-width:720px){
       .layout{display:block}.side{position:static;height:auto;flex-direction:row;align-items:center;padding:12px 15px}
       .nav{margin:0 0 0 auto;display:flex}.nav button{padding:9px}
       .top{position:static;padding:0 15px;height:auto;padding-block:14px}
+      .header-filters{grid-template-columns:1fr 1fr}.live{align-self:start}
       .filterbar{position:static}.content{padding:0 15px 30px}
       .grid{grid-template-columns:1fr}.wide{grid-column:auto}.search{min-width:0;width:100%}
     }
@@ -153,22 +160,20 @@
     <main class="main">
       <header class="top">
         <div><h1 id="pageTitle">Resumen ejecutivo</h1><p id="pageSub">Control de preoperacionales y documentación</p></div>
-        <div class="live">● Datos en vivo</div>
+        <div class="header-filters">
+          <div class="field"><label>Proyecto</label><select id="project"><option value="">Todos los proyectos</option></select></div>
+          <div class="field"><label>Gestión</label><select id="formType"><option value="PREOPERACIONAL">Preoperacional</option><option value="LIMPIEZA_MOTO">Limpieza de moto</option></select></div>
+          <div class="field"><label>Año</label><select id="year"></select></div>
+          <div class="field"><label>Mes</label><select id="month"><option value="">Año</option></select></div>
+          <div class="field"><label>Día</label><input id="day" type="date"></div>
+          <button id="apply" class="apply">Actualizar</button>
+          <button id="clearDay" class="ghost" title="Quitar el filtro de día">Limpiar</button>
+        </div>
+        <div class="live">● En vivo</div>
       </header>
 
       <div class="content">
-        <div class="filterbar">
-          <div class="filters">
-            <div class="field"><label>Proyecto</label><select id="project"><option value="">Todos los proyectos</option></select></div>
-            <div class="field"><label>Gestión</label><select id="formType"><option value="PREOPERACIONAL">Preoperacional</option><option value="LIMPIEZA_MOTO">Limpieza de moto</option></select></div>
-            <div class="field"><label>Año</label><select id="year"></select></div>
-            <div class="field"><label>Mes</label><select id="month"><option value="">Todo el año</option></select></div>
-            <div class="field"><label>Día</label><input id="day" type="date"></div>
-            <button id="apply" class="apply">Actualizar</button>
-            <button id="clearDay" class="ghost" title="Quitar el filtro de día">Limpiar día</button>
-          </div>
-          <div id="status" class="status" style="margin-top:10px"></div>
-        </div>
+        <div id="status" class="status hidden"></div>
 
         <!-- ================= RESUMEN ================= -->
         <section id="resumen" class="section active">
@@ -204,9 +209,9 @@
             </div>
           </article>
 
-          <div class="grid" style="margin-top:16px">
+          <div class="stack">
             <article class="card">
-              <div class="card-head"><div><h2>🏆 Más juiciosos</h2><p>Mejor cumplimiento del periodo</p></div></div>
+              <div class="card-head"><div><h2>🏆 Mayor cumplimiento individual</h2><p>Mejor desempeño registrado en el periodo</p></div></div>
               <div class="card-body"><div class="table-wrap" style="max-height:none">
                 <table style="min-width:520px"><thead><tr><th>#</th><th>Mensajero</th><th>Proyecto</th><th>Reg.</th><th>Cumpl.</th></tr></thead><tbody id="topRows"></tbody></table>
               </div></div>
@@ -322,16 +327,14 @@
           dia: $('day').value, proyecto: $('project').value,
         });
         render();
-        const f = data.filtros || {};
-        const periodo = f.dia ? ('día ' + f.dia) : (f.desde + ' a ' + f.hasta);
-        setStatus('Gestión: ' + $('formType').selectedOptions[0].text + ' · periodo: ' + periodo + ' · actualizado ' + (data.actualizado || 'ahora'));
+        setStatus('');
       } catch (e) {
         if (/sesion|coordinador|autorizado|permission|jwt|expired/i.test(e.message)) { sessionStorage.removeItem('hsq_coord_token'); $('gate').classList.remove('hidden'); $('loginMsg').textContent='Tu sesión venció. Ingresa nuevamente para continuar.'; }
         else setStatus(e.message, true);
       }
     }
 
-    function setStatus(t, bad) { $('status').textContent = t; $('status').className = 'status' + (bad ? ' error' : ''); }
+    function setStatus(t, bad) { $('status').textContent = t; $('status').className = 'status' + (bad ? ' error' : '') + (!t ? ' hidden' : ''); }
     function fmt(v) { return Number(v || 0).toLocaleString('es-CO'); }
     function pct(v) { return Number(v || 0).toFixed(1) + '%'; }
     function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
