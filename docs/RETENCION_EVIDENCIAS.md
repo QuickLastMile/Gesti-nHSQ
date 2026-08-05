@@ -13,9 +13,8 @@ La tarea `Retención de evidencias HSEQ` se ejecuta diariamente a las 03:15, hor
 
 También puede ejecutarse manualmente desde GitHub Actions en modo de simulación. La simulación informa cuántos archivos cumplen las condiciones, pero no elimina nada.
 
-La credencial `SUPABASE_SERVICE_ROLE_KEY` debe existir únicamente como secreto de GitHub Actions. Nunca debe guardarse en el repositorio ni en el código público.
+La credencial `SUPABASE_SECRET_KEY` debe existir únicamente como secreto de GitHub Actions. Nunca debe guardarse en el repositorio ni en el código público.
 
 ## Recuperación y revisión
 
 La eliminación de archivos de Storage no forma parte de las copias de seguridad de la base de datos. Por eso, cualquier cambio del periodo de 365 días debe ser aprobado previamente por HSEQ y por el responsable de protección de datos.
-

@@ -130,7 +130,8 @@ async function deleteRows(base, key, ids) {
 
 async function main() {
   const base = required('SUPABASE_URL');
-  const key = required('SUPABASE_SERVICE_ROLE_KEY');
+  const key = String(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  if (!key) throw new Error('Falta la variable SUPABASE_SECRET_KEY.');
   const retentionDays = Math.max(1, Number(process.env.EVIDENCE_RETENTION_DAYS || 365));
   const dryRun = String(process.env.CLEANUP_DRY_RUN || 'true').toLowerCase() !== 'false';
   const cutoff = new Date(Date.now() - retentionDays * 86400000).toISOString();
@@ -177,4 +178,3 @@ async function main() {
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1].replace(/\\/g, '/')}`).href) {
   main().catch((error) => { console.error(error); process.exitCode = 1; });
 }
-
