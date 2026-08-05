@@ -348,7 +348,12 @@
     }
 
     function detallesAlerta(texto) {
-      return String(texto || '').split(/\s*\|\s*/).map((s) => s.trim()).filter(Boolean).map((detalle) => {
+      const vistos = new Set();
+      return String(texto || '').split(/\s*\|\s*/).map((s) => s.trim()).filter((detalle) => {
+        const clave = detalle.toLocaleLowerCase('es');
+        if (!detalle || vistos.has(clave)) return false;
+        vistos.add(clave); return true;
+      }).map((detalle) => {
         if (/^(SOAT|Tecnomec[aá]nica|Licencia)\b/i.test(detalle)) return { tipo: 'Documento', novedad: detalle };
         if (/^Respuesta de alerta\s*:/i.test(detalle)) {
           return { tipo: 'Respuesta de alerta', novedad: detalle.replace(/^Respuesta de alerta\s*:\s*/i, '') };
