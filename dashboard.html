@@ -93,6 +93,7 @@
     .trend{display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:3px 7px;border-radius:999px;font-size:10.5px;font-weight:800;background:#e9efec;color:var(--muted)}
     .trend.up{background:#dff3e9;color:#0a6b48}.trend.down{background:#fde7e7;color:#a32d35}.trend.good-down{background:#dff3e9;color:#0a6b48}.trend.bad-up{background:#fde7e7;color:#a32d35}
     .failure-name{font-weight:750;max-width:520px}.failure-project{color:var(--muted);font-size:11px}.failure-bar{height:7px;min-width:90px;border-radius:999px;background:#e5eeea;overflow:hidden}.failure-bar i{display:block;height:100%;background:var(--bad);border-radius:999px}
+    .people-legend{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}.people-item{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;color:var(--muted);font-size:11px}.people-item span{display:flex;align-items:center;gap:7px}.people-item i{width:10px;height:10px;border-radius:3px}.people-item b{color:var(--text);font-size:13px}.people-note{margin-top:8px;color:var(--faint);font-size:10.5px}
 
     /* ---------- Tarjetas ---------- */
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:16px}
@@ -268,6 +269,10 @@
             <article class="card">
               <div class="card-head"><div><h2>Volumen por proyecto</h2><p>Los 8 proyectos con más registros en el periodo.</p></div></div>
               <div class="card-body"><div class="canvas-wrap"><canvas id="cProjects"></canvas></div></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><h2>Cumplimiento por colaboradores</h2><p>Cuenta mensajeros únicos, no formularios. Separa quién está al día, parcial o sin diligenciar.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap" style="height:220px"><canvas id="cPeople"></canvas></div><div id="peopleLegend" class="people-legend"></div><div id="peopleNote" class="people-note"></div></div>
             </article>
           </div>
           <article class="card" style="margin-top:16px">
@@ -541,10 +546,32 @@
       barrasH('cProjects', (data.por_proyecto || []).slice().sort((a, b) => b.realizadas - a.realizadas).slice(0, 8),
         (d) => d.proyecto, (d) => d.realizadas, C.verde,
         (d) => [fmt(d.realizadas) + ' registros', pct(d.porcentaje) + ' de cumplimiento']);
+      donaMensajeros();
       barras('cDow', (data.por_dia_semana || []), (d) => DOW[d.dow - 1].slice(0, 3), (d) => d.realizadas, C.lima,
         (d) => [fmt(d.realizadas) + ' registros', 'en ' + fmt(d.dias) + ' día(s)']);
       barras('cHour', (data.por_hora || []), (d) => String(d.hora).padStart(2, '0') + 'h', (d) => d.realizadas, C.verde,
         (d) => [fmt(d.realizadas) + ' registros', 'entre ' + String(d.hora).padStart(2, '0') + ':00 y ' + String(d.hora).padStart(2, '0') + ':59']);
+    }
+
+    function donaMensajeros() {
+      const ms = data.mensajeros || [];
+      const alDia = ms.filter((m) => Number(m.esperadas)>0 && Number(m.realizadas)>=Number(m.esperadas)).length;
+      const parcial = ms.filter((m) => Number(m.esperadas)>0 && Number(m.realizadas)>0 && Number(m.realizadas)<Number(m.esperadas)).length;
+      const sin = ms.filter((m) => Number(m.esperadas)>0 && Number(m.realizadas)===0).length;
+      const noExig = ms.filter((m) => Number(m.esperadas)===0).length;
+      const grupos = [
+        {n:'Al día',v:alDia,c:C.ok},{n:'Cumplimiento parcial',v:parcial,c:C.warn},{n:'Sin diligenciar',v:sin,c:C.bad}
+      ];
+      const total = alDia + parcial + sin, p = prep('cPeople'); if (!p) return;
+      const {x,w,h}=p, cx=w/2,cy=h/2,r=Math.min(w,h)*.35,ri=r*.58;
+      if (!total) { sinDatos(x,w,h); }
+      else {
+        let a=-Math.PI/2;
+        grupos.forEach((g)=>{const fin=a+Math.PI*2*g.v/total;x.beginPath();x.arc(cx,cy,r,a,fin);x.arc(cx,cy,ri,fin,a,true);x.closePath();x.fillStyle=g.c;x.fill();a=fin});
+        x.textAlign='center';x.fillStyle='#17352b';x.font='800 28px "Segoe UI"';x.fillText(fmt(total),cx,cy-2);x.fillStyle='#73867f';x.font='11px "Segoe UI"';x.fillText('mensajeros exigibles',cx,cy+18);x.textAlign='left';
+      }
+      $('peopleLegend').innerHTML=grupos.map((g)=>`<div class="people-item"><span><i style="background:${g.c}"></i>${g.n}</span><b>${fmt(g.v)} · ${total?pct(g.v*100/total):'0.0%'}</b></div>`).join('');
+      $('peopleNote').textContent=noExig?fmt(noExig)+' mensajero(s) no eran exigibles en el periodo por calendario o justificación.':'';
     }
 
     function base(id) {
