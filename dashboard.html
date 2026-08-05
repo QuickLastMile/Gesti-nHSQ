@@ -273,7 +273,7 @@
         <section id="cumplimiento" class="section">
           <article class="card">
             <div class="card-head"><div><h2>Cumplimiento por proyecto</h2>
-              <p><b>Esperados</b> = mensajeros activos × días del periodo × formularios obligatorios. El porcentaje indica cuánto de eso se cumplió.</p></div></div>
+              <p><b>Esperados</b> = solo los días que cada proyecto realmente labora (según su calendario), sin festivos si no opera en ellos, y descontando las ausencias ya justificadas.</p></div></div>
             <div class="card-body"><div class="tbl-wrap">
               <table><thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th></tr></thead>
               <tbody id="projRows"></tbody></table>
@@ -471,7 +471,8 @@
       $('kDone').textContent = fmt(r.realizadas);
       $('kRate').textContent = pct(r.porcentaje);
       $('kRate').style.color = colorPct(r.porcentaje);
-      $('kRateSub').textContent = `${fmt(r.realizadas)} de ${fmt(r.esperadas)} esperados`;
+      $('kRateSub').textContent = `${fmt(r.realizadas)} de ${fmt(r.esperadas)} esperados`
+        + (r.justificados ? ` · ${fmt(r.justificados)} justificación(es) descontadas` : '');
       $('kMiss').textContent = fmt(r.no_realizadas);
       $('kAlert').textContent = fmt(r.con_alerta);
       pintarGraficas(); pintarFormularios(); pintarProyectos();

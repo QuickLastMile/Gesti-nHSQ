@@ -110,6 +110,8 @@ begin
     when 'listar'             then result := admin_listar(payload);
     when 'proyectos'          then result := admin_proyectos();
     when 'guardarColaborador' then result := admin_guardar_colaborador(payload);
+    when 'calendario'         then result := admin_calendario();
+    when 'guardarCalendario'  then result := admin_guardar_calendario(payload);
     else raise exception 'Accion no reconocida: %', action;
   end case;
   return jsonb_build_object('ok', true, 'result', result);

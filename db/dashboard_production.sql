@@ -45,13 +45,24 @@ begin
    where r.fecha between desde and hasta and coalesce(r.estado,'') <> 'ANULADO'
      and (form_f='' or r.formulario_id=form_f)
      and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy);
-  esperadas := activos::bigint * ndias * nforms;
+
+  -- Dias realmente exigibles: respeta el calendario de cada proyecto
+  -- (dias laborales y festivos) y descuenta las justificaciones.
+  drop table if exists tmp_dias;
+  create temporary table tmp_dias on commit drop as
+    select * from dias_exigibles(desde, hasta, proy);
+
+  select coalesce(sum(dias),0)::bigint * nforms into esperadas from tmp_dias;
 
   return jsonb_build_object(
     'filtros',jsonb_build_object('anio',anio_f,'mes',mes_f,'dia',dia_f,'proyecto',proy,'formulario',form_f,
       'desde',desde,'hasta',hasta,'dias',ndias),
     'resumen',jsonb_build_object(
       'activos',activos,'realizadas',realizadas,'esperadas',esperadas,
+      -- Trazabilidad del calculo: dias-persona exigibles y cuantos se justificaron.
+      'dias_persona',(select coalesce(sum(dias),0) from tmp_dias),
+      'justificados',(select count(*) from justificaciones j
+         where j.fecha_inicio <= hasta and coalesce(j.fecha_fin,j.fecha_inicio) >= desde),
       'no_realizadas',greatest(esperadas-realizadas,0),
       'porcentaje',case when esperadas>0 then round(realizadas::numeric*1000/esperadas)/10 else 0 end,
       'con_alerta',(select count(*) from registros r where r.fecha between desde and hasta
@@ -98,11 +109,10 @@ begin
              case when p.esperadas>0
                   then round(coalesce(reg.realizadas,0)::numeric*1000/p.esperadas)/10 else 0 end porcentaje
       from (
-        select coalesce(c.proyecto,'Sin proyecto') proyecto, count(*) activos,
-               count(*)::bigint * ndias * nforms esperadas
-        from colaboradores c
-        where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
-        group by coalesce(c.proyecto,'Sin proyecto')
+        -- Esperadas segun el calendario del proyecto y sin dias justificados.
+        select t.proyecto, count(*) activos, sum(t.dias)::bigint * nforms esperadas
+        from tmp_dias t
+        group by t.proyecto
       ) p
       left join (
         select coalesce(r.proyecto,'Sin proyecto') proyecto, count(*) realizadas,
@@ -120,12 +130,13 @@ begin
       select c.cedula, coalesce(c.nombre,'') nombre, coalesce(c.proyecto,'Sin proyecto') proyecto,
              coalesce(c.placa_moto,'') placa,
              coalesce(reg.realizadas,0) realizadas,
-             (ndias*nforms)::bigint esperadas,
+             (coalesce(td.dias,0)*nforms)::bigint esperadas,
              coalesce(reg.con_alerta,0) con_alerta,
              coalesce(reg.ultimo,null) ultimo_registro,
-             case when ndias*nforms>0
-                  then round(coalesce(reg.realizadas,0)::numeric*1000/(ndias*nforms))/10 else 0 end porcentaje
+             case when coalesce(td.dias,0)*nforms>0
+                  then round(coalesce(reg.realizadas,0)::numeric*1000/(td.dias*nforms))/10 else 0 end porcentaje
       from colaboradores c
+      left join tmp_dias td on td.cedula = c.cedula
       left join (
         select regexp_replace(r.cedula,'\D','','g') ced, count(*) realizadas,
                count(*) filter(where coalesce(r.alertas,'')<>'') con_alerta,
@@ -142,9 +153,10 @@ begin
     'por_formulario',coalesce((select jsonb_agg(x order by x.nombre) from (
       select f.id, f.nombre,
              coalesce(reg.realizadas,0) realizadas,
-             (activos::bigint * ndias) esperadas,
-             case when activos*ndias>0
-                  then round(coalesce(reg.realizadas,0)::numeric*1000/(activos::bigint*ndias))/10 else 0 end porcentaje
+             (select coalesce(sum(dias),0) from tmp_dias)::bigint esperadas,
+             case when (select coalesce(sum(dias),0) from tmp_dias)>0
+                  then round(coalesce(reg.realizadas,0)::numeric*1000/(select sum(dias) from tmp_dias))/10
+                  else 0 end porcentaje
       from formularios f
       left join (
         select r.formulario_id, count(*) realizadas
