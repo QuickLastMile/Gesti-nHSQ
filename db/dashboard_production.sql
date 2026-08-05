@@ -55,9 +55,16 @@ begin
 
   -- Dias realmente exigibles: respeta el calendario de cada proyecto
   -- (dias laborales y festivos) y descuenta las justificaciones.
+  drop table if exists tmp_calendario;
+  create temporary table tmp_calendario on commit drop as
+    select * from dias_calendario_colaborador(desde, hasta, proy);
+
   drop table if exists tmp_dias;
   create temporary table tmp_dias on commit drop as
-    select * from dias_exigibles(desde, hasta, proy);
+    select cedula, proyecto, count(*)::int dias
+    from tmp_calendario
+    where not justificado
+    group by cedula, proyecto;
 
   select coalesce(sum(dias),0)::bigint * nforms into esperadas from tmp_dias;
 
@@ -167,6 +174,12 @@ begin
              coalesce(c.placa_moto,'') placa,
              coalesce(reg.realizadas,0) realizadas,
              (coalesce(td.dias,0)*nforms)::bigint esperadas,
+             coalesce(reg_dias.dias_diligenciados,0)::int dias_diligenciados,
+             coalesce(td.dias,0)::int dias_exigibles,
+             coalesce(jus.dias_justificados,0)::int dias_justificados,
+             case when coalesce(td.dias,0)>0
+                  then least(round(coalesce(reg_dias.dias_diligenciados,0)::numeric*1000/td.dias)/10,100)
+                  else null end porcentaje_dias,
              coalesce(reg.con_alerta,0) con_alerta,
              coalesce(reg.ultimo,null) ultimo_registro,
              case when coalesce(td.dias,0)*nforms>0
@@ -182,6 +195,27 @@ begin
           and (form_f='' or r.formulario_id=form_f)
         group by regexp_replace(r.cedula,'\D','','g')
       ) reg on reg.ced = regexp_replace(c.cedula,'\D','','g')
+      left join (
+        select z.ced, count(*)::int dias_diligenciados
+        from (
+          select regexp_replace(r.cedula,'\D','','g') ced, r.fecha
+          from registros r
+          join tmp_calendario tc
+            on regexp_replace(tc.cedula,'\D','','g') = regexp_replace(r.cedula,'\D','','g')
+           and tc.fecha = r.fecha and not tc.justificado
+          where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+            and (form_f='' or r.formulario_id=form_f)
+          group by regexp_replace(r.cedula,'\D','','g'), r.fecha
+          having count(distinct r.formulario_id) >= nforms
+        ) z
+        group by z.ced
+      ) reg_dias on reg_dias.ced = regexp_replace(c.cedula,'\D','','g')
+      left join (
+        select regexp_replace(tc.cedula,'\D','','g') ced,
+               count(*) filter (where tc.justificado)::int dias_justificados
+        from tmp_calendario tc
+        group by regexp_replace(tc.cedula,'\D','','g')
+      ) jus on jus.ced = regexp_replace(c.cedula,'\D','','g')
       where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
     ) x),'[]'::jsonb),
 

@@ -321,10 +321,10 @@
           </div>
 
           <article class="card">
-            <div class="card-head"><div><h2>Detalle por mensajero</h2><p id="mSub">Todos los activos del filtro</p></div>
+            <div class="card-head"><div><h2>Cumplimiento por días y mensajero</h2><p id="mSub">Todos los activos del filtro</p></div>
               <input id="mSearch" class="search" placeholder="Buscar nombre, cédula o proyecto"></div>
             <div class="card-body"><div class="tbl-wrap">
-              <table><thead><tr><th>Mensajero</th><th>Proyecto</th><th>Placa</th><th>Hechos</th><th>Esperados</th><th>Cumplimiento</th><th>Último registro</th></tr></thead>
+              <table><thead><tr><th>Nombre</th><th>CC</th><th>Proyecto</th><th>Días diligenciados</th><th>Días exigibles</th><th>Justificados</th><th>Cumplimiento</th></tr></thead>
               <tbody id="mRows"></tbody></table>
               <div id="mEmpty" class="empty hidden">Sin resultados para esta búsqueda.</div>
             </div></div>
@@ -756,14 +756,14 @@
       if (!data) return;
       const q = $('mSearch').value.toLowerCase(), todos = data.mensajeros || [];
       const rows = todos.filter((m) => (m.nombre + ' ' + m.cedula + ' ' + m.proyecto).toLowerCase().includes(q));
-      $('mSub').textContent = `${rows.length} de ${todos.length} mensajeros activos`;
+      $('mSub').textContent = `${rows.length} de ${todos.length} activos · los días justificados se muestran aparte y no reducen el cumplimiento`;
       $('mEmpty').classList.toggle('hidden', rows.length > 0);
       $('mRows').innerHTML = rows.map((m) => `
-        <tr><td><div class="t-name">${esc(m.nombre)}</div><div class="t-sub tnum">CC ${esc(m.cedula)}</div></td>
-        <td class="t-sub">${esc(m.proyecto)}</td><td>${esc(m.placa || '—')}</td>
-        <td class="tnum">${fmt(m.realizadas)}</td><td class="tnum">${fmt(m.esperadas)}</td>
-        <td>${barra(m.porcentaje)}</td>
-        <td class="tnum">${m.ultimo_registro ? esc(m.ultimo_registro) : '<span class="badge bad">Nunca</span>'}</td></tr>`).join('');
+        <tr><td class="t-name">${esc(m.nombre)}</td><td class="tnum">${esc(m.cedula)}</td>
+        <td class="t-sub">${esc(m.proyecto)}</td>
+        <td class="tnum">${fmt(m.dias_diligenciados)}</td><td class="tnum">${fmt(m.dias_exigibles)}</td>
+        <td class="tnum">${fmt(m.dias_justificados)}</td>
+        <td>${m.porcentaje_dias == null ? '<span class="badge">No exigible</span>' : barra(m.porcentaje_dias)}</td></tr>`).join('');
     }
 
     function pintarInactividad() {
@@ -860,8 +860,8 @@
         (data.por_proyecto || []).map((p) => [p.proyecto,p.activos,p.realizadas,p.esperadas,p.no_realizadas,pct(p.porcentaje),pct(p.meta),String(p.estado || '').replaceAll('_',' '),p.con_alerta])
       ), 'Proyectos');
       XLSX.utils.book_append_sheet(wb, crearHoja(
-        ['Cédula','Colaborador','Proyecto','Placa','Realizados','Esperados ajustados','Cumplimiento','Alertas','Último registro'],
-        (data.mensajeros || []).map((m) => [m.cedula,m.nombre,m.proyecto,m.placa || '',m.realizadas,m.esperadas,pct(m.porcentaje),m.con_alerta,m.ultimo_registro || ''])
+        ['Cédula','Colaborador','Proyecto','Días diligenciados','Días exigibles','Días justificados','Cumplimiento por días','Registros realizados','Registros esperados','Cumplimiento por registros','Alertas','Último registro'],
+        (data.mensajeros || []).map((m) => [m.cedula,m.nombre,m.proyecto,m.dias_diligenciados,m.dias_exigibles,m.dias_justificados,m.porcentaje_dias == null ? 'No exigible' : pct(m.porcentaje_dias),m.realizadas,m.esperadas,pct(m.porcentaje),m.con_alerta,m.ultimo_registro || ''])
       ), 'Mensajeros');
       XLSX.utils.book_append_sheet(wb, crearHoja(
         ['Falla','Sección','Proyecto','Reportes','Colaboradores','Última fecha','Porcentaje'],

@@ -104,6 +104,50 @@ language sql stable security definer set search_path = public as $$
   group by c.cedula, c.proyecto;
 $$;
 
+-- Detalle diario del calendario de cada colaborador. Conserva los dias
+-- justificados para poder mostrarlos por separado en el dashboard, pero
+-- permite excluirlos del total exigible.
+create or replace function dias_calendario_colaborador(desde date, hasta date, proy text default '')
+returns table(cedula text, proyecto text, fecha date, justificado boolean)
+language sql stable security definer set search_path = public as $$
+  with defecto as (
+    select
+      coalesce((select string_to_array(valor,',')::smallint[] from config where clave='CAL_DIAS_DEFECTO'),
+               '{1,2,3,4,5,6}'::smallint[]) as dias_def,
+      coalesce((select valor='true' from config where clave='CAL_FESTIVOS_DEFECTO'), false) as fest_def
+  ),
+  activos as (
+    select c.cedula, regexp_replace(c.cedula,'\D','','g') ced_n,
+           coalesce(c.proyecto,'Sin proyecto') proyecto
+    from colaboradores c
+    where c.activo
+      and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
+  ),
+  cal as (
+    select a.cedula, a.ced_n, a.proyecto,
+           coalesce(pc.dias_laborales, d.dias_def) dias_lab,
+           coalesce(pc.labora_festivos, d.fest_def) fest
+    from activos a
+    cross join defecto d
+    left join proyectos_calendario pc on pc.proyecto = a.proyecto
+  ),
+  fechas as (
+    select g::date f, extract(isodow from g)::smallint dow
+    from generate_series(desde, hasta, interval '1 day') g
+  )
+  select c.cedula, c.proyecto, f.f,
+         exists (
+           select 1 from justificaciones j
+           where regexp_replace(j.cedula,'\D','','g') = c.ced_n
+             and f.f between coalesce(j.fecha_inicio, j.fecha)
+                         and coalesce(j.fecha_fin, j.fecha)
+         ) as justificado
+  from cal c
+  join fechas f on f.dow = any(c.dias_lab)
+  where c.fest
+     or not exists (select 1 from festivos x where x.fecha = f.f);
+$$;
+
 -- ------------------------------------------------------------
 --  4) Lectura y edicion del calendario (solo HSQ autenticado)
 -- ------------------------------------------------------------
@@ -159,5 +203,7 @@ $$;
 
 revoke all on function dias_exigibles(date,date,text) from public, anon;
 grant execute on function dias_exigibles(date,date,text) to authenticated;
+revoke all on function dias_calendario_colaborador(date,date,text) from public, anon;
+grant execute on function dias_calendario_colaborador(date,date,text) to authenticated;
 revoke all on function admin_calendario() from public, anon;
 revoke all on function admin_guardar_calendario(jsonb) from public, anon;
