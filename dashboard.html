@@ -132,6 +132,24 @@
     .card-body{padding:16px 18px}
     .canvas-wrap{height:270px;position:relative}
     .canvas-wrap canvas{width:100%;height:100%;display:block}
+    .card.zoomable .canvas-wrap canvas{cursor:zoom-in}
+    .focus-btn{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;margin-left:auto;border:1px solid var(--line-2);
+      border-radius:9px;background:var(--surface);color:var(--green-2);cursor:pointer;transition:.15s}
+    .focus-btn:hover{background:var(--green-2);border-color:var(--green-2);color:#fff;transform:translateY(-1px)}
+    .focus-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .focus-btn .compress{display:none}
+    .focus-backdrop{position:fixed;inset:0;z-index:85;background:rgba(3,25,19,.76);backdrop-filter:blur(3px)}
+    body.focus-open{overflow:hidden}
+    .card.focused{position:fixed;inset:22px;z-index:90;margin:0!important;display:flex;flex-direction:column;
+      border-color:#b7cec5;box-shadow:0 28px 80px rgba(0,0,0,.32);animation:focusIn .18s ease}
+    .card.focused .card-head{flex:0 0 auto;background:var(--surface)}
+    .card.focused .card-body{flex:1;min-height:0;overflow:auto}
+    .card.focused .canvas-wrap{height:calc(100vh - 150px);min-height:420px}
+    .card.focused .canvas-wrap canvas{cursor:default}
+    .card.focused .tbl-wrap{max-height:calc(100vh - 150px)}
+    .card.focused .focus-btn .expand{display:none}
+    .card.focused .focus-btn .compress{display:block}
+    @keyframes focusIn{from{opacity:.6;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
     .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--muted)}
     .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 
@@ -215,6 +233,9 @@
       .canvas-wrap{height:230px}
       .search{min-width:0;width:100%}
       .tbl-wrap{max-height:none}
+      .card.focused{inset:8px}
+      .card.focused .canvas-wrap{height:calc(100vh - 125px);min-height:300px}
+      .card.focused .tbl-wrap{max-height:calc(100vh - 125px)}
     }
   </style>
 </head>
@@ -232,6 +253,7 @@
   </div>
 
   <div id="tip" class="tip"></div>
+  <div id="focusBackdrop" class="focus-backdrop hidden" aria-hidden="true"></div>
 
   <div class="layout">
     <aside class="side">
@@ -421,12 +443,14 @@
     const DOW = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
     const C = { verde:'#12875f', oscuro:'#07382b', lima:'#7f9e1f', ok:'#0f7a4d', warn:'#b57611', bad:'#b83a33' };
     let data = null, docFiltro = 'TODOS';
+    let focusedCard = null, focusReturn = null;
 
     const layout = document.querySelector('.layout');
     const sideToggle = $('sideToggle');
     let sideCollapsed = false;
     try { sideCollapsed = localStorage.getItem('hseq_sidebar_collapsed') === '1'; } catch (_) {}
     actualizarMenuLateral(sideCollapsed, false);
+    habilitarEnfoque();
 
     initFiltros();
     arrancar();
@@ -444,6 +468,8 @@
     $('docSearch').addEventListener('input', pintarDocs);
     $('mSearch').addEventListener('input', pintarMensajeros);
     $('opSearch').addEventListener('input', pintarNovedades);
+    $('focusBackdrop').addEventListener('click', cerrarEnfoque);
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && focusedCard) cerrarEnfoque(); });
     sideToggle.addEventListener('click', () => actualizarMenuLateral(!layout.classList.contains('side-collapsed'), true));
     document.querySelectorAll('.nav button').forEach((b) => b.addEventListener('click', () => irA(b)));
     $('loginForm').addEventListener('submit', entrar);
@@ -457,6 +483,47 @@
       sideToggle.title = texto;
       if (guardar) { try { localStorage.setItem('hseq_sidebar_collapsed', colapsado ? '1' : '0'); } catch (_) {} }
       if (data) setTimeout(pintarGraficas, 240);
+    }
+
+    function habilitarEnfoque() {
+      document.querySelectorAll('.card').forEach((card) => {
+        if (!card.querySelector('canvas, table')) return;
+        const head = card.querySelector('.card-head');
+        if (!head) return;
+        card.classList.add('zoomable');
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'focus-btn';
+        btn.setAttribute('aria-label', 'Ampliar esta vista'); btn.title = 'Ampliar esta vista';
+        btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path class="expand" d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/><path class="compress" d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/></svg>';
+        btn.addEventListener('click', (ev) => { ev.stopPropagation(); focusedCard === card ? cerrarEnfoque() : abrirEnfoque(card, btn); });
+        head.appendChild(btn);
+        const canvas = card.querySelector('canvas');
+        if (canvas) canvas.addEventListener('click', () => { if (focusedCard !== card) abrirEnfoque(card, btn); });
+      });
+    }
+
+    function abrirEnfoque(card, trigger) {
+      if (focusedCard) cerrarEnfoque(false);
+      focusedCard = card; focusReturn = trigger;
+      card.classList.add('focused');
+      card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+      $('focusBackdrop').classList.remove('hidden');
+      $('focusBackdrop').setAttribute('aria-hidden', 'false');
+      document.body.classList.add('focus-open');
+      trigger.setAttribute('aria-label', 'Cerrar vista ampliada'); trigger.title = 'Cerrar vista ampliada';
+      setTimeout(() => { if (data) pintarGraficas(); trigger.focus(); }, 200);
+    }
+
+    function cerrarEnfoque(devolverFoco = true) {
+      if (!focusedCard) return;
+      const card = focusedCard, trigger = focusReturn;
+      card.classList.remove('focused'); card.removeAttribute('role'); card.removeAttribute('aria-modal');
+      $('focusBackdrop').classList.add('hidden');
+      $('focusBackdrop').setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('focus-open');
+      if (trigger) { trigger.setAttribute('aria-label', 'Ampliar esta vista'); trigger.title = 'Ampliar esta vista'; }
+      focusedCard = null; focusReturn = null;
+      setTimeout(() => { if (data) pintarGraficas(); if (devolverFoco && trigger) trigger.focus(); }, 200);
     }
 
     function initFiltros() {
