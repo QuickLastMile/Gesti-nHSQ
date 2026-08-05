@@ -20,6 +20,11 @@ declare
   activos int;
   realizadas bigint;
   esperadas bigint;
+  prev_desde date;
+  prev_hasta date;
+  prev_realizadas bigint;
+  prev_esperadas bigint;
+  prev_alertas bigint;
   meta_def numeric;
 begin
   select coalesce((select valor::numeric from config where clave='META_DEFECTO'), 90) into meta_def;
@@ -56,6 +61,21 @@ begin
 
   select coalesce(sum(dias),0)::bigint * nforms into esperadas from tmp_dias;
 
+  -- Periodo inmediatamente anterior, con la misma cantidad de dias y las
+  -- mismas reglas de calendario, festivos y justificaciones.
+  prev_hasta := desde - 1;
+  prev_desde := prev_hasta - greatest(ndias - 1, 0);
+  select count(*) into prev_realizadas from registros r
+   where r.fecha between prev_desde and prev_hasta and coalesce(r.estado,'') <> 'ANULADO'
+     and (form_f='' or r.formulario_id=form_f)
+     and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy);
+  select coalesce(sum(dias),0)::bigint * nforms into prev_esperadas
+    from dias_exigibles(prev_desde, prev_hasta, proy);
+  select count(*) into prev_alertas from registros r
+   where r.fecha between prev_desde and prev_hasta and coalesce(r.estado,'') <> 'ANULADO'
+     and coalesce(r.alertas,'')<>'' and (form_f='' or r.formulario_id=form_f)
+     and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy);
+
   return jsonb_build_object(
     'filtros',jsonb_build_object('anio',anio_f,'mes',mes_f,'dia',dia_f,'proyecto',proy,'formulario',form_f,
       'desde',desde,'hasta',hasta,'dias',ndias),
@@ -66,6 +86,12 @@ begin
       'meta',meta_def,
       'justificados',(select count(*) from justificaciones j
          where j.fecha_inicio <= hasta and coalesce(j.fecha_fin,j.fecha_inicio) >= desde),
+      'anterior',jsonb_build_object(
+        'desde',prev_desde,'hasta',prev_hasta,'activos',activos,
+        'realizadas',prev_realizadas,'esperadas',prev_esperadas,
+        'no_realizadas',greatest(prev_esperadas-prev_realizadas,0),
+        'porcentaje',case when prev_esperadas>0 then round(prev_realizadas::numeric*1000/prev_esperadas)/10 else 0 end,
+        'con_alerta',prev_alertas),
       'no_realizadas',greatest(esperadas-realizadas,0),
       'porcentaje',case when esperadas>0 then round(realizadas::numeric*1000/esperadas)/10 else 0 end,
       'con_alerta',(select count(*) from registros r where r.fecha between desde and hasta
@@ -224,6 +250,27 @@ begin
         and coalesce(r.alertas,'')<>''
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       limit 300
+    ) x),'[]'::jsonb),
+
+    -- Fallas marcadas según la respuesta de alerta configurada en cada pregunta.
+    -- Se agrupan por componente y proyecto para orientar acciones preventivas.
+    'top_fallas',coalesce((select jsonb_agg(x order by x.cantidad desc, x.pregunta, x.proyecto) from (
+      select p.id pregunta_id, coalesce(p.seccion,'Sin sección') seccion, p.pregunta,
+             coalesce(r.proyecto,'Sin proyecto') proyecto, count(*) cantidad,
+             count(distinct regexp_replace(r.cedula,'\D','','g')) mensajeros,
+             max(r.fecha) ultima_fecha,
+             case when realizadas>0 then round(count(*)::numeric*1000/realizadas)/10 else 0 end porcentaje
+      from respuestas rs
+      join registros r on r.id=rs.registro_id
+      join preguntas p on p.id=rs.pregunta_id
+      where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and (form_f='' or r.formulario_id=form_f)
+        and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
+        and nullif(btrim(coalesce(p.respuesta_alerta,'')),'') is not null
+        and upper(btrim(coalesce(rs.valor,'')))=upper(btrim(p.respuesta_alerta))
+      group by p.id,p.seccion,p.pregunta,coalesce(r.proyecto,'Sin proyecto')
+      order by count(*) desc
+      limit 20
     ) x),'[]'::jsonb),
 
     'alertas',coalesce((select jsonb_agg(x order by x.prioridad,x.dias_restantes,x.proyecto,x.nombre) from (

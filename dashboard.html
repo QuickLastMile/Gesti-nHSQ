@@ -90,6 +90,9 @@
       letter-spacing:.8px;text-transform:uppercase;padding:4px 9px;border-radius:6px}
     .kpi .num{font-size:30px;font-weight:800;letter-spacing:-1.2px;margin:11px 0 3px;line-height:1}
     .kpi .sub{color:var(--faint);font-size:11.5px;line-height:1.45}
+    .trend{display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:3px 7px;border-radius:999px;font-size:10.5px;font-weight:800;background:#e9efec;color:var(--muted)}
+    .trend.up{background:#dff3e9;color:#0a6b48}.trend.down{background:#fde7e7;color:#a32d35}.trend.good-down{background:#dff3e9;color:#0a6b48}.trend.bad-up{background:#fde7e7;color:#a32d35}
+    .failure-name{font-weight:750;max-width:520px}.failure-project{color:var(--muted);font-size:11px}.failure-bar{height:7px;min-width:90px;border-radius:999px;background:#e5eeea;overflow:hidden}.failure-bar i{display:block;height:100%;background:var(--bad);border-radius:999px}
 
     /* ---------- Tarjetas ---------- */
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:16px}
@@ -240,11 +243,11 @@
         <!-- ============ RESUMEN ============ -->
         <section id="resumen" class="section active">
           <div class="kpis">
-            <div class="kpi"><span class="cap">Mensajeros activos</span><div id="kActive" class="num tnum">—</div><div class="sub">Habilitados para registrar en el filtro actual</div></div>
-            <div class="kpi"><span class="cap">Registros hechos</span><div id="kDone" class="num tnum">—</div><div class="sub">Formularios diligenciados en el periodo</div></div>
-            <div class="kpi"><span class="cap">Cumplimiento</span><div id="kRate" class="num tnum">—</div><div class="sub" id="kRateSub">Hechos frente a los esperados</div></div>
-            <div class="kpi is-warn"><span class="cap">Sin registrar</span><div id="kMiss" class="num tnum">—</div><div class="sub">Registros que se esperaban y no llegaron</div></div>
-            <div class="kpi is-bad"><span class="cap">Con novedad</span><div id="kAlert" class="num tnum">—</div><div class="sub">Registros con alerta que requieren gestión</div></div>
+            <div class="kpi"><span class="cap">Mensajeros activos</span><div id="kActive" class="num tnum">—</div><div class="sub">Habilitados para registrar en el filtro actual</div><span id="tActive" class="trend">—</span></div>
+            <div class="kpi"><span class="cap">Registros hechos</span><div id="kDone" class="num tnum">—</div><div class="sub">Formularios diligenciados en el periodo</div><span id="tDone" class="trend">—</span></div>
+            <div class="kpi"><span class="cap">Cumplimiento</span><div id="kRate" class="num tnum">—</div><div class="sub" id="kRateSub">Hechos frente a los esperados</div><span id="tRate" class="trend">—</span></div>
+            <div class="kpi is-warn"><span class="cap">Sin registrar</span><div id="kMiss" class="num tnum">—</div><div class="sub">Registros que se esperaban y no llegaron</div><span id="tMiss" class="trend">—</span></div>
+            <div class="kpi is-bad"><span class="cap">Con novedad</span><div id="kAlert" class="num tnum">—</div><div class="sub">Registros con alerta que requieren gestión</div><span id="tAlert" class="trend">—</span></div>
           </div>
 
           <div class="grid">
@@ -267,6 +270,13 @@
               <div class="card-body"><div class="canvas-wrap"><canvas id="cProjects"></canvas></div></div>
             </article>
           </div>
+          <article class="card" style="margin-top:16px">
+            <div class="card-head"><div><h2>Top de fallas reportadas</h2><p>Componentes con mayor recurrencia en el periodo seleccionado. Sirve para priorizar mantenimiento preventivo.</p></div></div>
+            <div class="card-body"><div class="tbl-wrap">
+              <table><thead><tr><th>#</th><th>Componente o falla</th><th>Sección</th><th>Proyecto</th><th>Reportes</th><th>Mensajeros</th><th>Incidencia</th><th>Último reporte</th></tr></thead>
+              <tbody id="failureRows"></tbody></table><div id="failureEmpty" class="empty hidden">No se reportaron fallas para este filtro.</div>
+            </div></div>
+          </article>
         </section>
 
         <!-- ============ CUMPLIMIENTO ============ -->
@@ -480,8 +490,45 @@
         + (r.justificados ? ` · ${fmt(r.justificados)} justificación(es) descontadas` : '');
       $('kMiss').textContent = fmt(r.no_realizadas);
       $('kAlert').textContent = fmt(r.con_alerta);
+      pintarTendencias(r);
       pintarGraficas(); pintarFormularios(); pintarProyectos();
-      pintarRankings(); pintarMensajeros(); pintarInactividad(); pintarNovedades(); pintarDocs();
+      pintarRankings(); pintarMensajeros(); pintarInactividad(); pintarNovedades(); pintarDocs(); pintarFallas();
+    }
+
+    function pintarTendencias(r) {
+      const a = r.anterior || {};
+      $('tActive').className = 'trend';
+      $('tActive').textContent = 'Base actual · sin histórico de nómina';
+      tendencia('tDone', r.realizadas, a.realizadas, false, false);
+      tendencia('tRate', r.porcentaje, a.porcentaje, false, true);
+      tendencia('tMiss', r.no_realizadas, a.no_realizadas, true, false);
+      tendencia('tAlert', r.con_alerta, a.con_alerta, true, false);
+    }
+
+    function tendencia(id, actual, anterior, inverso, puntos) {
+      const el = $(id), ac = Number(actual || 0), an = Number(anterior || 0);
+      let delta = puntos ? ac - an : (an ? (ac - an) * 100 / an : (ac ? 100 : 0));
+      const sube = delta > 0.049, baja = delta < -0.049;
+      const favorable = inverso ? baja : sube;
+      el.className = 'trend ' + (sube ? (inverso ? 'bad-up' : 'up') : baja ? (inverso ? 'good-down' : 'down') : '');
+      const flecha = sube ? '▲' : baja ? '▼' : '●';
+      const valor = Math.abs(delta).toFixed(1) + (puntos ? ' pp' : '%');
+      el.textContent = flecha + ' ' + valor + ' vs. periodo anterior';
+      el.title = 'Periodo anterior: ' + (puntos ? pct(an) : fmt(an));
+      if (!sube && !baja) el.textContent = '● Sin variación vs. periodo anterior';
+      if (favorable) el.setAttribute('aria-label','Mejora: '+el.textContent); else el.removeAttribute('aria-label');
+    }
+
+    function pintarFallas() {
+      const rows = data.top_fallas || [], max = Math.max(...rows.map((f) => Number(f.cantidad || 0)), 1);
+      $('failureEmpty').classList.toggle('hidden', rows.length > 0);
+      $('failureRows').innerHTML = rows.map((f, i) => `<tr>
+        <td><span class="rank ${i < 3 ? 'low' : ''}">${i + 1}</span></td>
+        <td><div class="failure-name">${esc(f.pregunta)}</div><small class="failure-project">${esc(f.pregunta_id)}</small></td>
+        <td>${esc(f.seccion)}</td><td><small>${esc(f.proyecto)}</small></td>
+        <td class="tnum"><b>${fmt(f.cantidad)}</b></td><td class="tnum">${fmt(f.mensajeros)}</td>
+        <td><div style="display:flex;align-items:center;gap:8px"><div class="failure-bar"><i style="width:${Math.max(4,Number(f.cantidad||0)*100/max)}%"></i></div><b>${pct(f.porcentaje)}</b></div></td>
+        <td class="tnum">${esc(f.ultima_fecha || '—')}</td></tr>`).join('');
     }
 
     /* ============ GRÁFICAS (canvas con tooltip) ============ */
