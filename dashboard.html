@@ -55,7 +55,7 @@
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
     .filterbar{padding:0 26px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
-    .filters{display:grid;grid-template-columns:minmax(190px,1.6fr) .7fr .9fr 1fr auto;gap:10px;align-items:end}
+    .filters{display:grid;grid-template-columns:minmax(170px,1.5fr) .9fr .6fr .8fr 1fr auto;gap:10px;align-items:end}
     .field label{display:block;font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;
       letter-spacing:.7px;margin:0 0 4px}
     .field select,.field input{width:100%;border:1px solid var(--line-2);border-radius:8px;padding:7px 10px;
@@ -223,6 +223,7 @@
         <div class="filterbar">
           <div class="filters">
             <div class="field"><label>Proyecto</label><select id="fProject"><option value="">Todos los proyectos</option></select></div>
+            <div class="field"><label>Formulario</label><select id="fForm"><option value="TODOS">Todos</option></select></div>
             <div class="field"><label>Año</label><select id="fYear"></select></div>
             <div class="field"><label>Mes</label><select id="fMonth"><option value="">Todo el año</option></select></div>
             <div class="field"><label>Día específico</label><input id="fDay" type="date"></div>
@@ -372,7 +373,7 @@
 
     $('btnApply').addEventListener('click', cargar);
     $('btnClear').addEventListener('click', () => {
-      $('fProject').value = ''; $('fDay').value = '';
+      $('fProject').value = ''; $('fDay').value = ''; $('fForm').value = 'TODOS';
       $('fYear').value = String(new Date().getFullYear());
       $('fMonth').value = String(new Date().getMonth() + 1);
       cargar();
@@ -397,6 +398,8 @@
         const b = await HSQ_API.call('getBootstrap');
         $('fProject').length = 1;
         (b.proyectos || []).forEach((p) => $('fProject').add(new Option(p.proyecto, p.proyecto_id || p.proyecto)));
+        $('fForm').length = 1;
+        (b.formularios || []).forEach((f) => $('fForm').add(new Option(f.nombre_formulario, f.id_formulario)));
         await cargar();
       } catch (e) { manejarError(e); }
     }
@@ -425,13 +428,16 @@
         data = await HSQ_API.call('getDashboard', {
           anio: $('fYear').value, mes: $('fMonth').value,
           dia: $('fDay').value, proyecto: $('fProject').value,
+          formulario: $('fForm').value,
         });
         pintar();
         const f = data.filtros || {};
         const proy = $('fProject').selectedIndex > 0 ? $('fProject').options[$('fProject').selectedIndex].text : 'Todos los proyectos';
         const periodo = f.dia ? ('día ' + f.dia)
           : (f.mes ? (MESES[f.mes - 1] + ' ' + f.anio) : ('año ' + f.anio));
-        ctx(`<b>${esc(proy)}</b> · ${esc(periodo)} · ${f.dias || 0} día(s) · actualizado ${esc(data.actualizado || '')}`);
+        const form = $('fForm').value === 'TODOS' ? 'Todos los formularios'
+          : $('fForm').options[$('fForm').selectedIndex].text;
+        ctx(`<b>${esc(proy)}</b> · ${esc(form)} · ${esc(periodo)} · ${f.dias || 0} día(s) · actualizado ${esc(data.actualizado || '')}`);
       } catch (e) { manejarError(e); }
     }
 
