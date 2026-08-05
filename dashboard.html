@@ -57,6 +57,7 @@
       padding:7px 10px;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;transition:.15s}
     .export-btn:hover{background:var(--green-2);border-color:var(--green-2);color:#fff}
     .export-btn:disabled{opacity:.42;cursor:not-allowed;background:var(--surface);color:var(--muted)}
+    .back-link{display:inline-flex;align-items:center;text-decoration:none}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
     .filterbar{padding:0 26px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
@@ -228,6 +229,7 @@
         <header class="topbar">
           <div><h1 id="pgTitle">Resumen ejecutivo</h1><p id="pgSub">Control de preoperacionales y documentación</p></div>
           <div class="top-actions">
+            <a class="export-btn back-link" href="coordinador.html" aria-label="Volver a coordinadores">← Volver a coordinadores</a>
             <button id="btnExcel" class="export-btn" type="button" disabled>Excel</button>
             <button id="btnPdf" class="export-btn" type="button" disabled>PDF</button>
             <span class="pill"><span class="dot"></span>Datos en vivo</span>
