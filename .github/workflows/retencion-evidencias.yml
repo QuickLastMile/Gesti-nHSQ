@@ -1,0 +1,39 @@
+name: Retención de evidencias HSEQ
+
+on:
+  schedule:
+    - cron: '15 8 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Simular sin eliminar archivos
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: retencion-evidencias-hseq
+  cancel-in-progress: false
+
+jobs:
+  limpiar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+
+      - name: Validar reglas de retención
+        run: node --test scripts/cleanup-evidencias.test.mjs
+
+      - name: Limpiar evidencias vencidas y documentos reemplazados
+        env:
+          SUPABASE_URL: https://scemoysbcgwxajgoybwc.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          EVIDENCE_RETENTION_DAYS: '365'
+          CLEANUP_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: node scripts/cleanup-evidencias.mjs
+
