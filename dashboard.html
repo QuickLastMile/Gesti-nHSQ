@@ -27,20 +27,40 @@
     .tnum{font-variant-numeric:tabular-nums}
 
     /* ---------- Estructura ---------- */
-    .layout{min-height:100vh;display:grid;grid-template-columns:242px 1fr}
+    .layout{min-height:100vh;display:grid;grid-template-columns:242px 1fr;transition:grid-template-columns .22s ease}
     .side{position:sticky;top:0;height:100vh;padding:24px 16px;color:#fff;display:flex;flex-direction:column;
-      background:linear-gradient(168deg,#07382b,#0b4e3b 60%,#062f24)}
-    .brand{display:flex;align-items:center;gap:9px}
+      background:linear-gradient(168deg,#07382b,#0b4e3b 60%,#062f24);transition:padding .22s ease}
+    .brand{display:flex;align-items:center;justify-content:space-between;gap:9px;min-height:38px}
+    .brand-copy{min-width:0}
+    .brand-mark{display:none;width:34px;height:34px;color:var(--lime)}
     .logo{font-weight:900;font-size:25px;letter-spacing:-1.4px}
     .logo i{color:var(--lime);font-style:normal}
     .brand small{display:block;color:#a9c4ba;font-size:11px;letter-spacing:.7px;text-transform:uppercase;margin-top:3px}
+    .side-toggle{display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;border:1px solid rgba(255,255,255,.18);
+      border-radius:9px;background:rgba(255,255,255,.07);color:#dcebe5;cursor:pointer;transition:.18s}
+    .side-toggle:hover{background:rgba(184,212,63,.18);border-color:rgba(184,212,63,.45);color:#fff}
+    .side-toggle svg{width:18px;height:18px;transition:transform .22s ease}
     .nav{margin-top:30px;display:grid;gap:4px}
-    .nav button{display:flex;align-items:center;gap:11px;border:0;background:transparent;color:#c9ded6;
+    .nav button{position:relative;display:flex;align-items:center;gap:11px;border:0;background:transparent;color:#c9ded6;
       border-radius:10px;padding:11px 12px;text-align:left;font-weight:650;font-size:13.5px;cursor:pointer;transition:.15s}
     .nav button:hover{background:rgba(255,255,255,.08);color:#fff}
     .nav button.active{background:rgba(184,212,63,.16);color:#fff;box-shadow:inset 3px 0 0 var(--lime)}
-    .nav .ic{width:18px;text-align:center;opacity:.9}
+    .nav .ic{width:21px;height:21px;display:grid;place-items:center;flex:0 0 21px;opacity:.95}
+    .nav .ic svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
     .side-foot{margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,.13);color:#9fbcb2;font-size:11.5px;line-height:1.6}
+    .layout.side-collapsed{grid-template-columns:74px 1fr}
+    .side-collapsed .side{padding:20px 10px;align-items:center}
+    .side-collapsed .brand{width:100%;justify-content:center;flex-direction:column}
+    .side-collapsed .brand-copy,.side-collapsed .nav .label,.side-collapsed .side-foot{display:none}
+    .side-collapsed .brand-mark{display:block}
+    .side-collapsed .side-toggle svg{transform:rotate(180deg)}
+    .side-collapsed .nav{width:100%;margin-top:22px}
+    .side-collapsed .nav button{justify-content:center;padding:12px 0}
+    .side-collapsed .nav button:after{content:attr(data-label);position:absolute;left:calc(100% + 12px);top:50%;
+      transform:translateY(-50%) translateX(-4px);z-index:60;pointer-events:none;opacity:0;white-space:nowrap;
+      background:#062b21;color:#fff;border:1px solid rgba(184,212,63,.3);border-radius:8px;padding:6px 9px;
+      font-size:11.5px;font-weight:700;box-shadow:var(--sh-lg);transition:.14s}
+    .side-collapsed .nav button:hover:after{opacity:1;transform:translateY(-50%) translateX(0)}
     .main{min-width:0;display:flex;flex-direction:column}
 
     /* Cabecera + filtros: un solo bloque fijo, nunca se superponen */
@@ -171,7 +191,9 @@
     @media(max-width:1080px){
       .layout{grid-template-columns:62px 1fr}
       .side{padding:18px 6px;align-items:center}
-      .brand small,.nav span,.side-foot{display:none}
+      .brand small,.nav .label,.side-foot{display:none}
+      .brand{justify-content:center;flex-direction:column}
+      .side-toggle{margin-top:6px}
       /* Logo colapsado: solo la Q */
       .logo{font-size:0}
       .logo i{display:none}
@@ -186,6 +208,7 @@
     @media(max-width:760px){
       .layout{display:block}
       .side{position:static;height:auto;flex-direction:row;align-items:center;padding:10px 14px}
+      .side-toggle{display:none}
       .nav{margin:0 0 0 auto;display:flex;gap:2px}
       .stickytop{position:static}
       .grid{grid-template-columns:1fr}
@@ -213,13 +236,17 @@
   <div class="layout">
     <aside class="side">
       <div class="brand">
-        <div><div class="logo">QU<i>I</i>CK</div><small>HSEQ Analytics</small></div>
+        <div class="brand-copy"><div class="logo">QU<i>I</i>CK</div><small>HSEQ Analytics</small></div>
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true"><circle cx="19" cy="19" r="12" fill="none" stroke="currentColor" stroke-width="5"/><path d="M27.5 27.5 36 36" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg>
+        <button id="sideToggle" class="side-toggle" type="button" aria-label="Ocultar texto del menú" aria-expanded="true" title="Ocultar texto del menú">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
       <nav class="nav">
-        <button class="active" data-s="resumen"><span class="ic">◧</span><span>Resumen</span></button>
-        <button data-s="cumplimiento"><span class="ic">◎</span><span>Cumplimiento</span></button>
-        <button data-s="operacion"><span class="ic">◔</span><span>Operación</span></button>
-        <button data-s="documentos"><span class="ic">⚑</span><span>Documentos</span></button>
+        <button class="active" data-s="resumen" data-label="Resumen" aria-label="Resumen"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="label">Resumen</span></button>
+        <button data-s="cumplimiento" data-label="Cumplimiento" aria-label="Cumplimiento"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/><path d="m15.5 7.5 2 2 4-4"/></svg></span><span class="label">Cumplimiento</span></button>
+        <button data-s="operacion" data-label="Operación" aria-label="Operación"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M7 3.8 5.5 2.5M17 3.8l1.5-1.3"/></svg></span><span class="label">Operación</span></button>
+        <button data-s="documentos" data-label="Documentos" aria-label="Documentos"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h6"/></svg></span><span class="label">Documentos</span></button>
       </nav>
       <div class="side-foot">Gestión preventiva<br>Alertas desde 15 días antes</div>
     </aside>
@@ -395,6 +422,12 @@
     const C = { verde:'#12875f', oscuro:'#07382b', lima:'#7f9e1f', ok:'#0f7a4d', warn:'#b57611', bad:'#b83a33' };
     let data = null, docFiltro = 'TODOS';
 
+    const layout = document.querySelector('.layout');
+    const sideToggle = $('sideToggle');
+    let sideCollapsed = false;
+    try { sideCollapsed = localStorage.getItem('hseq_sidebar_collapsed') === '1'; } catch (_) {}
+    actualizarMenuLateral(sideCollapsed, false);
+
     initFiltros();
     arrancar();
 
@@ -411,9 +444,20 @@
     $('docSearch').addEventListener('input', pintarDocs);
     $('mSearch').addEventListener('input', pintarMensajeros);
     $('opSearch').addEventListener('input', pintarNovedades);
+    sideToggle.addEventListener('click', () => actualizarMenuLateral(!layout.classList.contains('side-collapsed'), true));
     document.querySelectorAll('.nav button').forEach((b) => b.addEventListener('click', () => irA(b)));
     $('loginForm').addEventListener('submit', entrar);
     let redibujar; window.addEventListener('resize', () => { clearTimeout(redibujar); redibujar = setTimeout(() => data && pintarGraficas(), 180); });
+
+    function actualizarMenuLateral(colapsado, guardar) {
+      layout.classList.toggle('side-collapsed', colapsado);
+      sideToggle.setAttribute('aria-expanded', String(!colapsado));
+      const texto = colapsado ? 'Mostrar menú completo' : 'Ocultar texto del menú';
+      sideToggle.setAttribute('aria-label', texto);
+      sideToggle.title = texto;
+      if (guardar) { try { localStorage.setItem('hseq_sidebar_collapsed', colapsado ? '1' : '0'); } catch (_) {} }
+      if (data) setTimeout(pintarGraficas, 240);
+    }
 
     function initFiltros() {
       const y = new Date().getFullYear();
