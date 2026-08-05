@@ -576,7 +576,7 @@
       const grupos = [
         {n:'Al día',v:alDia,c:C.ok},{n:'Cumplimiento parcial',v:parcial,c:C.warn},{n:'Sin diligenciar',v:sin,c:C.bad}
       ];
-      const total = alDia + parcial + sin, p = prep('cPeople'); if (!p) return;
+      const total = alDia + parcial + sin, p = base('cPeople'); if (!p) return;
       const {x,w,h}=p, cx=w/2,cy=h/2,r=Math.min(w,h)*.35,ri=r*.58;
       if (!total) { sinDatos(x,w,h); }
       else {
