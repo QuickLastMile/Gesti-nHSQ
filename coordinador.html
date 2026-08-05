@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Exportar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=10">
+  <link rel="stylesheet" href="assets/styles.css?v=11">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -336,6 +336,25 @@
       $('cumLista').innerHTML = `<div class="card"><div class="cmp-list">${lista.map((p) => filaCompacta(p, r)).join('')}</div></div>`;
       $('cumLista').querySelectorAll('[data-just]').forEach((btn) =>
         btn.addEventListener('click', () => abrirJust(btn.dataset.just, btn.dataset.nombre, btn.dataset.proyecto)));
+      $('cumLista').querySelectorAll('[data-alert-toggle]').forEach((btn) =>
+        btn.addEventListener('click', () => {
+          const fila = btn.closest('.cmp-row');
+          const abrir = !fila.classList.contains('cmp-row--alert-open');
+          $('cumLista').querySelectorAll('.cmp-row--alert-open').forEach((r2) => r2.classList.remove('cmp-row--alert-open'));
+          $('cumLista').querySelectorAll('[data-alert-toggle]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+          fila.classList.toggle('cmp-row--alert-open', abrir);
+          btn.setAttribute('aria-expanded', String(abrir));
+        }));
+    }
+
+    function detallesAlerta(texto) {
+      return String(texto || '').split(/\s*\|\s*/).map((s) => s.trim()).filter(Boolean).map((detalle) => {
+        if (/^(SOAT|Tecnomec[aá]nica|Licencia)\b/i.test(detalle)) return { tipo: 'Documento', novedad: detalle };
+        if (/^Respuesta de alerta\s*:/i.test(detalle)) {
+          return { tipo: 'Respuesta de alerta', novedad: detalle.replace(/^Respuesta de alerta\s*:\s*/i, '') };
+        }
+        return { tipo: 'Novedad operativa', novedad: detalle };
+      });
     }
 
     function filaCompacta(p, r) {
@@ -346,8 +365,13 @@
       }).join('');
       const jtxt = p.justificado && p.justificacion
         ? `<span class="cmp-just">${escapeHtml(p.justificacion.tipo)}</span>` : '';
-      const alerta = p.alertas_documentales
-        ? `<span class="cmp-just" title="${escapeHtml(p.alertas_documentales)}">⚠ Requiere gestión</span>` : '';
+      const alertas = detallesAlerta(p.alertas_documentales);
+      const alerta = alertas.length
+        ? `<button class="cmp-alert-btn" type="button" data-alert-toggle aria-expanded="false" title="Pasa el mouse o haz clic para ver el detalle">⚠ Requiere gestión</button>` : '';
+      const detalleAlerta = alertas.length ? `<div class="cmp-alert-detail" role="status">
+        <span class="cmp-alert-title">Detalle para revisión</span>
+        ${alertas.map((a) => `<div class="cmp-alert-item"><strong>Tipo: ${escapeHtml(a.tipo)}</strong><span>Novedad: ${escapeHtml(a.novedad)}</span></div>`).join('')}
+      </div>` : '';
       const boton = p.completo ? '' :
         `<button class="cmp-btn" type="button" data-just="${escapeHtml(p.cedula)}" data-nombre="${escapeHtml(p.nombre)}" data-proyecto="${escapeHtml(p.proyecto)}">${p.justificado ? 'Editar' : 'Justificar'}</button>`;
       return `
@@ -358,6 +382,7 @@
           </div>
           <div class="cmp-dots">${chips}${jtxt}${alerta}</div>
           ${boton}
+          ${detalleAlerta}
         </div>`;
     }
 
