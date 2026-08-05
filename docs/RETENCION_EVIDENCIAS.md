@@ -13,7 +13,7 @@ La tarea `Retención de evidencias HSEQ` se ejecuta diariamente a las 03:15, hor
 
 También puede ejecutarse manualmente desde GitHub Actions en modo de simulación. La simulación informa cuántos archivos cumplen las condiciones, pero no elimina nada.
 
-La credencial `SUPABASE_SECRET_KEY` debe existir únicamente como secreto de GitHub Actions. Nunca debe guardarse en el repositorio ni en el código público.
+La credencial administrativa se guarda únicamente en GitHub Actions con el nombre `SUPABASE_RETENTION_KEY`. Nunca debe guardarse en el repositorio ni en el código público.
 
 ## Recuperación y revisión
 

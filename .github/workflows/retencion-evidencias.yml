@@ -32,7 +32,7 @@ jobs:
       - name: Limpiar evidencias vencidas y documentos reemplazados
         env:
           SUPABASE_URL: https://scemoysbcgwxajgoybwc.supabase.co
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_RETENTION_KEY }}
           EVIDENCE_RETENTION_DAYS: '365'
           CLEANUP_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
         run: node scripts/cleanup-evidencias.mjs
