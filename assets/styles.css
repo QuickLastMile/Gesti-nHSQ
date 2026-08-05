@@ -427,7 +427,7 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .bar-sub b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* ---------- Calendario laboral (panel HSQ) ---------- */
-.calrow { display: grid; grid-template-columns: minmax(180px, 1.4fr) auto auto auto; gap: 12px;
+.calrow { display: grid; grid-template-columns: minmax(170px, 1.3fr) auto auto auto auto; gap: 10px;
   align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
 .calrow:first-child { border-top: 0; }
 .daygrid { display: flex; flex-wrap: wrap; gap: 6px; }

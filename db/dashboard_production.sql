@@ -20,7 +20,9 @@ declare
   activos int;
   realizadas bigint;
   esperadas bigint;
+  meta_def numeric;
 begin
+  select coalesce((select valor::numeric from config where clave='META_DEFECTO'), 90) into meta_def;
   if dia_f is not null then
     desde := dia_f; hasta := dia_f;
     anio_f := extract(year from dia_f)::int;
@@ -61,6 +63,7 @@ begin
       'activos',activos,'realizadas',realizadas,'esperadas',esperadas,
       -- Trazabilidad del calculo: dias-persona exigibles y cuantos se justificaron.
       'dias_persona',(select coalesce(sum(dias),0) from tmp_dias),
+      'meta',meta_def,
       'justificados',(select count(*) from justificaciones j
          where j.fecha_inicio <= hasta and coalesce(j.fecha_fin,j.fecha_inicio) >= desde),
       'no_realizadas',greatest(esperadas-realizadas,0),
@@ -106,8 +109,14 @@ begin
              coalesce(reg.realizadas,0) realizadas,
              coalesce(reg.con_alerta,0) con_alerta,
              greatest(p.esperadas-coalesce(reg.realizadas,0),0) no_realizadas,
+             coalesce(pc.meta, meta_def) meta,
              case when p.esperadas>0
-                  then round(coalesce(reg.realizadas,0)::numeric*1000/p.esperadas)/10 else 0 end porcentaje
+                  then round(coalesce(reg.realizadas,0)::numeric*1000/p.esperadas)/10 else 0 end porcentaje,
+             -- Semaforo: cumple la meta, esta cerca (>=80% de la meta) o no cumple.
+             case when p.esperadas=0 then 'sin_datos'
+                  when round(coalesce(reg.realizadas,0)::numeric*1000/p.esperadas)/10 >= coalesce(pc.meta, meta_def) then 'cumple'
+                  when round(coalesce(reg.realizadas,0)::numeric*1000/p.esperadas)/10 >= coalesce(pc.meta, meta_def)*0.8 then 'cerca'
+                  else 'no_cumple' end estado
       from (
         -- Esperadas segun el calendario del proyecto y sin dias justificados.
         select t.proyecto, count(*) activos, sum(t.dias)::bigint * nforms esperadas
@@ -123,6 +132,7 @@ begin
           and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
         group by coalesce(r.proyecto,'Sin proyecto')
       ) reg on reg.proyecto=p.proyecto
+      left join proyectos_calendario pc on pc.proyecto=p.proyecto
     ) x),'[]'::jsonb),
 
     -- Ranking de mensajeros (incluye a los que no registraron nada).

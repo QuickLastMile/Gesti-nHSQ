@@ -43,10 +43,14 @@ create table if not exists proyectos_calendario (
 );
 alter table proyectos_calendario enable row level security;
 
+-- Meta de cumplimiento por proyecto (para el semaforo del dashboard).
+alter table proyectos_calendario add column if not exists meta numeric(5,1);
+
 -- Valores por defecto para los proyectos que aun no se han configurado.
 insert into config (clave, valor) values
   ('CAL_DIAS_DEFECTO', '1,2,3,4,5,6'),
-  ('CAL_FESTIVOS_DEFECTO', 'false')
+  ('CAL_FESTIVOS_DEFECTO', 'false'),
+  ('META_DEFECTO', '90')
 on conflict (clave) do nothing;
 
 -- Deja creado el registro de cada proyecto activo (con el valor por defecto).
@@ -108,13 +112,15 @@ returns jsonb language sql security definer set search_path = public as $$
   select jsonb_build_object(
     'defecto', jsonb_build_object(
       'dias', coalesce((select valor from config where clave='CAL_DIAS_DEFECTO'), '1,2,3,4,5,6'),
-      'festivos', coalesce((select valor='true' from config where clave='CAL_FESTIVOS_DEFECTO'), false)),
+      'festivos', coalesce((select valor='true' from config where clave='CAL_FESTIVOS_DEFECTO'), false),
+      'meta', coalesce((select valor::numeric from config where clave='META_DEFECTO'), 90)),
     'proyectos', coalesce((
       select jsonb_agg(jsonb_build_object(
         'proyecto', p.proyecto,
         'activos', p.activos,
         'dias', coalesce(array_to_string(pc.dias_laborales, ','), ''),
         'festivos', coalesce(pc.labora_festivos, false),
+        'meta', pc.meta,
         'configurado', pc.proyecto is not null
       ) order by p.proyecto)
       from (
@@ -132,18 +138,22 @@ declare
   p text := btrim(coalesce(payload->>'proyecto',''));
   d text := btrim(coalesce(payload->>'dias',''));
   f boolean := coalesce((payload->>'festivos')::boolean, false);
+  m numeric := nullif(btrim(coalesce(payload->>'meta','')), '')::numeric;
 begin
   if p = '' then raise exception 'Falta el proyecto.'; end if;
   if d = '' then raise exception 'Selecciona al menos un dia laboral.'; end if;
-  insert into proyectos_calendario (proyecto, dias_laborales, labora_festivos, actualizado_en)
-  values (p, string_to_array(d, ',')::smallint[], f, now())
+  if m is not null and (m < 0 or m > 100) then raise exception 'La meta debe estar entre 0 y 100.'; end if;
+  insert into proyectos_calendario (proyecto, dias_laborales, labora_festivos, meta, actualizado_en)
+  values (p, string_to_array(d, ',')::smallint[], f, m, now())
   on conflict (proyecto) do update
     set dias_laborales = excluded.dias_laborales,
         labora_festivos = excluded.labora_festivos,
+        meta = excluded.meta,
         actualizado_en = now();
   insert into historial (tipo, cedula, detalle)
-  values ('CALENDARIO', '', p || ' -> dias ' || d || case when f then ' + festivos' else '' end);
-  return jsonb_build_object('proyecto', p, 'dias', d, 'festivos', f);
+  values ('CALENDARIO', '', p || ' -> dias ' || d || case when f then ' + festivos' else '' end
+          || coalesce(' · meta ' || m || '%', ''));
+  return jsonb_build_object('proyecto', p, 'dias', d, 'festivos', f, 'meta', m);
 end;
 $$;
 

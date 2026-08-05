@@ -46,10 +46,16 @@
 
     <!-- Panel (tras login) -->
     <section id="panel" class="hidden">
+      <nav class="tabs" role="tablist">
+        <button class="tab active" type="button" data-v="colaboradores">Colaboradores</button>
+        <button class="tab" type="button" data-v="calendario">Calendario y metas</button>
+        <button id="btnSalir" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Salir</button>
+      </nav>
+
+      <div id="v-colaboradores" class="view">
       <section class="card">
         <div class="card__head">
           <p class="card__title">Buscar colaborador</p>
-          <button id="btnSalir" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Salir</button>
         </div>
         <div class="card__body">
           <span class="label">Buscar por cédula o nombre</span>
@@ -117,23 +123,34 @@
           <div id="fichaStatus" class="status" aria-live="polite"></div>
         </div>
       </section>
+      </div>
 
-      <!-- Calendario laboral por proyecto -->
-      <section class="card" style="margin-top:14px">
-        <div class="card__head">
-          <p class="card__title">Días laborales por proyecto</p>
-          <button id="btnCalendario" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Ver / recargar</button>
-        </div>
-        <div class="card__body">
-          <p class="hint-inline" style="margin-top:0">
-            Define qué días opera cada proyecto. El <b>cumplimiento</b> solo exige registros en esos días:
-            los que no laboran no cuentan como incumplimiento. Las ausencias justificadas (descanso, permiso,
-            vacaciones, suspensión) se descuentan solas desde <i>Coordinador → Cumplimiento</i>.
-          </p>
-          <div id="calStatus" class="status" aria-live="polite"></div>
-          <div id="calLista" style="margin-top:12px"></div>
-        </div>
-      </section>
+      <!-- ============ CALENDARIO Y METAS ============ -->
+      <div id="v-calendario" class="view hidden">
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <p class="card__title">Días laborales y meta por proyecto</p>
+              <p class="card__sub">Define qué días opera cada proyecto y su meta de cumplimiento</p>
+            </div>
+            <button id="btnCalendario" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Recargar</button>
+          </div>
+          <div class="card__body">
+            <p class="hint-inline" style="margin-top:0">
+              El <b>cumplimiento</b> solo exige registros en los días marcados: los días que el proyecto no
+              labora no cuentan como incumplimiento. Las ausencias justificadas (descanso, permiso, vacaciones,
+              suspensión) se descuentan solas desde <i>Coordinador → Cumplimiento</i>.
+              La <b>meta</b> define el semáforo del dashboard (verde si la alcanza).
+            </p>
+            <div class="input-row" style="margin-top:14px">
+              <input id="calBuscar" autocomplete="off" placeholder="Buscar proyecto…">
+              <button id="calLimpiar" class="btn btn--ghost btn--icon" type="button" title="Limpiar búsqueda">✕</button>
+            </div>
+            <div id="calStatus" class="status" aria-live="polite"></div>
+            <div id="calLista" style="margin-top:12px"></div>
+          </div>
+        </section>
+      </div>
     </section>
   </main>
 
@@ -155,6 +172,20 @@
     $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(); });
     $('btnListar').addEventListener('click', listar);
     $('btnCalendario').addEventListener('click', cargarCalendario);
+    $('calBuscar').addEventListener('input', () => pintarCalendario());
+    $('calLimpiar').addEventListener('click', () => { $('calBuscar').value = ''; pintarCalendario(); });
+
+    /* ---------- Pestañas del panel ---------- */
+    document.querySelectorAll('.tab[data-v]').forEach((t) => {
+      t.addEventListener('click', () => {
+        document.querySelectorAll('.tab[data-v]').forEach((x) => x.classList.remove('active'));
+        t.classList.add('active');
+        document.querySelectorAll('#panel .view').forEach((v) => v.classList.add('hidden'));
+        $('v-' + t.dataset.v).classList.remove('hidden');
+        // El calendario se carga la primera vez que se abre la pestaña.
+        if (t.dataset.v === 'calendario' && !calData) cargarCalendario();
+      });
+    });
     $('btnGuardar').addEventListener('click', guardar);
     $('f_activo').addEventListener('change', pintarEstado);
 
@@ -375,15 +406,17 @@
       }
     }
 
-    /* ---------- Calendario laboral por proyecto ---------- */
+    /* ---------- Calendario laboral y metas por proyecto ---------- */
     const DIAS_SEM = [[1,'Lun'],[2,'Mar'],[3,'Mié'],[4,'Jue'],[5,'Vie'],[6,'Sáb'],[7,'Dom']];
+    let calData = null;
 
     async function cargarCalendario() {
       setStatus('calStatus', 'Cargando calendario…', 'info');
       try {
-        const c = await adminCall('calendario', {});
-        pintarCalendario(c);
-        setStatus('calStatus', `${(c.proyectos || []).length} proyecto(s). Por defecto: ${etiquetaDias(c.defecto.dias)}${c.defecto.festivos ? ' + festivos' : ''}.`, 'ok');
+        calData = await adminCall('calendario', {});
+        pintarCalendario();
+        const d = calData.defecto || {};
+        setStatus('calStatus', `${(calData.proyectos || []).length} proyecto(s). Por defecto: ${etiquetaDias(d.dias)}${d.festivos ? ' + festivos' : ''} · meta ${d.meta}%.`, 'ok');
       } catch (err) { setStatus('calStatus', err.message, 'error'); }
     }
 
@@ -393,24 +426,37 @@
       return DIAS_SEM.filter(([n]) => set.includes(n)).map(([, t]) => t).join(' ');
     }
 
-    function pintarCalendario(c) {
-      const ps = c.proyectos || [];
-      if (!ps.length) { $('calLista').innerHTML = '<p class="hint-inline">No hay proyectos activos.</p>'; return; }
-      $('calLista').innerHTML = ps.map((p, i) => {
-        const sel = String(p.dias || c.defecto.dias).split(',').filter(Boolean).map(Number);
-        const checks = DIAS_SEM.map(([n, t]) =>
-          `<label class="daychk"><input type="checkbox" data-i="${i}" value="${n}" ${sel.includes(n) ? 'checked' : ''}>${t}</label>`).join('');
-        return `
-          <div class="calrow" data-row="${i}" data-proyecto="${esc(p.proyecto)}">
-            <div style="min-width:0">
-              <div style="font-weight:750;overflow-wrap:anywhere">${esc(p.proyecto)}</div>
-              <div class="hint-inline">${p.activos} activo(s)${p.configurado ? '' : ' · usando valores por defecto'}</div>
-            </div>
-            <div class="daygrid">${checks}</div>
-            <label class="daychk"><input type="checkbox" data-fest="${i}" ${p.festivos ? 'checked' : ''}>Festivos</label>
-            <button class="btn btn--ghost" type="button" data-save="${i}" style="min-height:40px">Guardar</button>
-          </div>`;
-      }).join('');
+    function pintarCalendario() {
+      if (!calData) return;
+      const q = $('calBuscar').value.trim().toLowerCase();
+      const todos = calData.proyectos || [];
+      const ps = todos.filter((p) => p.proyecto.toLowerCase().includes(q));
+      if (!todos.length) { $('calLista').innerHTML = '<p class="hint-inline">No hay proyectos activos.</p>'; return; }
+      if (!ps.length) { $('calLista').innerHTML = `<p class="hint-inline">Ningún proyecto coincide con “${esc(q)}”.</p>`; return; }
+      const metaDef = (calData.defecto || {}).meta ?? 90;
+      $('calLista').innerHTML =
+        `<p class="hint-inline" style="margin:0 0 6px">Mostrando ${ps.length} de ${todos.length} proyecto(s)</p>` +
+        ps.map((p) => {
+          const i = todos.indexOf(p);
+          const sel = String(p.dias || calData.defecto.dias).split(',').filter(Boolean).map(Number);
+          const checks = DIAS_SEM.map(([n, t]) =>
+            `<label class="daychk"><input type="checkbox" data-i="${i}" value="${n}" ${sel.includes(n) ? 'checked' : ''}>${t}</label>`).join('');
+          return `
+            <div class="calrow" data-row="${i}" data-proyecto="${esc(p.proyecto)}">
+              <div style="min-width:0">
+                <div style="font-weight:750;overflow-wrap:anywhere">${esc(p.proyecto)}</div>
+                <div class="hint-inline">${p.activos} activo(s)${p.configurado ? '' : ' · usando valores por defecto'}</div>
+              </div>
+              <div class="daygrid">${checks}</div>
+              <label class="daychk"><input type="checkbox" data-fest="${i}" ${p.festivos ? 'checked' : ''}>Festivos</label>
+              <label class="daychk" title="Meta de cumplimiento">Meta
+                <input type="number" data-meta="${i}" min="0" max="100" step="1"
+                  value="${p.meta ?? ''}" placeholder="${metaDef}"
+                  style="width:62px;min-height:0;padding:4px 6px;text-align:right">%
+              </label>
+              <button class="btn btn--ghost" type="button" data-save="${i}" style="min-height:40px">Guardar</button>
+            </div>`;
+        }).join('');
       $('calLista').querySelectorAll('[data-save]').forEach((b) =>
         b.addEventListener('click', () => guardarCalendario(b.dataset.save)));
     }
@@ -419,13 +465,19 @@
       const fila = $('calLista').querySelector(`.calrow[data-row="${i}"]`);
       const dias = Array.from(fila.querySelectorAll(`input[data-i="${i}"]:checked`)).map((x) => x.value);
       const fest = fila.querySelector(`input[data-fest="${i}"]`).checked;
+      const meta = fila.querySelector(`input[data-meta="${i}"]`).value.trim();
       if (!dias.length) return setStatus('calStatus', 'Selecciona al menos un día laboral.', 'error');
       setStatus('calStatus', 'Guardando…', 'info');
       try {
-        await adminCall('guardarCalendario', { proyecto: fila.dataset.proyecto, dias: dias.join(','), festivos: fest });
-        setStatus('calStatus', `✓ ${fila.dataset.proyecto}: ${etiquetaDias(dias.join(','))}${fest ? ' + festivos' : ''}.`, 'ok');
-        fila.querySelector('.hint-inline').textContent =
-          fila.querySelector('.hint-inline').textContent.replace(' · usando valores por defecto', '');
+        await adminCall('guardarCalendario', {
+          proyecto: fila.dataset.proyecto, dias: dias.join(','), festivos: fest, meta: meta,
+        });
+        // Refleja el cambio en memoria para que no se pierda al buscar.
+        const p = (calData.proyectos || [])[i];
+        if (p) { p.dias = dias.join(','); p.festivos = fest; p.meta = meta === '' ? null : Number(meta); p.configurado = true; }
+        setStatus('calStatus', `✓ ${fila.dataset.proyecto}: ${etiquetaDias(dias.join(','))}${fest ? ' + festivos' : ''}${meta ? ' · meta ' + meta + '%' : ''}.`, 'ok');
+        const sub = fila.querySelector('.hint-inline');
+        if (sub) sub.textContent = sub.textContent.replace(' · usando valores por defecto', '');
       } catch (err) { setStatus('calStatus', err.message, 'error'); }
     }
 

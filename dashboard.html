@@ -275,7 +275,7 @@
             <div class="card-head"><div><h2>Cumplimiento por proyecto</h2>
               <p><b>Esperados</b> = solo los días que cada proyecto realmente labora (según su calendario), sin festivos si no opera en ellos, y descontando las ausencias ya justificadas.</p></div></div>
             <div class="card-body"><div class="tbl-wrap">
-              <table><thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th></tr></thead>
+              <table><thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th><th>Meta</th><th>Estado</th></tr></thead>
               <tbody id="projRows"></tbody></table>
               <div id="projEmpty" class="empty hidden">Sin proyectos para este filtro.</div>
             </div></div>
@@ -470,8 +470,13 @@
       $('kActive').textContent = fmt(r.activos);
       $('kDone').textContent = fmt(r.realizadas);
       $('kRate').textContent = pct(r.porcentaje);
-      $('kRate').style.color = colorPct(r.porcentaje);
-      $('kRateSub').textContent = `${fmt(r.realizadas)} de ${fmt(r.esperadas)} esperados`
+      // Semáforo contra la meta configurada, no contra un umbral fijo.
+      const meta = Number(r.meta ?? 90);
+      $('kRate').style.color = r.porcentaje >= meta ? C.ok : (r.porcentaje >= meta * 0.8 ? C.warn : C.bad);
+      const cumplenMeta = (data.por_proyecto || []).filter((p) => p.estado === 'cumple').length;
+      const totalProy = (data.por_proyecto || []).length;
+      $('kRateSub').innerHTML = `${fmt(r.realizadas)} de ${fmt(r.esperadas)} esperados · meta ${meta}%`
+        + (totalProy ? `<br><b style="color:${cumplenMeta === totalProy ? C.ok : C.warn}">${cumplenMeta} de ${totalProy} proyectos en meta</b>` : '')
         + (r.justificados ? ` · ${fmt(r.justificados)} justificación(es) descontadas` : '');
       $('kMiss').textContent = fmt(r.no_realizadas);
       $('kAlert').textContent = fmt(r.con_alerta);
@@ -628,12 +633,21 @@
     function pintarProyectos() {
       const ps = data.por_proyecto || [];
       $('projEmpty').classList.toggle('hidden', ps.length > 0);
-      $('projRows').innerHTML = ps.map((p, i) => `
+      const sem = {
+        cumple: ['ok', '● Cumple'], cerca: ['warn', '● Cerca'],
+        no_cumple: ['bad', '● No cumple'], sin_datos: ['', '—'],
+      };
+      $('projRows').innerHTML = ps.map((p, i) => {
+        const [cls, txt] = sem[p.estado] || sem.sin_datos;
+        return `
         <tr><td><span class="rank ${i === 0 ? 'gold' : ''}">${i + 1}</span></td>
         <td class="t-name">${esc(p.proyecto)}</td>
         <td class="tnum">${fmt(p.activos)}</td><td class="tnum">${fmt(p.realizadas)}</td>
         <td class="tnum">${fmt(p.esperadas)}</td><td class="tnum">${fmt(p.no_realizadas)}</td>
-        <td>${barra(p.porcentaje)}</td></tr>`).join('');
+        <td>${barra(p.porcentaje)}</td>
+        <td class="tnum t-sub">${p.meta != null ? Number(p.meta).toFixed(0) + '%' : '—'}</td>
+        <td>${cls ? `<span class="badge ${cls}">${txt}</span>` : '<span class="t-sub">—</span>'}</td></tr>`;
+      }).join('');
     }
 
     function pintarRankings() {
