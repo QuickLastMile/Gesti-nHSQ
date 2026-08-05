@@ -52,6 +52,11 @@
     .pill{display:inline-flex;align-items:center;gap:7px;background:var(--ok-bg);color:var(--ok);
       font-weight:750;font-size:12px;padding:6px 12px;border-radius:999px;white-space:nowrap}
     .pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 2s infinite}
+    .top-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin-left:auto}
+    .export-btn{border:1px solid var(--line-2);background:var(--surface);color:var(--green-2);border-radius:8px;
+      padding:7px 10px;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;transition:.15s}
+    .export-btn:hover{background:var(--green-2);border-color:var(--green-2);color:#fff}
+    .export-btn:disabled{opacity:.42;cursor:not-allowed;background:var(--surface);color:var(--muted)}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
     .filterbar{padding:0 26px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
@@ -222,7 +227,11 @@
       <div class="stickytop">
         <header class="topbar">
           <div><h1 id="pgTitle">Resumen ejecutivo</h1><p id="pgSub">Control de preoperacionales y documentación</p></div>
-          <span class="pill"><span class="dot"></span>Datos en vivo</span>
+          <div class="top-actions">
+            <button id="btnExcel" class="export-btn" type="button" disabled>Excel</button>
+            <button id="btnPdf" class="export-btn" type="button" disabled>PDF</button>
+            <span class="pill"><span class="dot"></span>Datos en vivo</span>
+          </div>
         </header>
         <div class="filterbar">
           <div class="filters">
@@ -374,8 +383,9 @@
     </main>
   </div>
 
-  <script src="assets/config.js?v=18"></script>
-  <script src="assets/api.js?v=18"></script>
+  <script src="assets/config.js?v=19"></script>
+  <script src="assets/api.js?v=19"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -387,6 +397,8 @@
     arrancar();
 
     $('btnApply').addEventListener('click', cargar);
+    $('btnExcel').addEventListener('click', exportarExcel);
+    $('btnPdf').addEventListener('click', exportarPdf);
     $('btnClear').addEventListener('click', () => {
       $('fProject').value = ''; $('fDay').value = ''; $('fForm').value = 'TODOS';
       $('fYear').value = String(new Date().getFullYear());
@@ -446,6 +458,8 @@
           formulario: $('fForm').value,
         });
         pintar();
+        $('btnExcel').disabled = false;
+        $('btnPdf').disabled = false;
         const f = data.filtros || {};
         const proy = $('fProject').selectedIndex > 0 ? $('fProject').options[$('fProject').selectedIndex].text : 'Todos los proyectos';
         const periodo = f.dia ? ('día ' + f.dia)
@@ -773,8 +787,174 @@
       $('opRows').innerHTML = rows.map((a) => `
         <tr><td class="tnum">${esc(a.fecha)}</td>
         <td><div class="t-name">${esc(a.nombre)}</div><div class="t-sub tnum">CC ${esc(a.cedula)}</div></td>
-        <td class="t-sub">${esc(a.proyecto)}</td><td>${esc(a.placa || '—')}</td>
-        <td style="max-width:340px">${esc(a.alertas)}</td></tr>`).join('');
+         <td class="t-sub">${esc(a.proyecto)}</td><td>${esc(a.placa || '—')}</td>
+         <td style="max-width:340px">${esc(a.alertas)}</td></tr>`).join('');
+    }
+
+    function contextoInforme() {
+      const f = data?.filtros || {};
+      const proyecto = $('fProject').selectedIndex > 0
+        ? $('fProject').options[$('fProject').selectedIndex].text : 'Todos los proyectos';
+      const formulario = $('fForm').value === 'TODOS'
+        ? 'Todos los formularios' : $('fForm').options[$('fForm').selectedIndex].text;
+      const periodo = f.dia ? ('Día ' + f.dia)
+        : (f.mes ? (MESES[Number(f.mes) - 1] + ' ' + f.anio) : ('Año ' + f.anio));
+      return { proyecto, formulario, periodo, generado: new Date().toLocaleString('es-CO') };
+    }
+
+    function nombreInforme(extension) {
+      const f = data?.filtros || {};
+      const periodo = f.dia || [f.anio, String(f.mes || '').padStart(2, '0')].filter(Boolean).join('-');
+      const proyecto = contextoInforme().proyecto.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').slice(0, 35) || 'Todos';
+      return `Informe_HSEQ_${periodo || 'periodo'}_${proyecto}.${extension}`;
+    }
+
+    function cambio(actual, anterior, porcentaje) {
+      const dif = Number(actual || 0) - Number(anterior || 0);
+      const signo = dif > 0 ? '+' : '';
+      return signo + (porcentaje ? dif.toFixed(1) + ' pp' : dif.toLocaleString('es-CO'));
+    }
+
+    function crearHoja(encabezados, filas) {
+      const ws = XLSX.utils.aoa_to_sheet([encabezados, ...filas]);
+      ws['!cols'] = encabezados.map((h, i) => ({
+        wch: Math.min(45, Math.max(String(h).length + 2,
+          ...filas.map((r) => String(r[i] ?? '').length + 2))),
+      }));
+      if (filas.length) ws['!autofilter'] = {
+        ref: XLSX.utils.encode_range({ s:{ r:0, c:0 }, e:{ r:filas.length, c:encabezados.length - 1 } }),
+      };
+      return ws;
+    }
+
+    function exportarExcel() {
+      if (!data) return;
+      if (!window.XLSX) {
+        ctx('No fue posible cargar el generador de Excel. Revisa la conexión e inténtalo nuevamente.', true);
+        return;
+      }
+      const c = contextoInforme(), r = data.resumen || {}, ant = r.anterior || {};
+      const wb = XLSX.utils.book_new();
+      wb.Props = { Title:'Informe ejecutivo HSEQ', Subject:c.periodo, Author:'Quick HSEQ' };
+
+      const resumen = [
+        ['INFORME EJECUTIVO HSEQ', '', '', ''],
+        ['Proyecto', c.proyecto, '', ''], ['Formulario', c.formulario, '', ''],
+        ['Periodo', c.periodo, '', ''], ['Generado', c.generado, '', ''], ['', '', '', ''],
+        ['Indicador', 'Periodo actual', 'Periodo anterior', 'Variación'],
+        ['Colaboradores activos', r.activos || 0, ant.activos || 0, cambio(r.activos, ant.activos)],
+        ['Diligenciamientos', r.realizadas || 0, ant.realizadas || 0, cambio(r.realizadas, ant.realizadas)],
+        ['Esperados ajustados', r.esperadas || 0, ant.esperadas || 0, cambio(r.esperadas, ant.esperadas)],
+        ['Pendientes', r.no_realizadas || 0, ant.no_realizadas || 0, cambio(r.no_realizadas, ant.no_realizadas)],
+        ['Cumplimiento', pct(r.porcentaje), pct(ant.porcentaje), cambio(r.porcentaje, ant.porcentaje, true)],
+        ['Justificados', r.justificados || 0, '', ''], ['Alertas documentales', r.con_alerta || 0, ant.con_alerta || 0, cambio(r.con_alerta, ant.con_alerta)],
+      ];
+      const wsResumen = XLSX.utils.aoa_to_sheet(resumen);
+      wsResumen['!cols'] = [{wch:26},{wch:24},{wch:20},{wch:18}];
+      wsResumen['!merges'] = [XLSX.utils.decode_range('A1:D1')];
+      XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+
+      XLSX.utils.book_append_sheet(wb, crearHoja(
+        ['Proyecto','Activos','Realizados','Esperados ajustados','Pendientes','Cumplimiento','Meta','Estado','Alertas'],
+        (data.por_proyecto || []).map((p) => [p.proyecto,p.activos,p.realizadas,p.esperadas,p.no_realizadas,pct(p.porcentaje),pct(p.meta),String(p.estado || '').replaceAll('_',' '),p.con_alerta])
+      ), 'Proyectos');
+      XLSX.utils.book_append_sheet(wb, crearHoja(
+        ['Cédula','Colaborador','Proyecto','Placa','Realizados','Esperados ajustados','Cumplimiento','Alertas','Último registro'],
+        (data.mensajeros || []).map((m) => [m.cedula,m.nombre,m.proyecto,m.placa || '',m.realizadas,m.esperadas,pct(m.porcentaje),m.con_alerta,m.ultimo_registro || ''])
+      ), 'Mensajeros');
+      XLSX.utils.book_append_sheet(wb, crearHoja(
+        ['Falla','Sección','Proyecto','Reportes','Colaboradores','Última fecha','Porcentaje'],
+        (data.top_fallas || []).map((f) => [f.pregunta,f.seccion,f.proyecto || 'Todos',f.cantidad,f.mensajeros,f.ultima_fecha || '',pct(f.porcentaje)])
+      ), 'Fallas');
+      XLSX.utils.book_append_sheet(wb, crearHoja(
+        ['Estado','Documento','Vencimiento','Días restantes','Colaborador','Cédula','Placa','Proyecto'],
+        (data.alertas || []).map((a) => [a.estado,a.documento,a.fecha_vencimiento || '',a.dias_restantes ?? '',a.nombre,a.cedula,a.placa_moto || '',a.proyecto || 'Sin proyecto'])
+      ), 'Alertas documentos');
+
+      XLSX.writeFile(wb, nombreInforme('xlsx'), { compression:true });
+      ctx(`<b>Excel generado:</b> ${esc(c.proyecto)} · ${esc(c.formulario)} · ${esc(c.periodo)}`);
+    }
+
+    function imagenCanvas(id) {
+      try {
+        const canvas = $(id);
+        return canvas && canvas.width > 0 && canvas.height > 0 ? canvas.toDataURL('image/png') : '';
+      } catch (_) { return ''; }
+    }
+
+    function filaPdf(celdas) {
+      return `<tr>${celdas.map((v) => `<td>${esc(v)}</td>`).join('')}</tr>`;
+    }
+
+    function exportarPdf() {
+      if (!data) return;
+      const ventana = window.open('', '_blank');
+      if (!ventana) {
+        ctx('El navegador bloqueó la ventana del PDF. Habilita las ventanas emergentes e inténtalo nuevamente.', true);
+        return;
+      }
+      const c = contextoInforme(), r = data.resumen || {}, ant = r.anterior || {};
+      const mensajeros = data.mensajeros || [];
+      const alDia = mensajeros.filter((m) => Number(m.esperadas) > 0 && Number(m.porcentaje) >= 100).length;
+      const parcial = mensajeros.filter((m) => Number(m.esperadas) > 0 && Number(m.porcentaje) > 0 && Number(m.porcentaje) < 100).length;
+      const sinDiligenciar = mensajeros.filter((m) => Number(m.esperadas) > 0 && Number(m.realizadas) === 0).length;
+      const noExigibles = mensajeros.filter((m) => Number(m.esperadas) === 0).length;
+      const alertas = data.alertas || [];
+      const vencidos = alertas.filter((a) => a.estado === 'VENCIDO').length;
+      const proximos = alertas.filter((a) => a.estado === 'PRÓXIMO A VENCER').length;
+      const sinFecha = alertas.filter((a) => a.estado === 'SIN FECHA').length;
+      const graficas = [
+        ['Comportamiento por día', imagenCanvas('cDaily')],
+        ['Tendencia mensual', imagenCanvas('cMonthly')],
+        ['Cumplimiento por proyecto', imagenCanvas('cProjects')],
+        ['Cumplimiento de colaboradores', imagenCanvas('cPeople')],
+      ].filter((g) => g[1]);
+      const proyectos = (data.por_proyecto || []).slice(0, 12);
+      const fallas = (data.top_fallas || []).slice(0, 12);
+      const hallazgos = alertas.slice(0, 20);
+      const tendencia = cambio(r.porcentaje, ant.porcentaje, true);
+
+      const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(nombreInforme('pdf'))}</title>
+      <style>
+        @page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;color:#10251f;font:10px/1.35 "Segoe UI",Arial,sans-serif}
+        header{background:#07382b;color:#fff;padding:16px 20px;border-radius:8px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:end}
+        h1{font-size:21px;margin:0 0 3px}h2{font-size:14px;margin:0 0 8px;color:#07382b}p{margin:2px 0}.meta{text-align:right;color:#d9eee7}
+        .filters{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:7px;margin-bottom:10px}.filter{border:1px solid #cadaD4;border-radius:6px;padding:7px 9px}
+        .filter b{display:block;font-size:8px;color:#61756e;text-transform:uppercase}.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-bottom:10px}
+        .kpi{border:1px solid #d7e4df;border-left:4px solid #12875f;border-radius:7px;padding:8px;background:#f8fbfa}.kpi strong{display:block;font-size:19px;color:#07382b}.kpi small{color:#61756e}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.card{border:1px solid #d7e4df;border-radius:8px;padding:10px;margin-bottom:9px;break-inside:avoid;background:#fff}
+        .chart img{display:block;width:100%;height:190px;object-fit:contain}.substats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:7px}.substat{padding:6px;background:#edf5f1;border-radius:5px;text-align:center}
+        table{width:100%;border-collapse:collapse;font-size:9px}th{background:#0a503d;color:#fff;text-align:left;padding:6px}td{padding:5px 6px;border-bottom:1px solid #e3ebe8;vertical-align:top}
+        tr:nth-child(even) td{background:#f7faf9}.bad{color:#b83a33;font-weight:700}.warn{color:#9b660f;font-weight:700}.foot{margin-top:6px;color:#667a73;font-size:8px}
+        .page{break-before:page}.no-data{color:#667a73;padding:12px;text-align:center;background:#f4f8f6;border-radius:6px}
+      </style></head><body>
+        <header><div><h1>Informe ejecutivo HSEQ</h1><p>Control de diligenciamientos, cumplimiento y documentación</p></div><div class="meta"><b>QUICK HSEQ</b><br>${esc(c.generado)}</div></header>
+        <div class="filters"><div class="filter"><b>Proyecto</b>${esc(c.proyecto)}</div><div class="filter"><b>Formulario</b>${esc(c.formulario)}</div><div class="filter"><b>Periodo</b>${esc(c.periodo)}</div><div class="filter"><b>Comparación</b>${esc(tendencia)} frente al periodo anterior</div></div>
+        <div class="kpis">
+          <div class="kpi"><strong>${fmt(r.activos)}</strong><b>Activos</b><small>Colaboradores del filtro</small></div>
+          <div class="kpi"><strong>${fmt(r.realizadas)}</strong><b>Realizados</b><small>Anterior: ${fmt(ant.realizadas)}</small></div>
+          <div class="kpi"><strong>${pct(r.porcentaje)}</strong><b>Cumplimiento</b><small>Anterior: ${pct(ant.porcentaje)}</small></div>
+          <div class="kpi"><strong>${fmt(r.no_realizadas)}</strong><b>Pendientes</b><small>Esperados: ${fmt(r.esperadas)}</small></div>
+          <div class="kpi"><strong>${fmt(r.justificados)}</strong><b>Justificados</b><small>No se cuentan como pendientes</small></div>
+          <div class="kpi"><strong>${fmt(r.con_alerta)}</strong><b>Alertas</b><small>Documentos a gestionar</small></div>
+        </div>
+        <div class="grid">${graficas.map(([titulo, src]) => `<section class="card chart"><h2>${esc(titulo)}</h2><img src="${src}"></section>`).join('')}</div>
+        <section class="card"><h2>Estado de los colaboradores</h2><div class="substats">
+          <div class="substat"><b>${alDia}</b><br>Al día</div><div class="substat"><b>${parcial}</b><br>Cumplimiento parcial</div>
+          <div class="substat"><b>${sinDiligenciar}</b><br>Sin diligenciar</div><div class="substat"><b>${noExigibles}</b><br>No exigibles</div>
+        </div></section>
+        <section class="card page"><h2>Cumplimiento por proyecto</h2>${proyectos.length ? `<table><thead><tr><th>Proyecto</th><th>Activos</th><th>Realizados</th><th>Esperados</th><th>Pendientes</th><th>Cumplimiento</th><th>Meta</th><th>Estado</th></tr></thead><tbody>${proyectos.map((p) => filaPdf([p.proyecto,p.activos,p.realizadas,p.esperadas,p.no_realizadas,pct(p.porcentaje),pct(p.meta),String(p.estado || '').replaceAll('_',' ')])).join('')}</tbody></table>` : '<div class="no-data">Sin proyectos para el filtro aplicado.</div>'}</section>
+        <div class="grid">
+          <section class="card"><h2>Principales fallas reportadas</h2>${fallas.length ? `<table><thead><tr><th>Falla</th><th>Proyecto</th><th>Reportes</th><th>Colaboradores</th><th>%</th></tr></thead><tbody>${fallas.map((f) => filaPdf([f.pregunta,f.proyecto || 'Todos',f.cantidad,f.mensajeros,pct(f.porcentaje)])).join('')}</tbody></table>` : '<div class="no-data">No se reportaron fallas en el periodo.</div>'}</section>
+          <section class="card"><h2>Resumen de alertas documentales</h2><div class="substats"><div class="substat"><b>${alertas.length}</b><br>Total</div><div class="substat bad"><b>${vencidos}</b><br>Vencidos</div><div class="substat warn"><b>${proximos}</b><br>Próximos</div><div class="substat"><b>${sinFecha}</b><br>Sin fecha</div></div>
+          ${hallazgos.length ? `<table style="margin-top:8px"><thead><tr><th>Estado</th><th>Documento</th><th>Colaborador</th><th>Proyecto</th></tr></thead><tbody>${hallazgos.map((a) => filaPdf([a.estado,a.documento,a.nombre,a.proyecto || 'Sin proyecto'])).join('')}</tbody></table>` : '<div class="no-data">Sin alertas documentales.</div>'}</section>
+        </div>
+        <p class="foot">Fuente: Supabase, datos en vivo según los filtros aplicados. Los esperados excluyen días no laborales y justificaciones registradas. El PDF resume los principales hallazgos; el Excel contiene el detalle completo.</p>
+      </body></html>`;
+      ventana.document.open(); ventana.document.write(html); ventana.document.close();
+      ventana.addEventListener('load', () => setTimeout(() => { ventana.focus(); ventana.print(); }, 450));
+      ctx(`<b>Informe PDF preparado:</b> usa “Guardar como PDF” en la ventana de impresión.`);
     }
 
     function pintarDocs() {
