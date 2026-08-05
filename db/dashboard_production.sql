@@ -138,6 +138,72 @@ begin
       where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
     ) x),'[]'::jsonb),
 
+    -- Cumplimiento por tipo de formulario (preoperacional vs limpieza).
+    'por_formulario',coalesce((select jsonb_agg(x order by x.nombre) from (
+      select f.id, f.nombre,
+             coalesce(reg.realizadas,0) realizadas,
+             (activos::bigint * ndias) esperadas,
+             case when activos*ndias>0
+                  then round(coalesce(reg.realizadas,0)::numeric*1000/(activos::bigint*ndias))/10 else 0 end porcentaje
+      from formularios f
+      left join (
+        select r.formulario_id, count(*) realizadas
+        from registros r
+        where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+          and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
+        group by r.formulario_id
+      ) reg on reg.formulario_id=f.id
+      where f.activo
+    ) x),'[]'::jsonb),
+
+    -- Patron semanal: en que dias se registra mas.
+    'por_dia_semana',coalesce((select jsonb_agg(x order by x.dow) from (
+      select extract(isodow from r.fecha)::int dow,
+             to_char(r.fecha,'TMDay') dia,
+             count(*) realizadas,
+             count(distinct r.fecha) dias
+      from registros r
+      where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
+      group by extract(isodow from r.fecha), to_char(r.fecha,'TMDay')
+    ) x),'[]'::jsonb),
+
+    -- Franja horaria de los registros (puntualidad).
+    'por_hora',coalesce((select jsonb_agg(x order by x.hora) from (
+      select extract(hour from r.hora)::int hora, count(*) realizadas
+      from registros r
+      where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and r.hora is not null
+        and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
+      group by extract(hour from r.hora)
+    ) x),'[]'::jsonb),
+
+    -- Mensajeros activos que llevan mas dias sin registrar (seguimiento).
+    'inactividad',coalesce((select jsonb_agg(x order by x.dias_sin desc nulls first, x.nombre) from (
+      select c.cedula, coalesce(c.nombre,'') nombre, coalesce(c.proyecto,'Sin proyecto') proyecto,
+             u.ultimo, case when u.ultimo is null then null else (hoy-u.ultimo) end dias_sin
+      from colaboradores c
+      left join (
+        select regexp_replace(r.cedula,'\D','','g') ced, max(r.fecha) ultimo
+        from registros r where coalesce(r.estado,'')<>'ANULADO'
+        group by regexp_replace(r.cedula,'\D','','g')
+      ) u on u.ced=regexp_replace(c.cedula,'\D','','g')
+      where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
+        and (u.ultimo is null or hoy-u.ultimo >= 3)
+      limit 60
+    ) x),'[]'::jsonb),
+
+    -- Registros del periodo que quedaron con alerta (fallas / documentos).
+    'alertas_operativas',coalesce((select jsonb_agg(x order by x.fecha desc, x.nombre) from (
+      select r.fecha, r.nombre, r.cedula, coalesce(r.proyecto,'Sin proyecto') proyecto,
+             coalesce(r.placa_moto,'') placa, r.alertas
+      from registros r
+      where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and coalesce(r.alertas,'')<>''
+        and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
+      limit 300
+    ) x),'[]'::jsonb),
+
     'alertas',coalesce((select jsonb_agg(x order by x.prioridad,x.dias_restantes,x.proyecto,x.nombre) from (
       select c.cedula,c.nombre,c.proyecto,c.placa_moto,d.documento,d.fecha_vencimiento,
              d.fecha_vencimiento-hoy dias_restantes,

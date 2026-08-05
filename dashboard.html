@@ -3,143 +3,198 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#082f25">
+  <meta name="theme-color" content="#07382b">
   <title>Dashboard ejecutivo · Gestión HSEQ</title>
   <style>
     :root{
-      --ink:#10231d;--muted:#5d716a;--green:#0a4938;--green2:#12785a;--lime:#b8d43f;
-      --bg:#eef3f1;--card:#fff;--line:#d5e3dd;--danger:#c43e3e;--warn:#d98b17;
-      --plot:#e8f0ec;--plot-line:#cfe0d8;--chip:#dce9e3;
-      --shadow:0 12px 30px rgba(7,49,37,.08)
+      --ink:#0f1f1a; --ink-2:#33453e; --muted:#688077; --faint:#93a8a0;
+      --green:#07382b; --green-2:#0f6a4f; --green-3:#12875f; --lime:#b8d43f;
+      --bg:#eef2f0; --surface:#fff; --surface-2:#f6f9f8; --line:#dde7e3; --line-2:#c9dad3;
+      --ok:#0f7a4d; --ok-bg:#e4f4ec; --warn:#b57611; --warn-bg:#fdf2df; --bad:#b83a33; --bad-bg:#fbe8e6;
+      --plot:#e9f0ed; --grid:#d3e2db;
+      --sh-sm:0 1px 2px rgba(9,44,33,.05), 0 1px 3px rgba(9,44,33,.04);
+      --sh:0 4px 16px rgba(9,44,33,.07);
+      --sh-lg:0 12px 32px rgba(9,44,33,.12);
+      --r:14px;
     }
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,Segoe UI,Arial,sans-serif}
+    html,body{margin:0}
+    body{background:var(--bg);color:var(--ink);
+      font:14px/1.5 "Segoe UI",-apple-system,BlinkMacSystemFont,Inter,Roboto,Arial,sans-serif;
+      -webkit-font-smoothing:antialiased}
     .hidden{display:none!important}
-    button,select,input{font:inherit}
+    button,select,input{font:inherit;color:inherit}
+    .tnum{font-variant-numeric:tabular-nums}
 
-    .layout{min-height:100vh;display:grid;grid-template-columns:245px 1fr}
-    .side{position:sticky;top:0;height:100vh;padding:26px 18px;background:linear-gradient(165deg,#07382b,#0b503d 65%,#073629);color:#fff;display:flex;flex-direction:column}
-    .logo{font-weight:900;font-size:27px;letter-spacing:-1.5px}
+    /* ---------- Estructura ---------- */
+    .layout{min-height:100vh;display:grid;grid-template-columns:242px 1fr}
+    .side{position:sticky;top:0;height:100vh;padding:24px 16px;color:#fff;display:flex;flex-direction:column;
+      background:linear-gradient(168deg,#07382b,#0b4e3b 60%,#062f24)}
+    .brand{display:flex;align-items:center;gap:9px}
+    .logo{font-weight:900;font-size:25px;letter-spacing:-1.4px}
     .logo i{color:var(--lime);font-style:normal}
-    .side small{color:#bcd1c9}
-    .nav{margin-top:35px;display:grid;gap:8px}
-    .nav button{border:0;color:#d9e9e3;background:transparent;border-radius:12px;padding:13px 14px;text-align:left;font-weight:700;cursor:pointer}
-    .nav button.active,.nav button:hover{color:#fff;background:rgba(255,255,255,.12)}
-    .side-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.15);padding-top:18px;color:#bcd1c9;font-size:12px}
-    .main{min-width:0}
+    .brand small{display:block;color:#a9c4ba;font-size:11px;letter-spacing:.7px;text-transform:uppercase;margin-top:3px}
+    .nav{margin-top:30px;display:grid;gap:4px}
+    .nav button{display:flex;align-items:center;gap:11px;border:0;background:transparent;color:#c9ded6;
+      border-radius:10px;padding:11px 12px;text-align:left;font-weight:650;font-size:13.5px;cursor:pointer;transition:.15s}
+    .nav button:hover{background:rgba(255,255,255,.08);color:#fff}
+    .nav button.active{background:rgba(184,212,63,.16);color:#fff;box-shadow:inset 3px 0 0 var(--lime)}
+    .nav .ic{width:18px;text-align:center;opacity:.9}
+    .side-foot{margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,.13);color:#9fbcb2;font-size:11.5px;line-height:1.6}
+    .main{min-width:0;display:flex;flex-direction:column}
 
-    .top{position:sticky;top:0;z-index:6;padding:10px 22px;background:#fff;border-bottom:1px solid var(--line);display:grid;grid-template-columns:auto minmax(620px,1fr) auto;align-items:end;gap:18px}
-    .top h1{margin:0;font-size:21px}
-    .top p{margin:2px 0 0;color:var(--muted);font-size:13px}
-    .live{color:var(--green2);font-weight:800;white-space:nowrap}
-    .content{padding:18px 28px 40px;max-width:1600px;margin:auto}
+    /* Cabecera + filtros: un solo bloque fijo, nunca se superponen */
+    .stickytop{position:sticky;top:0;z-index:30;background:var(--surface);box-shadow:0 4px 14px -10px rgba(9,44,33,.55)}
+    .topbar{background:var(--surface);padding:11px 26px;
+      display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+    .topbar h1{margin:0;font-size:17px;font-weight:750;letter-spacing:-.3px}
+    .topbar p{margin:1px 0 0;color:var(--muted);font-size:12px}
+    .pill{display:inline-flex;align-items:center;gap:7px;background:var(--ok-bg);color:var(--ok);
+      font-weight:750;font-size:12px;padding:6px 12px;border-radius:999px;white-space:nowrap}
+    .pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
-    /* Filtros fijos al hacer scroll */
-    .filterbar{position:sticky;top:74px;z-index:5;padding:16px 0 12px;background:var(--bg)}
-    .filters{display:grid;grid-template-columns:1.4fr .7fr .8fr 1fr auto auto;gap:12px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
-    .field label{display:block;font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:0 0 5px}
-    .field select,.field input{width:100%;border:1px solid #bfd3cb;border-radius:10px;padding:10px 12px;background:#fff;color:var(--ink)}
-    .apply,.ghost{align-self:end;border:0;border-radius:11px;padding:11px 18px;font-weight:850;cursor:pointer;white-space:nowrap}
-    .apply{background:var(--green2);color:#fff}
-    .ghost{background:var(--chip);color:var(--green)}
-    .header-filters{display:grid;grid-template-columns:minmax(170px,1.5fr) minmax(130px,1fr) 82px 96px 132px auto auto;gap:7px;align-items:end}
-    .header-filters .field label{font-size:9px;margin-bottom:2px}
-    .header-filters .field select,.header-filters .field input{padding:7px 8px;border-radius:8px;font-size:12px;height:34px}
-    .header-filters .apply,.header-filters .ghost{padding:7px 10px;border-radius:8px;font-size:12px;height:34px}
-    .stack{display:grid;grid-template-columns:1fr;gap:16px;margin-top:16px}
+    .filterbar{padding:0 26px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
+    .filters{display:grid;grid-template-columns:minmax(190px,1.6fr) .7fr .9fr 1fr auto;gap:10px;align-items:end}
+    .field label{display:block;font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;
+      letter-spacing:.7px;margin:0 0 4px}
+    .field select,.field input{width:100%;border:1px solid var(--line-2);border-radius:8px;padding:7px 10px;
+      font-size:13px;background:var(--surface);transition:.15s}
+    .field select:focus,.field input:focus{outline:none;border-color:var(--green-3);box-shadow:0 0 0 3px rgba(18,135,95,.13)}
+    .fbtns{display:flex;gap:8px}
+    .btn{border:0;border-radius:8px;padding:8px 15px;font-weight:750;font-size:12.5px;cursor:pointer;
+      white-space:nowrap;transition:.15s}
+    .btn-primary{background:var(--green-2);color:#fff}
+    .btn-primary:hover{background:var(--green-3)}
+    .btn-ghost{background:var(--surface-2);color:var(--green-2);border:1px solid var(--line-2)}
+    .btn-ghost:hover{background:#eaf2ee}
+    .ctxbar{margin:0 0 16px;padding:9px 14px;font-size:12.5px;color:var(--muted);background:var(--surface);
+      border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .ctxbar b{color:var(--ink-2)}
+    .ctxbar.err{color:var(--bad);background:var(--bad-bg);border-color:#f1cfcb}
 
-    .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:6px 0 18px}
-    .kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden}
-    .kpi:before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--green2)}
-    .kpi.warn:before{background:var(--warn)}
-    .kpi.danger:before{background:var(--danger)}
-    .kpi .num{font-size:28px;font-weight:900;letter-spacing:-1px;font-variant-numeric:tabular-nums}
-    /* Etiquetas sobre fondo oscuro para que resalten */
-    .kpi .label{display:inline-block;margin-top:6px;background:var(--green);color:#eaf4ef;font-weight:800;font-size:11px;letter-spacing:.5px;text-transform:uppercase;padding:4px 9px;border-radius:7px}
-    .kpi .detail{margin-top:7px;color:#7d8f88;font-size:12px}
-
-    .grid{display:grid;grid-template-columns:1.35fr 1fr;gap:16px}
-    .card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
-    .card-head{padding:18px 19px 8px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
-    .card-head h2{font-size:16px;margin:0}
-    .card-head p{margin:3px 0;color:var(--muted);font-size:12px}
-    .card-body{padding:10px 18px 20px}
-    .canvas-wrap{height:285px;position:relative}
-    .canvas-wrap canvas{width:100%;height:100%;display:block}
-    .wide{grid-column:1/-1}
+    .content{padding:18px 26px 44px;max-width:1560px;width:100%;margin:0 auto}
+    html{scroll-padding-top:130px}
     .section{display:none}
-    .section.active{display:block}
+    .section.active{display:block;animation:fade .25s ease}
+    @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-    /* Tooltip de las gráficas */
-    .tip{position:fixed;z-index:50;pointer-events:none;background:#08281f;color:#eaf4ef;border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.5;box-shadow:0 10px 26px rgba(0,0,0,.28);opacity:0;transition:opacity .12s;max-width:280px}
+    /* ---------- KPIs ---------- */
+    .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-bottom:18px}
+    .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 17px;
+      box-shadow:var(--sh-sm);position:relative;overflow:hidden}
+    .kpi:before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--green-3)}
+    .kpi.is-warn:before{background:var(--warn)}
+    .kpi.is-bad:before{background:var(--bad)}
+    .kpi .cap{display:inline-block;background:var(--green);color:#dcece5;font-size:10px;font-weight:800;
+      letter-spacing:.8px;text-transform:uppercase;padding:4px 9px;border-radius:6px}
+    .kpi .num{font-size:30px;font-weight:800;letter-spacing:-1.2px;margin:11px 0 3px;line-height:1}
+    .kpi .sub{color:var(--faint);font-size:11.5px;line-height:1.45}
+
+    /* ---------- Tarjetas ---------- */
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:16px}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-sm);overflow:hidden}
+    .card+.card,.grid+.card,.card+.grid,.grid+.grid{margin-top:16px}
+    .card-head{padding:16px 18px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;
+      align-items:flex-start;gap:14px;flex-wrap:wrap}
+    .card-head h2{margin:0;font-size:15px;font-weight:750;letter-spacing:-.2px}
+    .card-head p{margin:3px 0 0;color:var(--muted);font-size:12px;max-width:60ch}
+    .card-body{padding:16px 18px}
+    .canvas-wrap{height:270px;position:relative}
+    .canvas-wrap canvas{width:100%;height:100%;display:block}
+    .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--muted)}
+    .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+    /* ---------- Tooltip ---------- */
+    .tip{position:fixed;z-index:80;pointer-events:none;background:#062b21;color:#e8f3ee;border-radius:9px;
+      padding:10px 13px;font-size:12.5px;line-height:1.55;box-shadow:var(--sh-lg);opacity:0;
+      transition:opacity .12s;max-width:270px;border:1px solid rgba(184,212,63,.25)}
     .tip.show{opacity:1}
-    .tip b{color:#fff;display:block;margin-bottom:2px}
-    .tip i{font-style:normal;color:var(--lime);font-weight:800}
+    .tip b{display:block;color:#fff;font-size:13px;margin-bottom:3px}
+    .tip span{color:var(--lime);font-weight:750}
 
-    /* Filtros tipo chip */
+    /* ---------- Chips ---------- */
     .chips{display:flex;flex-wrap:wrap;gap:8px}
-    .chip{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:7px 14px;font-weight:800;font-size:12.5px;cursor:pointer}
+    .chip{border:1px solid var(--line-2);background:var(--surface);color:var(--muted);border-radius:999px;
+      padding:7px 14px;font-weight:700;font-size:12.5px;cursor:pointer;transition:.15s}
     .chip b{color:var(--ink)}
+    .chip:hover{border-color:var(--green-3)}
     .chip.active{background:var(--green);color:#fff;border-color:var(--green)}
-    .chip.active b{color:#fff}
+    .chip.active b{color:var(--lime)}
+    .search{border:1px solid var(--line-2);border-radius:9px;padding:8px 12px;min-width:230px}
+    .search:focus{outline:none;border-color:var(--green-3)}
 
-    .search{border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-width:250px}
+    /* ---------- Tablas ---------- */
+    .tbl-wrap{overflow:auto;max-height:58vh;border:1px solid var(--line);border-radius:11px;background:var(--surface)}
+    table{width:100%;border-collapse:separate;border-spacing:0;min-width:720px}
+    th{position:sticky;top:0;z-index:2;background:var(--green);color:#d9ece4;font-size:10.5px;font-weight:800;
+      text-transform:uppercase;letter-spacing:.6px;text-align:left;padding:11px 12px;white-space:nowrap}
+    td{padding:10px 12px;border-top:1px solid #eaf1ee;vertical-align:middle}
+    tbody tr:hover td{background:var(--surface-2)}
+    .t-name{font-weight:650}
+    .t-sub{color:var(--faint);font-size:11.5px}
+    .badge{display:inline-block;border-radius:999px;padding:3px 9px;font-weight:800;font-size:10.5px;white-space:nowrap}
+    .badge.ok{background:var(--ok-bg);color:var(--ok)}
+    .badge.warn{background:var(--warn-bg);color:var(--warn)}
+    .badge.bad{background:var(--bad-bg);color:var(--bad)}
+    .rank{display:inline-grid;place-items:center;width:23px;height:23px;border-radius:7px;background:#e6efeb;
+      color:var(--green-2);font-weight:800;font-size:11.5px}
+    .rank.gold{background:var(--lime);color:#2f3f08}
+    .rank.red{background:var(--bad-bg);color:var(--bad)}
+    .bar{display:flex;align-items:center;gap:9px;min-width:132px}
+    .bar .track{flex:1;height:7px;border-radius:999px;background:#e7eeeb;overflow:hidden;min-width:56px}
+    .bar .fill{display:block;height:100%;border-radius:999px}
+    .bar b{font-size:12.5px;min-width:44px;text-align:right}
+    .empty{text-align:center;padding:42px 20px;color:var(--muted)}
 
-    /* Tablas con encabezado fijo */
-    .table-wrap{overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:12px}
-    table{width:100%;border-collapse:separate;border-spacing:0;min-width:860px}
-    th{position:sticky;top:0;z-index:2;background:var(--green);color:#eaf4ef;font-size:11px;text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:12px;white-space:nowrap}
-    td{padding:11px 12px;border-top:1px solid #e9f0ed}
-    tbody tr:hover td{background:#f5faf8}
-    .num-cell{font-variant-numeric:tabular-nums;white-space:nowrap}
-    .badge{display:inline-block;border-radius:20px;padding:4px 9px;font-weight:850;font-size:11px;white-space:nowrap}
-    .badge.bad{background:#ffe5e5;color:#a52727}
-    .badge.warn{background:#fff1d9;color:#9b6100}
-    .badge.ok{background:#e2f3ea;color:#106a44}
-    .rank{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--chip);color:var(--green);font-weight:900;font-size:12px}
-    .rank.top{background:var(--lime);color:#31420a}
-    .rank.low{background:#ffd9d9;color:#a52727}
-    .mini-bar{height:8px;border-radius:999px;background:#e9f0ec;overflow:hidden;min-width:80px}
-    .mini-bar i{display:block;height:100%;border-radius:999px}
-    .empty{text-align:center;padding:46px 20px;color:var(--muted)}
-    .status{margin:0 0 12px;color:var(--muted)}
-    .error{color:var(--danger)}
+    /* ---------- Login ---------- */
+    .gate{position:fixed;inset:0;z-index:100;background:rgba(4,28,21,.9);display:grid;place-items:center;padding:20px}
+    .gate-card{width:min(400px,100%);background:#fff;border-radius:18px;padding:30px;box-shadow:0 30px 80px rgba(0,0,0,.3)}
+    .gate-card h2{margin:14px 0 4px;font-size:19px}
+    .gate-card p{color:var(--muted);margin:0 0 16px;font-size:13px}
+    .gate-card input{display:block;width:100%;margin-bottom:10px;padding:11px 12px;border:1px solid var(--line-2);border-radius:9px}
+    .gate-card button{width:100%;padding:12px;border:0;border-radius:9px;background:var(--green-2);color:#fff;font-weight:750;cursor:pointer}
+    .msg{margin-top:10px;font-size:12.5px;color:var(--muted)}
+    .msg.err{color:var(--bad)}
 
-    .gate{position:fixed;inset:0;z-index:60;background:rgba(4,30,23,.85);display:grid;place-items:center;padding:20px}
-    .gate-card{width:min(410px,100%);background:#fff;border-radius:20px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.25)}
-    .gate-card h2{margin:0}
-    .gate-card p{color:var(--muted)}
-    .gate-card input{display:block;width:100%;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px}
-    .gate-card button{width:100%;margin-top:12px;padding:12px;border:0;border-radius:10px;background:var(--green);color:#fff;font-weight:800;cursor:pointer}
-
-    @media(max-width:1050px){
-      .layout{grid-template-columns:78px 1fr}.side{padding:22px 10px}.logo{font-size:18px}
-      .side small,.nav span,.side-foot{display:none}.nav button{text-align:center}
-      .kpis{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:1fr 1fr}
-      .apply,.ghost{grid-column:span 1}
-      .top{grid-template-columns:1fr auto}.header-filters{grid-column:1/-1;grid-template-columns:repeat(4,1fr)}
+    @media(max-width:1320px){ .kpis{grid-template-columns:repeat(3,1fr)} }
+    @media(max-width:1080px){
+      .layout{grid-template-columns:62px 1fr}
+      .side{padding:18px 6px;align-items:center}
+      .brand small,.nav span,.side-foot{display:none}
+      /* Logo colapsado: solo la Q */
+      .logo{font-size:0}
+      .logo i{display:none}
+      .logo:before{content:'Q';font-size:23px;color:#fff;letter-spacing:0}
+      .nav{width:100%}
+      .nav button{justify-content:center;padding:12px 0}
+      .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .fbtns{grid-column:1/-1;justify-content:flex-end}
+      .topbar,.filterbar,.content{padding-left:16px;padding-right:16px}
     }
-    @media(max-width:720px){
-      .layout{display:block}.side{position:static;height:auto;flex-direction:row;align-items:center;padding:12px 15px}
-      .nav{margin:0 0 0 auto;display:flex}.nav button{padding:9px}
-      .top{position:static;padding:0 15px;height:auto;padding-block:14px}
-      .header-filters{grid-template-columns:1fr 1fr}.live{align-self:start}
-      .filterbar{position:static}.content{padding:0 15px 30px}
-      .grid{grid-template-columns:1fr}.wide{grid-column:auto}.search{min-width:0;width:100%}
+    @media(max-width:820px){ .kpis{grid-template-columns:repeat(2,1fr)} }
+    @media(max-width:760px){
+      .layout{display:block}
+      .side{position:static;height:auto;flex-direction:row;align-items:center;padding:10px 14px}
+      .nav{margin:0 0 0 auto;display:flex;gap:2px}
+      .stickytop{position:static}
+      .grid{grid-template-columns:1fr}
+      .canvas-wrap{height:230px}
+      .search{min-width:0;width:100%}
+      .tbl-wrap{max-height:none}
     }
-    @media(min-width:1051px){.filters{grid-template-columns:1.35fr 1fr .65fr .75fr 1fr auto auto}}
   </style>
 </head>
 <body>
   <div id="gate" class="gate hidden">
     <form id="loginForm" class="gate-card">
-      <div class="logo" style="color:var(--green)">QU<i>I</i>CK</div>
+      <div class="logo" style="color:var(--green)">QU<i style="color:var(--lime)">I</i>CK</div>
       <h2>Dashboard HSEQ</h2>
       <p>Ingresa con tu cuenta autorizada de coordinador.</p>
       <input id="email" type="email" autocomplete="username" placeholder="Correo" required>
       <input id="password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
       <button>Iniciar sesión</button>
-      <div id="loginMsg" class="status"></div>
+      <div id="loginMsg" class="msg"></div>
     </form>
   </div>
 
@@ -147,111 +202,154 @@
 
   <div class="layout">
     <aside class="side">
-      <div class="logo">QU<i>I</i>CK</div>
-      <small>HSEQ Intelligence</small>
+      <div class="brand">
+        <div><div class="logo">QU<i>I</i>CK</div><small>HSEQ Analytics</small></div>
+      </div>
       <nav class="nav">
-        <button class="active" data-section="resumen">▦ <span>Resumen ejecutivo</span></button>
-        <button data-section="cumplimiento">◎ <span>Cumplimiento</span></button>
-        <button data-section="alertas">⚠ <span>Alertas documentos</span></button>
+        <button class="active" data-s="resumen"><span class="ic">◧</span><span>Resumen</span></button>
+        <button data-s="cumplimiento"><span class="ic">◎</span><span>Cumplimiento</span></button>
+        <button data-s="operacion"><span class="ic">◔</span><span>Operación</span></button>
+        <button data-s="documentos"><span class="ic">⚑</span><span>Documentos</span></button>
       </nav>
-      <div class="side-foot">Gestión preventiva<br><small>Alertas desde 15 días</small></div>
+      <div class="side-foot">Gestión preventiva<br>Alertas desde 15 días antes</div>
     </aside>
 
     <main class="main">
-      <header class="top">
-        <div><h1 id="pageTitle">Resumen ejecutivo</h1><p id="pageSub">Control de preoperacionales y documentación</p></div>
-        <div class="header-filters">
-          <div class="field"><label>Proyecto</label><select id="project"><option value="">Todos los proyectos</option></select></div>
-          <div class="field"><label>Gestión</label><select id="formType"><option value="PREOPERACIONAL">Preoperacional</option><option value="LIMPIEZA_MOTO">Limpieza de moto</option></select></div>
-          <div class="field"><label>Año</label><select id="year"></select></div>
-          <div class="field"><label>Mes</label><select id="month"><option value="">Año</option></select></div>
-          <div class="field"><label>Día</label><input id="day" type="date"></div>
-          <button id="apply" class="apply">Actualizar</button>
-          <button id="clearDay" class="ghost" title="Quitar el filtro de día">Limpiar</button>
+      <div class="stickytop">
+        <header class="topbar">
+          <div><h1 id="pgTitle">Resumen ejecutivo</h1><p id="pgSub">Control de preoperacionales y documentación</p></div>
+          <span class="pill"><span class="dot"></span>Datos en vivo</span>
+        </header>
+        <div class="filterbar">
+          <div class="filters">
+            <div class="field"><label>Proyecto</label><select id="fProject"><option value="">Todos los proyectos</option></select></div>
+            <div class="field"><label>Año</label><select id="fYear"></select></div>
+            <div class="field"><label>Mes</label><select id="fMonth"><option value="">Todo el año</option></select></div>
+            <div class="field"><label>Día específico</label><input id="fDay" type="date"></div>
+            <div class="fbtns">
+              <button id="btnApply" class="btn btn-primary">Aplicar</button>
+              <button id="btnClear" class="btn btn-ghost">Limpiar</button>
+            </div>
+          </div>
         </div>
-        <div class="live">● En vivo</div>
-      </header>
+      </div>
 
       <div class="content">
-        <div id="status" class="status hidden"></div>
-
-        <!-- ================= RESUMEN ================= -->
+        <div id="ctx" class="ctxbar"></div>
+        <!-- ============ RESUMEN ============ -->
         <section id="resumen" class="section active">
           <div class="kpis">
-            <article class="kpi"><div id="kActive" class="num">—</div><div class="label">Activos</div><div class="detail">Según el filtro aplicado</div></article>
-            <article class="kpi"><div id="kDone" class="num">—</div><div class="label">Realizados</div><div class="detail">Registros del periodo</div></article>
-            <article class="kpi"><div id="kRate" class="num">—</div><div class="label">Cumplimiento</div><div class="detail">Realizados vs esperados</div></article>
-            <article class="kpi warn"><div id="kMissing" class="num">—</div><div class="label">Pendientes</div><div class="detail">Registros no realizados</div></article>
-            <article class="kpi danger"><div id="kAlerts" class="num">—</div><div class="label">Alertas</div><div class="detail">Registros que requieren gestión</div></article>
+            <div class="kpi"><span class="cap">Mensajeros activos</span><div id="kActive" class="num tnum">—</div><div class="sub">Habilitados para registrar en el filtro actual</div></div>
+            <div class="kpi"><span class="cap">Registros hechos</span><div id="kDone" class="num tnum">—</div><div class="sub">Formularios diligenciados en el periodo</div></div>
+            <div class="kpi"><span class="cap">Cumplimiento</span><div id="kRate" class="num tnum">—</div><div class="sub" id="kRateSub">Hechos frente a los esperados</div></div>
+            <div class="kpi is-warn"><span class="cap">Sin registrar</span><div id="kMiss" class="num tnum">—</div><div class="sub">Registros que se esperaban y no llegaron</div></div>
+            <div class="kpi is-bad"><span class="cap">Con novedad</span><div id="kAlert" class="num tnum">—</div><div class="sub">Registros con alerta que requieren gestión</div></div>
           </div>
+
           <div class="grid">
-            <article class="card"><div class="card-head"><div><h2>Comportamiento por día</h2><p>Solo días con registros</p></div></div><div class="card-body"><div class="canvas-wrap"><canvas id="daily"></canvas></div></div></article>
-            <article class="card"><div class="card-head"><div><h2>Tendencia mensual</h2><p>Meses con actividad del año</p></div></div><div class="card-body"><div class="canvas-wrap"><canvas id="monthly"></canvas></div></div></article>
-            <article class="card"><div class="card-head"><div><h2>Comparativo por año</h2><p>Evolución histórica</p></div></div><div class="card-body"><div class="canvas-wrap"><canvas id="yearly"></canvas></div></div></article>
-            <article class="card"><div class="card-head"><div><h2>Registros por proyecto</h2><p>Volumen del periodo</p></div></div><div class="card-body"><div class="canvas-wrap"><canvas id="projects"></canvas></div></div></article>
+            <article class="card">
+              <div class="card-head"><div><h2>Registros por día</h2><p>Solo aparecen los días que tuvieron actividad. Pasa el cursor para ver el detalle.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cDaily"></canvas></div>
+                <div class="legend"><span><i style="background:#12875f"></i>Registros del día</span></div></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><h2>Tendencia por mes</h2><p>Meses con actividad del año seleccionado.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cMonthly"></canvas></div>
+                <div class="legend"><span><i style="background:#07382b"></i>Registros del mes</span></div></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><h2>Cumplimiento por formulario</h2><p>Qué tan completo está cada tipo de registro frente a lo esperado.</p></div></div>
+              <div class="card-body"><div id="formRows"></div></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><h2>Volumen por proyecto</h2><p>Los 8 proyectos con más registros en el periodo.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cProjects"></canvas></div></div>
+            </article>
           </div>
         </section>
 
-        <!-- ================= CUMPLIMIENTO ================= -->
+        <!-- ============ CUMPLIMIENTO ============ -->
         <section id="cumplimiento" class="section">
           <article class="card">
-            <div class="card-head">
-              <div><h2>Cumplimiento por proyecto</h2><p>Realizados frente a esperados en el periodo</p></div>
-            </div>
-            <div class="card-body">
-              <div class="table-wrap">
-                <table>
-                  <thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Realizados</th><th>Esperados</th><th>Pendientes</th><th>Cumplimiento</th></tr></thead>
-                  <tbody id="projRows"></tbody>
-                </table>
-                <div id="projEmpty" class="empty hidden">Sin proyectos para este filtro.</div>
-              </div>
-            </div>
+            <div class="card-head"><div><h2>Cumplimiento por proyecto</h2>
+              <p><b>Esperados</b> = mensajeros activos × días del periodo × formularios obligatorios. El porcentaje indica cuánto de eso se cumplió.</p></div></div>
+            <div class="card-body"><div class="tbl-wrap">
+              <table><thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th></tr></thead>
+              <tbody id="projRows"></tbody></table>
+              <div id="projEmpty" class="empty hidden">Sin proyectos para este filtro.</div>
+            </div></div>
           </article>
 
-          <div class="stack">
+          <div class="grid">
             <article class="card">
-              <div class="card-head"><div><h2>🏆 Mayor cumplimiento individual</h2><p>Mejor desempeño registrado en el periodo</p></div></div>
-              <div class="card-body"><div class="table-wrap" style="max-height:none">
-                <table style="min-width:520px"><thead><tr><th>#</th><th>Mensajero</th><th>Proyecto</th><th>Reg.</th><th>Cumpl.</th></tr></thead><tbody id="topRows"></tbody></table>
+              <div class="card-head"><div><h2>Mejor desempeño</h2><p>Los 10 mensajeros con mayor cumplimiento del periodo.</p></div></div>
+              <div class="card-body"><div class="tbl-wrap" style="max-height:none">
+                <table style="min-width:480px"><thead><tr><th>#</th><th>Mensajero</th><th>Hechos</th><th>Cumplimiento</th></tr></thead><tbody id="topRows"></tbody></table>
               </div></div>
             </article>
             <article class="card">
-              <div class="card-head"><div><h2>⚠ Requieren seguimiento</h2><p>Menor cumplimiento del periodo</p></div></div>
-              <div class="card-body"><div class="table-wrap" style="max-height:none">
-                <table style="min-width:520px"><thead><tr><th>#</th><th>Mensajero</th><th>Proyecto</th><th>Reg.</th><th>Cumpl.</th></tr></thead><tbody id="lowRows"></tbody></table>
+              <div class="card-head"><div><h2>Requieren seguimiento</h2><p>Los 10 de menor cumplimiento, incluidos quienes no registraron nada.</p></div></div>
+              <div class="card-body"><div class="tbl-wrap" style="max-height:none">
+                <table style="min-width:480px"><thead><tr><th>#</th><th>Mensajero</th><th>Hechos</th><th>Cumplimiento</th></tr></thead><tbody id="lowRows"></tbody></table>
               </div></div>
             </article>
           </div>
 
-          <article class="card" style="margin-top:16px">
-            <div class="card-head">
-              <div><h2>Detalle de mensajeros</h2><p id="mensSub">Todos los activos del filtro</p></div>
-              <input id="mensSearch" class="search" placeholder="Buscar nombre, cédula o proyecto">
-            </div>
-            <div class="card-body">
-              <div class="table-wrap">
-                <table><thead><tr><th>Mensajero</th><th>Cédula</th><th>Proyecto</th><th>Placa</th><th>Realizados</th><th>Esperados</th><th>Cumplimiento</th><th>Último registro</th></tr></thead>
-                <tbody id="mensRows"></tbody></table>
-                <div id="mensEmpty" class="empty hidden">Sin resultados.</div>
-              </div>
-            </div>
+          <article class="card">
+            <div class="card-head"><div><h2>Detalle por mensajero</h2><p id="mSub">Todos los activos del filtro</p></div>
+              <input id="mSearch" class="search" placeholder="Buscar nombre, cédula o proyecto"></div>
+            <div class="card-body"><div class="tbl-wrap">
+              <table><thead><tr><th>Mensajero</th><th>Proyecto</th><th>Placa</th><th>Hechos</th><th>Esperados</th><th>Cumplimiento</th><th>Último registro</th></tr></thead>
+              <tbody id="mRows"></tbody></table>
+              <div id="mEmpty" class="empty hidden">Sin resultados para esta búsqueda.</div>
+            </div></div>
           </article>
         </section>
 
-        <!-- ================= ALERTAS ================= -->
-        <section id="alertas" class="section">
+        <!-- ============ OPERACIÓN ============ -->
+        <section id="operacion" class="section">
+          <div class="grid">
+            <article class="card">
+              <div class="card-head"><div><h2>Actividad por día de la semana</h2><p>Identifica en qué días baja el cumplimiento.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cDow"></canvas></div></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><h2>Franja horaria de registro</h2><p>A qué hora diligencian. Útil para verificar que el preoperacional se haga antes de operar.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cHour"></canvas></div></div>
+            </article>
+          </div>
+
           <article class="card">
-            <div class="card-head">
-              <div><h2>Alertas documentales</h2><p>Vencidos, sin fecha o que vencen en los próximos 15 días</p></div>
-              <input id="alertSearch" class="search" placeholder="Buscar nombre, cédula, proyecto o placa">
-            </div>
+            <div class="card-head"><div><h2>Mensajeros sin registrar</h2><p>Activos que llevan 3 días o más sin diligenciar. Priorizados por antigüedad de la falta.</p></div></div>
+            <div class="card-body"><div class="tbl-wrap">
+              <table style="min-width:640px"><thead><tr><th>Mensajero</th><th>Cédula</th><th>Proyecto</th><th>Último registro</th><th>Días sin registrar</th></tr></thead>
+              <tbody id="inacRows"></tbody></table>
+              <div id="inacEmpty" class="empty hidden">Todos los mensajeros activos registraron en los últimos 3 días.</div>
+            </div></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head"><div><h2>Registros con novedad</h2><p>Registros del periodo que quedaron marcados con alerta (documentos o fallas reportadas).</p></div>
+              <input id="opSearch" class="search" placeholder="Buscar mensajero o novedad"></div>
+            <div class="card-body"><div class="tbl-wrap">
+              <table style="min-width:760px"><thead><tr><th>Fecha</th><th>Mensajero</th><th>Proyecto</th><th>Placa</th><th>Novedad</th></tr></thead>
+              <tbody id="opRows"></tbody></table>
+              <div id="opEmpty" class="empty hidden">Sin novedades registradas en el periodo.</div>
+            </div></div>
+          </article>
+        </section>
+
+        <!-- ============ DOCUMENTOS ============ -->
+        <section id="documentos" class="section">
+          <article class="card">
+            <div class="card-head"><div><h2>Alertas documentales</h2><p>SOAT, tecnomecánica y licencia vencidos, sin fecha o que vencen en los próximos 15 días.</p></div>
+              <input id="docSearch" class="search" placeholder="Buscar nombre, cédula, proyecto o placa"></div>
             <div class="card-body">
-              <div id="alertChips" class="chips" style="margin-bottom:14px"></div>
-              <div class="table-wrap">
-                <table><thead><tr><th>Estado</th><th>Documento</th><th>Vencimiento</th><th>Días</th><th>Colaborador</th><th>Cédula</th><th>Placa</th><th>Proyecto</th></tr></thead>
-                <tbody id="alertRows"></tbody></table>
-                <div id="alertEmpty" class="empty hidden">No se encontraron alertas para este filtro.</div>
+              <div id="docChips" class="chips" style="margin-bottom:14px"></div>
+              <div class="tbl-wrap">
+                <table style="min-width:860px"><thead><tr><th>Estado</th><th>Documento</th><th>Vence</th><th>Días</th><th>Colaborador</th><th>Cédula</th><th>Placa</th><th>Proyecto</th></tr></thead>
+                <tbody id="docRows"></tbody></table>
+                <div id="docEmpty" class="empty hidden">No se encontraron alertas para este filtro.</div>
               </div>
             </div>
           </article>
@@ -260,355 +358,350 @@
     </main>
   </div>
 
-  <script src="assets/config.js?v=17"></script>
-  <script src="assets/api.js?v=17"></script>
+  <script src="assets/config.js?v=18"></script>
+  <script src="assets/api.js?v=18"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    let data = null, alertFiltro = 'TODOS';
+    const DOW = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+    const C = { verde:'#12875f', oscuro:'#07382b', lima:'#7f9e1f', ok:'#0f7a4d', warn:'#b57611', bad:'#b83a33' };
+    let data = null, docFiltro = 'TODOS';
 
-    /* ---------------- arranque ---------------- */
-    initFilters();
-    bootstrap();
+    initFiltros();
+    arrancar();
 
-    $('apply').addEventListener('click', load);
-    $('clearDay').addEventListener('click', () => { $('day').value = ''; load(); });
-    $('day').addEventListener('change', load);
-    $('alertSearch').addEventListener('input', renderAlerts);
-    $('mensSearch').addEventListener('input', renderMensajeros);
-    document.querySelectorAll('.nav button').forEach((b) => b.addEventListener('click', () => mostrarSeccion(b)));
-    $('loginForm').addEventListener('submit', login);
-    window.addEventListener('resize', () => { if (data) { renderCharts(); } });
+    $('btnApply').addEventListener('click', cargar);
+    $('btnClear').addEventListener('click', () => {
+      $('fProject').value = ''; $('fDay').value = '';
+      $('fYear').value = String(new Date().getFullYear());
+      $('fMonth').value = String(new Date().getMonth() + 1);
+      cargar();
+    });
+    $('fDay').addEventListener('change', cargar);
+    $('docSearch').addEventListener('input', pintarDocs);
+    $('mSearch').addEventListener('input', pintarMensajeros);
+    $('opSearch').addEventListener('input', pintarNovedades);
+    document.querySelectorAll('.nav button').forEach((b) => b.addEventListener('click', () => irA(b)));
+    $('loginForm').addEventListener('submit', entrar);
+    let redibujar; window.addEventListener('resize', () => { clearTimeout(redibujar); redibujar = setTimeout(() => data && pintarGraficas(), 180); });
 
-    function initFilters() {
+    function initFiltros() {
       const y = new Date().getFullYear();
-      for (let n = y; n >= y - 5; n--) $('year').add(new Option(n, n));
-      MESES.forEach((m, i) => $('month').add(new Option(m, i + 1)));
-      $('month').value = String(new Date().getMonth() + 1);
+      for (let n = y; n >= y - 5; n--) $('fYear').add(new Option(n, n));
+      MESES.forEach((m, i) => $('fMonth').add(new Option(m, i + 1)));
+      $('fMonth').value = String(new Date().getMonth() + 1);
     }
 
-    async function bootstrap() {
+    async function arrancar() {
       try {
         const b = await HSQ_API.call('getBootstrap');
-        (b.proyectos || []).forEach((p) => $('project').add(new Option(p.proyecto, p.proyecto_id || p.proyecto)));
-        await load();
-      } catch (e) {
-        if (/sesion|coordinador|autorizado|permission/i.test(e.message)) {
-          sessionStorage.removeItem('hsq_coord_token');
-          $('gate').classList.remove('hidden');
-        } else setStatus(e.message, true);
-      }
+        $('fProject').length = 1;
+        (b.proyectos || []).forEach((p) => $('fProject').add(new Option(p.proyecto, p.proyecto_id || p.proyecto)));
+        await cargar();
+      } catch (e) { manejarError(e); }
     }
 
-    async function login(ev) {
+    async function entrar(ev) {
       ev.preventDefault();
-      $('loginMsg').textContent = 'Ingresando…';
+      $('loginMsg').className = 'msg'; $('loginMsg').textContent = 'Ingresando…';
       try {
-        const base = (window.HSQ_CONFIG.SUPABASE_URL || '').replace(/\/$/, '');
-        const res = await fetch(base + '/auth/v1/token?grant_type=password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: HSQ_CONFIG.SUPABASE_KEY },
-          body: JSON.stringify({ email: $('email').value.trim(), password: $('password').value }),
-        });
-        const d = await res.json();
-        if (!d.access_token) throw new Error(d.error_description || d.msg || 'Credenciales incorrectas.');
-        sessionStorage.setItem('hsq_coord_token', d.access_token);
+        await HSQ_API.iniciarSesion($('email').value, $('password').value, 'coord');
         $('gate').classList.add('hidden');
         $('loginMsg').textContent = '';
-        bootstrap();
-      } catch (e) { $('loginMsg').textContent = e.message; $('loginMsg').className = 'status error'; }
+        $('password').value = '';
+        arrancar();
+      } catch (e) { $('loginMsg').className = 'msg err'; $('loginMsg').textContent = e.message; }
     }
 
-    async function load() {
-      setStatus('Actualizando información…');
+    function manejarError(e) {
+      const sesion = e.sesionExpirada || /sesion|sesión|expir|autorizado|permission|JWT/i.test(e.message || '');
+      if (sesion) { HSQ_API.cerrarSesion(); $('gate').classList.remove('hidden'); ctx('Inicia sesión para ver el panel.', true); }
+      else ctx(e.message, true);
+    }
+
+    async function cargar() {
+      ctx('Actualizando información…');
       try {
         data = await HSQ_API.call('getDashboard', {
-          anio: $('year').value, mes: $('month').value, formulario: $('formType').value,
-          dia: $('day').value, proyecto: $('project').value,
+          anio: $('fYear').value, mes: $('fMonth').value,
+          dia: $('fDay').value, proyecto: $('fProject').value,
         });
-        render();
-        setStatus('');
-      } catch (e) {
-        if (/sesion|coordinador|autorizado|permission|jwt|expired/i.test(e.message)) { sessionStorage.removeItem('hsq_coord_token'); $('gate').classList.remove('hidden'); $('loginMsg').textContent='Tu sesión venció. Ingresa nuevamente para continuar.'; }
-        else setStatus(e.message, true);
-      }
+        pintar();
+        const f = data.filtros || {};
+        const proy = $('fProject').selectedIndex > 0 ? $('fProject').options[$('fProject').selectedIndex].text : 'Todos los proyectos';
+        const periodo = f.dia ? ('día ' + f.dia)
+          : (f.mes ? (MESES[f.mes - 1] + ' ' + f.anio) : ('año ' + f.anio));
+        ctx(`<b>${esc(proy)}</b> · ${esc(periodo)} · ${f.dias || 0} día(s) · actualizado ${esc(data.actualizado || '')}`);
+      } catch (e) { manejarError(e); }
     }
 
-    function setStatus(t, bad) { $('status').textContent = t; $('status').className = 'status' + (bad ? ' error' : '') + (!t ? ' hidden' : ''); }
+    function ctx(html, bad) { $('ctx').innerHTML = html; $('ctx').className = 'ctxbar' + (bad ? ' err' : ''); }
     function fmt(v) { return Number(v || 0).toLocaleString('es-CO'); }
     function pct(v) { return Number(v || 0).toFixed(1) + '%'; }
     function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
-    function colorPct(p) { return p >= 90 ? '#106a44' : (p >= 70 ? '#d98b17' : '#c43e3e'); }
+    function colorPct(p) { return p >= 90 ? C.ok : (p >= 70 ? C.warn : C.bad); }
+    function barra(p) {
+      return `<div class="bar"><span class="track"><i class="fill" style="width:${Math.max(Math.min(p,100),0)}%;background:${colorPct(p)}"></i></span><b class="tnum" style="color:${colorPct(p)}">${pct(p)}</b></div>`;
+    }
 
-    function mostrarSeccion(btn) {
+    function irA(btn) {
       document.querySelectorAll('.nav button').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       document.querySelectorAll('.section').forEach((s) => s.classList.remove('active'));
-      $(btn.dataset.section).classList.add('active');
-      const titulos = {
+      $(btn.dataset.s).classList.add('active');
+      const t = {
         resumen: ['Resumen ejecutivo', 'Control de preoperacionales y documentación'],
         cumplimiento: ['Cumplimiento', 'Desempeño por proyecto y por mensajero'],
-        alertas: ['Alertas documentos', 'Seguimiento de SOAT, tecnomecánica y licencia'],
-      }[btn.dataset.section];
-      $('pageTitle').textContent = titulos[0];
-      $('pageSub').textContent = titulos[1];
-      if (btn.dataset.section === 'resumen') renderCharts();
+        operacion: ['Operación', 'Hábitos de registro, inactividad y novedades'],
+        documentos: ['Documentos', 'Vigencia de SOAT, tecnomecánica y licencia'],
+      }[btn.dataset.s];
+      $('pgTitle').textContent = t[0]; $('pgSub').textContent = t[1];
+      if (data) pintarGraficas();
     }
 
-    function render() {
+    function pintar() {
       const r = data.resumen || {};
       $('kActive').textContent = fmt(r.activos);
       $('kDone').textContent = fmt(r.realizadas);
       $('kRate').textContent = pct(r.porcentaje);
       $('kRate').style.color = colorPct(r.porcentaje);
-      $('kMissing').textContent = fmt(r.no_realizadas);
-      $('kAlerts').textContent = fmt(r.con_alerta);
-      renderCharts();
-      renderProyectos();
-      renderRankings();
-      renderMensajeros();
-      renderAlerts();
+      $('kRateSub').textContent = `${fmt(r.realizadas)} de ${fmt(r.esperadas)} esperados`;
+      $('kMiss').textContent = fmt(r.no_realizadas);
+      $('kAlert').textContent = fmt(r.con_alerta);
+      pintarGraficas(); pintarFormularios(); pintarProyectos();
+      pintarRankings(); pintarMensajeros(); pintarInactividad(); pintarNovedades(); pintarDocs();
     }
 
-    /* ================= GRÁFICAS INTERACTIVAS ================= */
-    const hit = {}; // hitboxes por canvas, para el tooltip
-
-    function renderCharts() {
-      lineChart('daily', data.por_dia || [], 'fecha', 'realizadas', '#12785a');
-      barChart('monthly', (data.por_mes || []).map((m) => ({ ...m, etq: nombreMes(m.mes) })), 'etq', 'realizadas', '#0a4938');
-      barChart('yearly', data.por_anio || [], 'anio', 'realizadas', '#7f9e1f');
-      barChartH('projects', data.por_proyecto || [], 'proyecto', 'realizadas', '#12785a');
-    }
-    function nombreMes(m) { const p = String(m).split('-'); return (MESES[Number(p[1]) - 1] || m).slice(0, 3) + ' ' + p[0]; }
-
-    function prep(id) {
-      const c = $(id), d = window.devicePixelRatio || 1;
-      const w = c.clientWidth, h = c.clientHeight;
-      c.width = w * d; c.height = h * d;
-      const x = c.getContext('2d');
-      x.setTransform(d, 0, 0, d, 0, 0);
-      x.clearRect(0, 0, w, h);
-      hit[id] = [];
-      return { x, w, h };
+    /* ============ GRÁFICAS (canvas con tooltip) ============ */
+    const hits = {};
+    function pintarGraficas() {
+      linea('cDaily', data.por_dia || [], (d) => String(d.fecha).slice(5), (d) => d.realizadas, C.verde,
+        (d) => [fmt(d.realizadas) + ' registros'].concat(d.con_alerta ? [fmt(d.con_alerta) + ' con novedad'] : []));
+      barras('cMonthly', (data.por_mes || []), (d) => MESES[+String(d.mes).split('-')[1] - 1].slice(0, 3), (d) => d.realizadas, C.oscuro,
+        (d) => [fmt(d.realizadas) + ' registros']);
+      barrasH('cProjects', (data.por_proyecto || []).slice().sort((a, b) => b.realizadas - a.realizadas).slice(0, 8),
+        (d) => d.proyecto, (d) => d.realizadas, C.verde,
+        (d) => [fmt(d.realizadas) + ' registros', pct(d.porcentaje) + ' de cumplimiento']);
+      barras('cDow', (data.por_dia_semana || []), (d) => DOW[d.dow - 1].slice(0, 3), (d) => d.realizadas, C.lima,
+        (d) => [fmt(d.realizadas) + ' registros', 'en ' + fmt(d.dias) + ' día(s)']);
+      barras('cHour', (data.por_hora || []), (d) => String(d.hora).padStart(2, '0') + 'h', (d) => d.realizadas, C.verde,
+        (d) => [fmt(d.realizadas) + ' registros', 'entre ' + String(d.hora).padStart(2, '0') + ':00 y ' + String(d.hora).padStart(2, '0') + ':59']);
     }
 
-    // Área de trazado con fondo oscuro suave + rejilla
-    function plotArea(x, w, h, max, pad) {
-      x.fillStyle = '#e4ede9'; // fondo del área de trazado, más oscuro que la tarjeta
-      x.fillRect(pad.l, pad.t, w - pad.l - pad.r, h - pad.t - pad.b);
-      x.strokeStyle = '#cfe0d8'; x.lineWidth = 1;
-      x.fillStyle = '#4a5f57'; x.font = '600 11px Segoe UI'; x.textAlign = 'right';
+    function base(id) {
+      const c = $(id); if (!c || !c.clientWidth) return null;
+      const dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+      c.width = w * dpr; c.height = h * dpr;
+      const x = c.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
+      hits[id] = [];
+      return { c, x, w, h };
+    }
+    function sinDatos(x, w, h) {
+      x.fillStyle = '#93a8a0'; x.font = '13px "Segoe UI"'; x.textAlign = 'center';
+      x.fillText('Sin datos en el periodo seleccionado', w / 2, h / 2); x.textAlign = 'left';
+    }
+    function marco(x, w, h, max, p) {
+      x.fillStyle = '#e9f0ed'; x.fillRect(p.l, p.t, w - p.l - p.r, h - p.t - p.b);
+      x.strokeStyle = '#d3e2db'; x.lineWidth = 1; x.fillStyle = '#5c7269';
+      x.font = '600 10.5px "Segoe UI"'; x.textAlign = 'right';
       for (let i = 0; i <= 4; i++) {
-        const y = pad.t + (h - pad.t - pad.b) * i / 4;
-        x.beginPath(); x.moveTo(pad.l, y); x.lineTo(w - pad.r, y); x.stroke();
-        x.fillText(fmt(Math.round(max * (4 - i) / 4)), pad.l - 6, y + 4);
+        const y = Math.round(p.t + (h - p.t - p.b) * i / 4) + .5;
+        x.beginPath(); x.moveTo(p.l, y); x.lineTo(w - p.r, y); x.stroke();
+        x.fillText(fmt(Math.round(max * (4 - i) / 4)), p.l - 7, y + 3.5);
       }
       x.textAlign = 'left';
     }
-
-    function vacio(x, w, h) {
-      x.fillStyle = '#7b8b85'; x.textAlign = 'center'; x.font = '13px Segoe UI';
-      x.fillText('Sin datos para el periodo seleccionado', w / 2, h / 2);
-      x.textAlign = 'left';
+    function redondo(x, bx, by, bw, bh, r) {
+      const rr = Math.max(Math.min(r, bw / 2, bh / 2), 0);
+      x.beginPath(); x.moveTo(bx + rr, by); x.lineTo(bx + bw - rr, by);
+      x.quadraticCurveTo(bx + bw, by, bx + bw, by + rr); x.lineTo(bx + bw, by + bh - rr);
+      x.quadraticCurveTo(bx + bw, by + bh, bx + bw - rr, by + bh); x.lineTo(bx + rr, by + bh);
+      x.quadraticCurveTo(bx, by + bh, bx, by + bh - rr); x.lineTo(bx, by + rr);
+      x.quadraticCurveTo(bx, by, bx + rr, by); x.closePath();
     }
 
-    function lineChart(id, datos, key, val, color) {
-      const { x, w, h } = prep(id);
-      if (!datos.length) return vacio(x, w, h);
-      const pad = { l: 46, r: 12, t: 14, b: 34 };
-      const max = Math.max(...datos.map((d) => +d[val] || 0), 1);
-      plotArea(x, w, h, max, pad);
-      const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
-      const step = datos.length > 1 ? iw / (datos.length - 1) : 0;
-      const px = (i) => pad.l + (datos.length > 1 ? i * step : iw / 2);
-      const py = (v) => pad.t + ih * (1 - (+v || 0) / max);
-
+    function linea(id, arr, etq, val, color, det) {
+      const b = base(id); if (!b) return; const { x, w, h } = b;
+      if (!arr.length) return sinDatos(x, w, h);
+      const p = { l: 48, r: 14, t: 14, b: 32 };
+      const max = Math.max(...arr.map((d) => +val(d) || 0), 1);
+      marco(x, w, h, max, p);
+      const iw = w - p.l - p.r, ih = h - p.t - p.b;
+      const px = (i) => p.l + (arr.length > 1 ? i * iw / (arr.length - 1) : iw / 2);
+      const py = (v) => p.t + ih * (1 - (+v || 0) / max);
       x.beginPath();
-      datos.forEach((d, i) => { const a = px(i), b = py(d[val]); i ? x.lineTo(a, b) : x.moveTo(a, b); });
-      x.lineTo(px(datos.length - 1), pad.t + ih); x.lineTo(px(0), pad.t + ih); x.closePath();
-      x.fillStyle = color + '22'; x.fill();
-
-      x.beginPath(); x.strokeStyle = color; x.lineWidth = 2.5;
-      datos.forEach((d, i) => { const a = px(i), b = py(d[val]); i ? x.lineTo(a, b) : x.moveTo(a, b); });
+      arr.forEach((d, i) => { const a = px(i), c2 = py(val(d)); i ? x.lineTo(a, c2) : x.moveTo(a, c2); });
+      x.lineTo(px(arr.length - 1), p.t + ih); x.lineTo(px(0), p.t + ih); x.closePath();
+      const g = x.createLinearGradient(0, p.t, 0, p.t + ih);
+      g.addColorStop(0, color + '38'); g.addColorStop(1, color + '05'); x.fillStyle = g; x.fill();
+      x.beginPath(); x.strokeStyle = color; x.lineWidth = 2.4; x.lineJoin = 'round';
+      arr.forEach((d, i) => { const a = px(i), c2 = py(val(d)); i ? x.lineTo(a, c2) : x.moveTo(a, c2); });
       x.stroke();
-
-      datos.forEach((d, i) => {
-        const a = px(i), b = py(d[val]);
-        x.fillStyle = '#fff'; x.beginPath(); x.arc(a, b, 4, 0, 7); x.fill();
+      arr.forEach((d, i) => {
+        const a = px(i), c2 = py(val(d));
+        x.fillStyle = '#fff'; x.beginPath(); x.arc(a, c2, 3.8, 0, 7); x.fill();
         x.strokeStyle = color; x.lineWidth = 2; x.stroke();
-        hit[id].push({ x: a, y: b, r: 12, titulo: String(d[key]).slice(0, 10),
-          lineas: [fmt(d[val]) + ' registros'].concat(d.con_alerta ? [fmt(d.con_alerta) + ' con alerta'] : []) });
+        hits[id].push({ cx: a, cy: c2, r: 14, t: etq(d), l: det(d) });
       });
-
-      x.fillStyle = '#4a5f57'; x.font = '11px Segoe UI'; x.textAlign = 'center';
-      const salto = Math.ceil(datos.length / 8);
-      datos.forEach((d, i) => { if (i % salto === 0) x.fillText(String(d[key]).slice(5, 10), px(i), h - 12); });
+      x.fillStyle = '#5c7269'; x.font = '10.5px "Segoe UI"'; x.textAlign = 'center';
+      const salto = Math.max(1, Math.ceil(arr.length / 9));
+      arr.forEach((d, i) => { if (i % salto === 0) x.fillText(etq(d), px(i), h - 11); });
       x.textAlign = 'left';
     }
 
-    function barChart(id, datos, key, val, color) {
-      const { x, w, h } = prep(id);
-      if (!datos.length) return vacio(x, w, h);
-      const pad = { l: 46, r: 12, t: 14, b: 38 };
-      const shown = datos.slice(-14);
-      const max = Math.max(...shown.map((d) => +d[val] || 0), 1);
-      plotArea(x, w, h, max, pad);
-      const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
-      const gap = iw / shown.length, bw = Math.min(Math.max(gap - 12, 8), 54);
-      shown.forEach((d, i) => {
-        const bh = ih * (+d[val] || 0) / max;
-        const bx = pad.l + i * gap + (gap - bw) / 2, by = pad.t + ih - bh;
-        x.fillStyle = color;
-        redondeado(x, bx, by, bw, bh, 6); x.fill();
-        hit[id].push({ x: bx, y: by, w: bw, h: bh, titulo: String(d[key]), lineas: [fmt(d[val]) + ' registros'] });
-        x.fillStyle = '#41564e'; x.font = '600 11px Segoe UI'; x.textAlign = 'center';
-        x.fillText(String(d[key]).slice(0, 8), bx + bw / 2, h - 14);
+    function barras(id, arr, etq, val, color, det) {
+      const b = base(id); if (!b) return; const { x, w, h } = b;
+      if (!arr.length) return sinDatos(x, w, h);
+      const p = { l: 48, r: 14, t: 14, b: 34 };
+      const vis = arr.slice(-14);
+      const max = Math.max(...vis.map((d) => +val(d) || 0), 1);
+      marco(x, w, h, max, p);
+      const iw = w - p.l - p.r, ih = h - p.t - p.b, gap = iw / vis.length;
+      const bw = Math.min(Math.max(gap - 14, 7), 48);
+      vis.forEach((d, i) => {
+        const bh = Math.max(ih * (+val(d) || 0) / max, 2);
+        const bx = p.l + i * gap + (gap - bw) / 2, by = p.t + ih - bh;
+        x.fillStyle = color; redondo(x, bx, by, bw, bh, 5); x.fill();
+        hits[id].push({ x: bx, y: by, w: bw, h: bh, t: etq(d), l: det(d) });
+        x.fillStyle = '#4d635b'; x.font = '600 10.5px "Segoe UI"'; x.textAlign = 'center';
+        x.fillText(etq(d), bx + bw / 2, h - 12);
       });
       x.textAlign = 'left';
     }
 
-    function barChartH(id, datos, key, val, color) {
-      const { x, w, h } = prep(id);
-      if (!datos.length) return vacio(x, w, h);
-      const shown = datos.slice().sort((a, b) => (+b[val] || 0) - (+a[val] || 0)).slice(0, 8);
-      const max = Math.max(...shown.map((d) => +d[val] || 0), 1);
-      const lw = Math.min(150, w * 0.42), gap = h / shown.length, bh = Math.min(gap - 10, 26);
-      shown.forEach((d, i) => {
-        const y = i * gap + (gap - bh) / 2, tw = w - lw - 54;
-        x.fillStyle = '#e0ebe6'; redondeado(x, lw, y, tw, bh, 6); x.fill();
-        const bw = tw * (+d[val] || 0) / max;
-        x.fillStyle = color; redondeado(x, lw, y, Math.max(bw, 2), bh, 6); x.fill();
-        x.fillStyle = '#33463f'; x.font = '600 11px Segoe UI'; x.textAlign = 'right';
-        x.fillText(String(d[key]).slice(0, 20), lw - 8, y + bh / 2 + 4);
-        x.textAlign = 'left'; x.fillStyle = '#33463f'; x.font = '700 11px Segoe UI';
-        x.fillText(fmt(d[val]), lw + Math.max(bw, 2) + 6, y + bh / 2 + 4);
-        hit[id].push({ x: lw, y: y, w: tw, h: bh, titulo: String(d[key]),
-          lineas: [fmt(d[val]) + ' registros'].concat(d.porcentaje != null ? [pct(d.porcentaje) + ' de cumplimiento'] : []) });
+    function barrasH(id, arr, etq, val, color, det) {
+      const b = base(id); if (!b) return; const { x, w, h } = b;
+      if (!arr.length) return sinDatos(x, w, h);
+      const max = Math.max(...arr.map((d) => +val(d) || 0), 1);
+      const lw = Math.min(148, w * .4), gap = h / arr.length, bh = Math.min(gap - 9, 24);
+      arr.forEach((d, i) => {
+        const y = i * gap + (gap - bh) / 2, tw = w - lw - 52;
+        x.fillStyle = '#e2ebe7'; redondo(x, lw, y, tw, bh, 5); x.fill();
+        const bw = Math.max(tw * (+val(d) || 0) / max, 3);
+        x.fillStyle = color; redondo(x, lw, y, bw, bh, 5); x.fill();
+        x.fillStyle = '#2f4139'; x.font = '600 10.5px "Segoe UI"'; x.textAlign = 'right';
+        x.fillText(String(etq(d)).slice(0, 19), lw - 8, y + bh / 2 + 3.5);
+        x.textAlign = 'left'; x.font = '700 10.5px "Segoe UI"';
+        x.fillText(fmt(val(d)), lw + bw + 7, y + bh / 2 + 3.5);
+        hits[id].push({ x: lw, y: y, w: tw, h: bh, t: String(etq(d)), l: det(d) });
       });
     }
 
-    function redondeado(x, bx, by, bw, bh, r) {
-      const rr = Math.min(r, bw / 2, Math.max(bh, 1) / 2);
-      x.beginPath();
-      x.moveTo(bx + rr, by); x.lineTo(bx + bw - rr, by); x.quadraticCurveTo(bx + bw, by, bx + bw, by + rr);
-      x.lineTo(bx + bw, by + bh - rr); x.quadraticCurveTo(bx + bw, by + bh, bx + bw - rr, by + bh);
-      x.lineTo(bx + rr, by + bh); x.quadraticCurveTo(bx, by + bh, bx, by + bh - rr);
-      x.lineTo(bx, by + rr); x.quadraticCurveTo(bx, by, bx + rr, by); x.closePath();
-    }
-
-    /* Tooltip al pasar el mouse por cualquier gráfica */
-    ['daily', 'monthly', 'yearly', 'projects'].forEach((id) => {
-      const c = $(id);
+    ['cDaily','cMonthly','cProjects','cDow','cHour'].forEach((id) => {
+      const c = $(id); if (!c) return;
       c.addEventListener('mousemove', (ev) => {
-        const rect = c.getBoundingClientRect();
-        const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
-        const encontrado = (hit[id] || []).find((it) => it.r
-          ? Math.hypot(mx - it.x, my - it.y) <= it.r
-          : (mx >= it.x && mx <= it.x + it.w && my >= it.y - 6 && my <= it.y + it.h + 6));
-        if (encontrado) {
-          $('tip').innerHTML = '<b>' + esc(encontrado.titulo) + '</b>' +
-            encontrado.lineas.map((l) => '<i>' + esc(l) + '</i>').join('<br>');
-          $('tip').classList.add('show');
-          $('tip').style.left = Math.min(ev.clientX + 14, window.innerWidth - 250) + 'px';
-          $('tip').style.top = (ev.clientY - 10) + 'px';
+        const rc = c.getBoundingClientRect(), mx = ev.clientX - rc.left, my = ev.clientY - rc.top;
+        const it = (hits[id] || []).find((o) => o.r
+          ? Math.hypot(mx - o.cx, my - o.cy) <= o.r
+          : (mx >= o.x && mx <= o.x + o.w && my >= o.y - 8 && my <= o.y + o.h + 8));
+        const tip = $('tip');
+        if (it) {
+          tip.innerHTML = '<b>' + esc(it.t) + '</b>' + it.l.map((l) => '<span>' + esc(l) + '</span>').join('<br>');
+          tip.classList.add('show');
+          tip.style.left = Math.min(ev.clientX + 15, innerWidth - 260) + 'px';
+          tip.style.top = Math.max(ev.clientY - 12, 8) + 'px';
           c.style.cursor = 'pointer';
-        } else { $('tip').classList.remove('show'); c.style.cursor = 'default'; }
+        } else { tip.classList.remove('show'); c.style.cursor = 'default'; }
       });
       c.addEventListener('mouseleave', () => $('tip').classList.remove('show'));
     });
 
-    /* ================= CUMPLIMIENTO ================= */
-    function barraMini(p) {
-      return `<div style="display:flex;align-items:center;gap:8px">
-        <div class="mini-bar"><i style="width:${Math.max(Math.min(p,100),0)}%;background:${colorPct(p)}"></i></div>
-        <b style="color:${colorPct(p)};font-variant-numeric:tabular-nums">${pct(p)}</b></div>`;
+    /* ============ TABLAS ============ */
+    function pintarFormularios() {
+      const fs = data.por_formulario || [];
+      $('formRows').innerHTML = fs.length ? fs.map((f) => `
+        <div style="padding:12px 0;border-top:1px solid var(--line)">
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:7px">
+            <b>${esc(f.nombre)}</b>
+            <span class="tnum" style="color:var(--muted);font-size:12.5px">${fmt(f.realizadas)} de ${fmt(f.esperadas)}</span>
+          </div>${barra(f.porcentaje)}
+        </div>`).join('') : '<div class="empty">Sin formularios activos.</div>';
     }
 
-    function renderProyectos() {
+    function pintarProyectos() {
       const ps = data.por_proyecto || [];
       $('projEmpty').classList.toggle('hidden', ps.length > 0);
       $('projRows').innerHTML = ps.map((p, i) => `
-        <tr>
-          <td><span class="rank ${i === 0 ? 'top' : ''}">${i + 1}</span></td>
-          <td><b>${esc(p.proyecto)}</b></td>
-          <td class="num-cell">${fmt(p.activos)}</td>
-          <td class="num-cell">${fmt(p.realizadas)}</td>
-          <td class="num-cell">${fmt(p.esperadas)}</td>
-          <td class="num-cell">${fmt(p.no_realizadas)}</td>
-          <td>${barraMini(p.porcentaje)}</td>
-        </tr>`).join('');
+        <tr><td><span class="rank ${i === 0 ? 'gold' : ''}">${i + 1}</span></td>
+        <td class="t-name">${esc(p.proyecto)}</td>
+        <td class="tnum">${fmt(p.activos)}</td><td class="tnum">${fmt(p.realizadas)}</td>
+        <td class="tnum">${fmt(p.esperadas)}</td><td class="tnum">${fmt(p.no_realizadas)}</td>
+        <td>${barra(p.porcentaje)}</td></tr>`).join('');
     }
 
-    function renderRankings() {
-      const ms = (data.mensajeros || []).slice();
-      const conReg = ms.filter((m) => m.realizadas > 0);
-      const top = conReg.slice(0, 10);
+    function pintarRankings() {
+      const ms = data.mensajeros || [];
+      const top = ms.filter((m) => m.realizadas > 0).slice(0, 10);
       const low = ms.slice().sort((a, b) => a.porcentaje - b.porcentaje || a.realizadas - b.realizadas).slice(0, 10);
-      const fila = (m, i, clase) => `
-        <tr>
-          <td><span class="rank ${clase}">${i + 1}</span></td>
-          <td><b>${esc(m.nombre)}</b><br><small style="color:var(--muted)">CC ${esc(m.cedula)}</small></td>
-          <td><small>${esc(String(m.proyecto).slice(0, 24))}</small></td>
-          <td class="num-cell">${fmt(m.realizadas)}</td>
-          <td>${barraMini(m.porcentaje)}</td>
-        </tr>`;
-      $('topRows').innerHTML = top.length ? top.map((m, i) => fila(m, i, i < 3 ? 'top' : '')).join('')
-        : '<tr><td colspan="5" class="empty">Sin registros en el periodo.</td></tr>';
-      $('lowRows').innerHTML = low.length ? low.map((m, i) => fila(m, i, 'low')).join('')
-        : '<tr><td colspan="5" class="empty">Sin datos.</td></tr>';
+      const fila = (m, i, cls) => `
+        <tr><td><span class="rank ${cls}">${i + 1}</span></td>
+        <td><div class="t-name">${esc(m.nombre)}</div><div class="t-sub">${esc(String(m.proyecto).slice(0, 30))}</div></td>
+        <td class="tnum">${fmt(m.realizadas)}</td><td>${barra(m.porcentaje)}</td></tr>`;
+      $('topRows').innerHTML = top.length ? top.map((m, i) => fila(m, i, i < 3 ? 'gold' : '')).join('')
+        : '<tr><td colspan="4" class="empty">Sin registros en el periodo.</td></tr>';
+      $('lowRows').innerHTML = low.length ? low.map((m, i) => fila(m, i, 'red')).join('')
+        : '<tr><td colspan="4" class="empty">Sin datos.</td></tr>';
     }
 
-    function renderMensajeros() {
-      const q = $('mensSearch').value.toLowerCase();
-      const todos = data.mensajeros || [];
-      const rows = todos.filter((m) => (m.nombre + ' ' + m.cedula + ' ' + m.proyecto).toLowerCase().includes(q));
-      $('mensSub').textContent = rows.length + ' de ' + todos.length + ' mensajeros activos';
-      $('mensEmpty').classList.toggle('hidden', rows.length > 0);
-      $('mensRows').innerHTML = rows.map((m) => `
-        <tr>
-          <td><b>${esc(m.nombre)}</b></td>
-          <td class="num-cell">${esc(m.cedula)}</td>
-          <td><small>${esc(m.proyecto)}</small></td>
-          <td>${esc(m.placa || '—')}</td>
-          <td class="num-cell">${fmt(m.realizadas)}</td>
-          <td class="num-cell">${fmt(m.esperadas)}</td>
-          <td>${barraMini(m.porcentaje)}</td>
-          <td class="num-cell">${m.ultimo_registro ? esc(m.ultimo_registro) : '—'}</td>
-        </tr>`).join('');
-    }
-
-    /* ================= ALERTAS ================= */
-    function renderAlerts() {
+    function pintarMensajeros() {
       if (!data) return;
-      const all = data.alertas || [];
-      const q = $('alertSearch').value.toLowerCase();
-      const cuenta = (e) => all.filter((a) => a.estado === e).length;
-      const chips = [
-        ['TODOS', 'Todas', all.length],
-        ['VENCIDO', 'Vencidos', cuenta('VENCIDO')],
-        ['PRÓXIMO A VENCER', 'Próximos a vencer', cuenta('PRÓXIMO A VENCER')],
-        ['SIN FECHA', 'Sin fecha', cuenta('SIN FECHA')],
-      ];
-      $('alertChips').innerHTML = chips.map(([k, t, n]) =>
-        `<button type="button" class="chip ${alertFiltro === k ? 'active' : ''}" data-f="${esc(k)}">${t} <b>${n}</b></button>`).join('');
-      $('alertChips').querySelectorAll('[data-f]').forEach((b) =>
-        b.addEventListener('click', () => { alertFiltro = b.dataset.f; renderAlerts(); }));
+      const q = $('mSearch').value.toLowerCase(), todos = data.mensajeros || [];
+      const rows = todos.filter((m) => (m.nombre + ' ' + m.cedula + ' ' + m.proyecto).toLowerCase().includes(q));
+      $('mSub').textContent = `${rows.length} de ${todos.length} mensajeros activos`;
+      $('mEmpty').classList.toggle('hidden', rows.length > 0);
+      $('mRows').innerHTML = rows.map((m) => `
+        <tr><td><div class="t-name">${esc(m.nombre)}</div><div class="t-sub tnum">CC ${esc(m.cedula)}</div></td>
+        <td class="t-sub">${esc(m.proyecto)}</td><td>${esc(m.placa || '—')}</td>
+        <td class="tnum">${fmt(m.realizadas)}</td><td class="tnum">${fmt(m.esperadas)}</td>
+        <td>${barra(m.porcentaje)}</td>
+        <td class="tnum">${m.ultimo_registro ? esc(m.ultimo_registro) : '<span class="badge bad">Nunca</span>'}</td></tr>`).join('');
+    }
 
-      const rows = all
-        .filter((a) => alertFiltro === 'TODOS' || a.estado === alertFiltro)
+    function pintarInactividad() {
+      const arr = data.inactividad || [];
+      $('inacEmpty').classList.toggle('hidden', arr.length > 0);
+      $('inacRows').innerHTML = arr.map((m) => {
+        const d = m.dias_sin;
+        const bad = d === null || d >= 7;
+        return `<tr><td class="t-name">${esc(m.nombre)}</td><td class="tnum">${esc(m.cedula)}</td>
+        <td class="t-sub">${esc(m.proyecto)}</td>
+        <td class="tnum">${m.ultimo ? esc(m.ultimo) : '—'}</td>
+        <td><span class="badge ${bad ? 'bad' : 'warn'}">${d === null ? 'Nunca ha registrado' : d + ' días'}</span></td></tr>`;
+      }).join('');
+    }
+
+    function pintarNovedades() {
+      if (!data) return;
+      const q = $('opSearch').value.toLowerCase(), arr = data.alertas_operativas || [];
+      const rows = arr.filter((a) => (a.nombre + ' ' + a.alertas + ' ' + a.proyecto).toLowerCase().includes(q));
+      $('opEmpty').classList.toggle('hidden', rows.length > 0);
+      $('opRows').innerHTML = rows.map((a) => `
+        <tr><td class="tnum">${esc(a.fecha)}</td>
+        <td><div class="t-name">${esc(a.nombre)}</div><div class="t-sub tnum">CC ${esc(a.cedula)}</div></td>
+        <td class="t-sub">${esc(a.proyecto)}</td><td>${esc(a.placa || '—')}</td>
+        <td style="max-width:340px">${esc(a.alertas)}</td></tr>`).join('');
+    }
+
+    function pintarDocs() {
+      if (!data) return;
+      const all = data.alertas || [], q = $('docSearch').value.toLowerCase();
+      const n = (e) => all.filter((a) => a.estado === e).length;
+      const chips = [['TODOS','Todas',all.length],['VENCIDO','Vencidos',n('VENCIDO')],
+        ['PRÓXIMO A VENCER','Próximos a vencer',n('PRÓXIMO A VENCER')],['SIN FECHA','Sin fecha',n('SIN FECHA')]];
+      $('docChips').innerHTML = chips.map(([k, t, c]) =>
+        `<button type="button" class="chip ${docFiltro === k ? 'active' : ''}" data-f="${esc(k)}">${t} <b>${c}</b></button>`).join('');
+      $('docChips').querySelectorAll('[data-f]').forEach((b) =>
+        b.addEventListener('click', () => { docFiltro = b.dataset.f; pintarDocs(); }));
+      const rows = all.filter((a) => docFiltro === 'TODOS' || a.estado === docFiltro)
         .filter((a) => Object.values(a).join(' ').toLowerCase().includes(q));
-      $('alertEmpty').classList.toggle('hidden', rows.length > 0);
-      $('alertRows').innerHTML = rows.map((a) => `
-        <tr>
-          <td><span class="badge ${a.estado === 'PRÓXIMO A VENCER' ? 'warn' : 'bad'}">${esc(a.estado)}</span></td>
-          <td><b>${esc(a.documento)}</b></td>
-          <td class="num-cell">${esc(a.fecha_vencimiento || 'Sin fecha')}</td>
-          <td class="num-cell">${a.dias_restantes == null ? '—' : a.dias_restantes}</td>
-          <td>${esc(a.nombre)}</td>
-          <td class="num-cell">${esc(a.cedula)}</td>
-          <td>${esc(a.placa_moto || '—')}</td>
-          <td><small>${esc(a.proyecto || 'Sin proyecto')}</small></td>
-        </tr>`).join('');
+      $('docEmpty').classList.toggle('hidden', rows.length > 0);
+      $('docRows').innerHTML = rows.map((a) => `
+        <tr><td><span class="badge ${a.estado === 'PRÓXIMO A VENCER' ? 'warn' : 'bad'}">${esc(a.estado)}</span></td>
+        <td class="t-name">${esc(a.documento)}</td>
+        <td class="tnum">${esc(a.fecha_vencimiento || '—')}</td>
+        <td class="tnum">${a.dias_restantes == null ? '—' : a.dias_restantes}</td>
+        <td>${esc(a.nombre)}</td><td class="tnum">${esc(a.cedula)}</td>
+        <td>${esc(a.placa_moto || '—')}</td><td class="t-sub">${esc(a.proyecto || 'Sin proyecto')}</td></tr>`).join('');
     }
   </script>
 </body>

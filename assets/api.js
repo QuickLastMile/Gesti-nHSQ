@@ -46,9 +46,52 @@
   }
 
   /* -------------------- Modo BASE DE DATOS (Supabase) -------------------- */
+  // Sesión del coordinador / HSQ (los tokens de Supabase caducan cada hora).
+  function claveSesion() {
+    return sessionStorage.getItem('hsq_coord_token') ? 'hsq_coord_token'
+         : (sessionStorage.getItem('hsq_admin_token') ? 'hsq_admin_token' : '');
+  }
+  function tokenSesion() {
+    return sessionStorage.getItem('hsq_coord_token') || sessionStorage.getItem('hsq_admin_token') || '';
+  }
+  function guardarSesion(d, tipo) {
+    if (!d || !d.access_token) return false;
+    sessionStorage.setItem(tipo === 'admin' ? 'hsq_admin_token' : 'hsq_coord_token', d.access_token);
+    if (d.refresh_token) sessionStorage.setItem('hsq_refresh_token', d.refresh_token);
+    return true;
+  }
+  function cerrarSesion() {
+    ['hsq_coord_token', 'hsq_admin_token', 'hsq_refresh_token'].forEach((k) => sessionStorage.removeItem(k));
+  }
+
+  // Renueva el token con el refresh_token guardado en el login.
+  async function refrescarSesion() {
+    const rt = sessionStorage.getItem('hsq_refresh_token');
+    const clave = claveSesion();
+    if (!rt || !clave) return false;
+    try {
+      const res = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY },
+        body: JSON.stringify({ refresh_token: rt }),
+      });
+      const d = await res.json();
+      if (!d || !d.access_token) return false;
+      sessionStorage.setItem(clave, d.access_token);
+      if (d.refresh_token) sessionStorage.setItem('hsq_refresh_token', d.refresh_token);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function errorSesion() {
+    const err = new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
+    err.sesionExpirada = true;
+    return err;
+  }
+
   // Llamada base a la función hseq_api de Postgres.
-  async function rpc(action, payload = {}) {
-    const sessionToken = sessionStorage.getItem('hsq_coord_token') || sessionStorage.getItem('hsq_admin_token') || '';
+  async function rpc(action, payload = {}, reintento) {
+    const sessionToken = tokenSesion();
     let res;
     try {
       res = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/hseq_api', {
@@ -69,10 +112,18 @@
     }
     // Si PostgREST devuelve un error propio (permiso, función inexistente…)
     if (data && data.message && data.ok === undefined) {
+      // Token caducado: se renueva solo y se reintenta una vez.
+      if (/jwt (expired|invalid)|invalid.*jwt|token.*expir/i.test(data.message)) {
+        if (!reintento && await refrescarSesion()) return rpc(action, payload, true);
+        cerrarSesion();
+        throw errorSesion();
+      }
       throw new Error('Base de datos: ' + data.message);
     }
     if (!data || data.ok !== true) {
-      throw new Error((data && data.error) || 'Error de la base de datos.');
+      const msg = (data && data.error) || 'Error de la base de datos.';
+      if (/inicia(r)? sesion|debes iniciar/i.test(msg)) throw errorSesion();
+      throw new Error(msg);
     }
     return data.result;
   }
@@ -451,9 +502,30 @@
     return Promise.reject(new Error('Acción demo no soportada: ' + action));
   }
 
+  // Inicia sesión (coordinador/HSQ) y guarda el token + refresh_token.
+  async function iniciarSesion(email, password, tipo) {
+    const base = CFG.SUPABASE_URL.replace(/\/$/, '');
+    const res = await fetch(base + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY },
+      body: JSON.stringify({ email: String(email || '').trim(), password: password }),
+    });
+    const d = await res.json();
+    if (!d || !d.access_token) {
+      throw new Error(d.error_description || d.msg || d.error || 'Correo o contraseña incorrectos.');
+    }
+    guardarSesion(d, tipo);
+    return d;
+  }
+
   window.HSQ_API = {
     call,
     isDemo: !supaOn && !configured,
     backend: supaOn ? 'supabase' : (configured ? 'appsscript' : 'demo'),
+    iniciarSesion,
+    guardarSesion,
+    cerrarSesion,
+    refrescarSesion,
+    haySesion: () => !!tokenSesion(),
   };
 })();

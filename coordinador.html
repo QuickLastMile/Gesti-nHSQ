@@ -219,21 +219,13 @@
       if (!email || !password) return setStatusId('coordLoginStatus', 'Escribe correo y contraseña.', 'error');
       setStatusId('coordLoginStatus', 'Validando acceso…', 'info');
       try {
-        const cfg = window.HSQ_CONFIG || {};
-        const base = String(cfg.SUPABASE_URL || '').replace(/\/$/, '');
-        const res = await fetch(base + '/auth/v1/token?grant_type=password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: cfg.SUPABASE_KEY },
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.access_token) throw new Error(data.error_description || data.msg || 'Credenciales incorrectas.');
-        sessionStorage.setItem('hsq_coord_token', data.access_token);
+        // Guarda token + refresh_token para que la sesión se renueve sola.
+        await HSQ_API.iniciarSesion(email, password, 'coord');
         await HSQ_API.call('getMatrizInfo');
         $('gate').classList.add('hidden');
         $('coordLoginStatus').className = 'status';
       } catch (err) {
-        sessionStorage.removeItem('hsq_coord_token');
+        HSQ_API.cerrarSesion();
         setStatusId('coordLoginStatus', err.message, 'error');
       }
     }
