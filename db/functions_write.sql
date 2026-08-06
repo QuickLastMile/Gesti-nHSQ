@@ -55,6 +55,14 @@ begin
   select * into c from colaboradores where regexp_replace(cedula,'\D','','g') = ncedula limit 1;
   if not found then raise exception 'Cedula no encontrada.'; end if;
   if not c.activo then raise exception 'La persona no esta activa para registro.'; end if;
+  if not exists (
+    select 1
+    from proyectos_formularios pf
+    join formularios frm on frm.id=pf.formulario_id and frm.activo
+    where pf.proyecto=coalesce(c.proyecto,'') and pf.formulario_id=fid and pf.activo
+  ) then
+    raise exception 'Este formulario no esta habilitado para tu proyecto.';
+  end if;
 
   -- Regla: un registro por dia por formulario.
   if exists (select 1 from registros
@@ -197,7 +205,13 @@ begin
   end if;
 
   -- Estado del dia + comprobante.
-  for f in select id, nombre from formularios where activo order by orden loop
+  for f in
+    select frm.id, frm.nombre
+    from formularios frm
+    join proyectos_formularios pf on pf.formulario_id=frm.id and pf.activo
+    where frm.activo and pf.proyecto=coalesce(c.proyecto,'')
+    order by frm.orden
+  loop
     select to_char(hora,'HH24:MI') as h, id::text as rid2 into r
       from registros where regexp_replace(cedula,'\D','','g') = ncedula
         and formulario_id = f.id and fecha = hoy limit 1;

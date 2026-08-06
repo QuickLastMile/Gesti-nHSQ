@@ -16,7 +16,6 @@ declare
   desde date;
   hasta date;
   ndias int;
-  nforms int;
   activos int;
   realizadas bigint;
   esperadas bigint;
@@ -40,18 +39,7 @@ begin
   end if;
   ndias := greatest((hasta-desde)+1,0);
 
-  if form_f = '' or form_f = 'TODOS' then
-    form_f := '';
-    select count(*) into nforms from formularios where activo;
-  else
-    nforms := 1;
-  end if;
-  select count(*) into activos from colaboradores c
-   where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy);
-  select count(*) into realizadas from registros r
-   where r.fecha between desde and hasta and coalesce(r.estado,'') <> 'ANULADO'
-     and (form_f='' or r.formulario_id=form_f)
-     and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy);
+  if form_f = '' or form_f = 'TODOS' then form_f := ''; end if;
 
   -- Dias realmente exigibles: respeta el calendario de cada proyecto
   -- (dias laborales y festivos) y descuenta las justificaciones.
@@ -66,7 +54,32 @@ begin
     where not justificado
     group by cedula, proyecto;
 
-  select coalesce(sum(dias),0)::bigint * nforms into esperadas from tmp_dias;
+  -- Asignaciones vigentes de cada colaborador. Excluye por completo los
+  -- proyectos sin formularios, incluso si todavía tienen personal activo.
+  drop table if exists tmp_asignados;
+  create temporary table tmp_asignados on commit drop as
+    select c.cedula, c.proyecto, pf.formulario_id
+    from colaboradores c
+    join proyectos_formularios pf on pf.proyecto=c.proyecto and pf.activo
+    join formularios f on f.id=pf.formulario_id and f.activo
+    where c.activo
+      and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
+      and (form_f='' or pf.formulario_id=form_f);
+
+  -- Una fila por colaborador + formulario + días realmente exigibles.
+  drop table if exists tmp_requeridos;
+  create temporary table tmp_requeridos on commit drop as
+    select td.cedula, td.proyecto, td.dias, a.formulario_id
+    from tmp_dias td
+    join tmp_asignados a on a.cedula=td.cedula;
+
+  select count(distinct cedula) into activos from tmp_asignados;
+  select coalesce(sum(dias),0)::bigint into esperadas from tmp_requeridos;
+  select count(*) into realizadas from registros r
+   where r.fecha between desde and hasta and coalesce(r.estado,'') <> 'ANULADO'
+     and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
+     and (form_f='' or r.formulario_id=form_f)
+     and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy);
 
   -- Periodo inmediatamente anterior, con la misma cantidad de dias y las
   -- mismas reglas de calendario, festivos y justificaciones.
@@ -74,12 +87,17 @@ begin
   prev_desde := prev_hasta - greatest(ndias - 1, 0);
   select count(*) into prev_realizadas from registros r
    where r.fecha between prev_desde and prev_hasta and coalesce(r.estado,'') <> 'ANULADO'
+     and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
      and (form_f='' or r.formulario_id=form_f)
      and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy);
-  select coalesce(sum(dias),0)::bigint * nforms into prev_esperadas
-    from dias_exigibles(prev_desde, prev_hasta, proy);
+  select coalesce(sum(de.dias),0)::bigint into prev_esperadas
+    from dias_exigibles(prev_desde, prev_hasta, proy) de
+    join proyectos_formularios pf on pf.proyecto=de.proyecto and pf.activo
+    join formularios f on f.id=pf.formulario_id and f.activo
+    where form_f='' or pf.formulario_id=form_f;
   select count(*) into prev_alertas from registros r
    where r.fecha between prev_desde and prev_hasta and coalesce(r.estado,'') <> 'ANULADO'
+     and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
      and coalesce(r.alertas,'')<>'' and (form_f='' or r.formulario_id=form_f)
      and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy);
 
@@ -89,10 +107,14 @@ begin
     'resumen',jsonb_build_object(
       'activos',activos,'realizadas',realizadas,'esperadas',esperadas,
       -- Trazabilidad del calculo: dias-persona exigibles y cuantos se justificaron.
-      'dias_persona',(select coalesce(sum(dias),0) from tmp_dias),
+      'dias_persona',(select coalesce(sum(dias),0) from (
+        select cedula,max(dias) dias from tmp_requeridos group by cedula
+      ) dp),
       'meta',meta_def,
       'justificados',(select count(*) from justificaciones j
-         where j.fecha_inicio <= hasta and coalesce(j.fecha_fin,j.fecha_inicio) >= desde),
+         where j.fecha_inicio <= hasta and coalesce(j.fecha_fin,j.fecha_inicio) >= desde
+           and exists (select 1 from tmp_asignados a
+             where regexp_replace(a.cedula,'\D','','g')=regexp_replace(j.cedula,'\D','','g'))),
       'anterior',jsonb_build_object(
         'desde',prev_desde,'hasta',prev_hasta,'activos',activos,
         'realizadas',prev_realizadas,'esperadas',prev_esperadas,
@@ -103,6 +125,7 @@ begin
       'porcentaje',case when esperadas>0 then round(realizadas::numeric*1000/esperadas)/10 else 0 end,
       'con_alerta',(select count(*) from registros r where r.fecha between desde and hasta
         and coalesce(r.alertas,'')<>'' and coalesce(r.estado,'')<>'ANULADO'
+        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy))
     ),
@@ -113,6 +136,7 @@ begin
              count(*) filter(where coalesce(r.alertas,'')<>'') con_alerta
       from registros r
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       group by r.fecha
@@ -123,6 +147,7 @@ begin
       select to_char(r.fecha,'YYYY-MM') mes, count(*) realizadas
       from registros r
       where extract(year from r.fecha)=anio_f and coalesce(r.estado,'')<>'ANULADO'
+        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       group by to_char(r.fecha,'YYYY-MM')
@@ -131,6 +156,7 @@ begin
     'por_anio',coalesce((select jsonb_agg(x order by x.anio) from (
       select extract(year from r.fecha)::int anio,count(*) realizadas
       from registros r where coalesce(r.estado,'')<>'ANULADO'
+       and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
        and (form_f='' or r.formulario_id=form_f)
        and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       group by extract(year from r.fecha)
@@ -152,15 +178,17 @@ begin
                   else 'no_cumple' end estado
       from (
         -- Esperadas segun el calendario del proyecto y sin dias justificados.
-        select t.proyecto, count(*) activos, sum(t.dias)::bigint * nforms esperadas
-        from tmp_dias t
-        group by t.proyecto
+        select a.proyecto, count(distinct a.cedula) activos, coalesce(sum(t.dias),0)::bigint esperadas
+        from tmp_asignados a
+        left join tmp_requeridos t on t.cedula=a.cedula and t.formulario_id=a.formulario_id
+        group by a.proyecto
       ) p
       left join (
         select coalesce(r.proyecto,'Sin proyecto') proyecto, count(*) realizadas,
                count(*) filter(where coalesce(r.alertas,'')<>'') con_alerta
         from registros r
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+          and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
           and (form_f='' or r.formulario_id=form_f)
           and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
         group by coalesce(r.proyecto,'Sin proyecto')
@@ -173,7 +201,7 @@ begin
       select c.cedula, coalesce(c.nombre,'') nombre, coalesce(c.proyecto,'Sin proyecto') proyecto,
              coalesce(c.placa_moto,'') placa,
              coalesce(reg.realizadas,0) realizadas,
-             (coalesce(td.dias,0)*nforms)::bigint esperadas,
+             coalesce(req.esperadas,0)::bigint esperadas,
              coalesce(reg_dias.dias_diligenciados,0)::int dias_diligenciados,
              coalesce(td.dias,0)::int dias_exigibles,
              coalesce(jus.dias_justificados,0)::int dias_justificados,
@@ -182,33 +210,42 @@ begin
                   else null end porcentaje_dias,
              coalesce(reg.con_alerta,0) con_alerta,
              coalesce(reg.ultimo,null) ultimo_registro,
-             case when coalesce(td.dias,0)*nforms>0
-                  then round(coalesce(reg.realizadas,0)::numeric*1000/(td.dias*nforms))/10 else 0 end porcentaje
+             case when coalesce(req.esperadas,0)>0
+                  then round(coalesce(reg.realizadas,0)::numeric*1000/req.esperadas)/10 else 0 end porcentaje
       from colaboradores c
       left join tmp_dias td on td.cedula = c.cedula
+      left join (
+        select a.cedula, coalesce(sum(t.dias),0)::bigint esperadas
+        from tmp_asignados a
+        left join tmp_requeridos t on t.cedula=a.cedula and t.formulario_id=a.formulario_id
+        group by a.cedula
+      ) req on req.cedula=c.cedula
       left join (
         select regexp_replace(r.cedula,'\D','','g') ced, count(*) realizadas,
                count(*) filter(where coalesce(r.alertas,'')<>'') con_alerta,
                max(r.fecha) ultimo
         from registros r
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+          and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
           and (form_f='' or r.formulario_id=form_f)
         group by regexp_replace(r.cedula,'\D','','g')
       ) reg on reg.ced = regexp_replace(c.cedula,'\D','','g')
       left join (
-        select z.ced, count(*)::int dias_diligenciados
-        from (
-          select regexp_replace(r.cedula,'\D','','g') ced, r.fecha
-          from registros r
-          join tmp_calendario tc
-            on regexp_replace(tc.cedula,'\D','','g') = regexp_replace(r.cedula,'\D','','g')
-           and tc.fecha = r.fecha and not tc.justificado
-          where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
-            and (form_f='' or r.formulario_id=form_f)
-          group by regexp_replace(r.cedula,'\D','','g'), r.fecha
-          having count(distinct r.formulario_id) >= nforms
-        ) z
-        group by z.ced
+        select regexp_replace(tc.cedula,'\D','','g') ced, count(*)::int dias_diligenciados
+        from tmp_calendario tc
+        where not tc.justificado
+          and exists (select 1 from tmp_requeridos tr where tr.cedula=tc.cedula)
+          and not exists (
+            select 1 from tmp_requeridos tr
+            where tr.cedula=tc.cedula
+              and not exists (
+                select 1 from registros r
+                where regexp_replace(r.cedula,'\D','','g')=regexp_replace(tc.cedula,'\D','','g')
+                  and r.fecha=tc.fecha and r.formulario_id=tr.formulario_id
+                  and coalesce(r.estado,'')<>'ANULADO'
+              )
+          )
+        group by regexp_replace(tc.cedula,'\D','','g')
       ) reg_dias on reg_dias.ced = regexp_replace(c.cedula,'\D','','g')
       left join (
         select regexp_replace(tc.cedula,'\D','','g') ced,
@@ -216,26 +253,32 @@ begin
         from tmp_calendario tc
         group by regexp_replace(tc.cedula,'\D','','g')
       ) jus on jus.ced = regexp_replace(c.cedula,'\D','','g')
-      where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
+      where c.activo and req.cedula is not null
+        and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
     ) x),'[]'::jsonb),
 
     -- Cumplimiento por tipo de formulario (preoperacional vs limpieza).
     'por_formulario',coalesce((select jsonb_agg(x order by x.nombre) from (
       select f.id, f.nombre,
              coalesce(reg.realizadas,0) realizadas,
-             (select coalesce(sum(dias),0) from tmp_dias)::bigint esperadas,
-             case when (select coalesce(sum(dias),0) from tmp_dias)>0
-                  then round(coalesce(reg.realizadas,0)::numeric*1000/(select sum(dias) from tmp_dias))/10
+             req.esperadas,
+             case when req.esperadas>0
+                  then round(coalesce(reg.realizadas,0)::numeric*1000/req.esperadas)/10
                   else 0 end porcentaje
-      from formularios f
+      from (
+        select formulario_id, sum(dias)::bigint esperadas
+        from tmp_requeridos group by formulario_id
+      ) req
+      join formularios f on f.id=req.formulario_id
       left join (
         select r.formulario_id, count(*) realizadas
         from registros r
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+          and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
           and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
         group by r.formulario_id
       ) reg on reg.formulario_id=f.id
-      where f.activo
+      where f.activo and (form_f='' or f.id=form_f)
     ) x),'[]'::jsonb),
 
     -- Patron semanal: en que dias se registra mas.
@@ -246,6 +289,8 @@ begin
              count(distinct r.fecha) dias
       from registros r
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
+        and (form_f='' or r.formulario_id=form_f)
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       group by extract(isodow from r.fecha), to_char(r.fecha,'TMDay')
     ) x),'[]'::jsonb),
@@ -255,6 +300,8 @@ begin
       select extract(hour from r.hora)::int hora, count(*) realizadas
       from registros r
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
+        and (form_f='' or r.formulario_id=form_f)
         and r.hora is not null
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       group by extract(hour from r.hora)
@@ -268,9 +315,17 @@ begin
       left join (
         select regexp_replace(r.cedula,'\D','','g') ced, max(r.fecha) ultimo
         from registros r where coalesce(r.estado,'')<>'ANULADO'
+          and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
+          and (form_f='' or r.formulario_id=form_f)
         group by regexp_replace(r.cedula,'\D','','g')
       ) u on u.ced=regexp_replace(c.cedula,'\D','','g')
       where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
+        and exists (
+          select 1 from proyectos_formularios pf
+          join formularios f on f.id=pf.formulario_id and f.activo
+          where pf.proyecto=coalesce(c.proyecto,'') and pf.activo
+            and (form_f='' or pf.formulario_id=form_f)
+        )
         and (u.ultimo is null or hoy-u.ultimo >= 3)
       limit 60
     ) x),'[]'::jsonb),
@@ -281,6 +336,8 @@ begin
              coalesce(r.placa_moto,'') placa, r.alertas
       from registros r
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
+        and (form_f='' or r.formulario_id=form_f)
         and coalesce(r.alertas,'')<>''
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
       limit 300
@@ -298,6 +355,7 @@ begin
       join registros r on r.id=rs.registro_id
       join preguntas p on p.id=rs.pregunta_id
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
         and (proy='' or r.proyecto=proy or r.proyecto_id::text=proy)
         and nullif(btrim(coalesce(p.respuesta_alerta,'')),'') is not null
@@ -316,6 +374,12 @@ begin
       from colaboradores c
       cross join lateral (values ('SOAT',c.soat_vence),('TECNOMECÁNICA',c.tecnomecanica_vence),('LICENCIA',c.licencia_vence)) d(documento,fecha_vencimiento)
       where c.activo and (proy='' or c.proyecto=proy or c.proyecto_id::text=proy)
+        and exists (
+          select 1 from proyectos_formularios pf
+          join formularios f on f.id=pf.formulario_id and f.activo
+          where pf.proyecto=coalesce(c.proyecto,'') and pf.activo
+            and (form_f='' or pf.formulario_id=form_f)
+        )
         and (d.fecha_vencimiento is null or d.fecha_vencimiento<=hoy+15)
     ) x),'[]'::jsonb),
     'actualizado',to_char(now() at time zone 'America/Bogota','YYYY-MM-DD HH24:MI')

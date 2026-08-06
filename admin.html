@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=10">
+  <link rel="stylesheet" href="assets/styles.css?v=11">
 </head>
 <body>
   <header class="app-header">
@@ -49,6 +49,7 @@
       <nav class="tabs" role="tablist">
         <button class="tab active" type="button" data-v="colaboradores">Colaboradores</button>
         <button class="tab" type="button" data-v="calendario">Calendario y metas</button>
+        <button class="tab" type="button" data-v="formularios">Formularios por proyecto</button>
         <button id="btnSalir" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Salir</button>
       </nav>
 
@@ -151,6 +152,32 @@
           </div>
         </section>
       </div>
+
+      <!-- ============ FORMULARIOS POR PROYECTO ============ -->
+      <div id="v-formularios" class="view hidden">
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <p class="card__title">Formularios habilitados por proyecto</p>
+              <p class="card__sub">Activa únicamente las gestiones que debe diligenciar cada proyecto</p>
+            </div>
+            <button id="btnFormularios" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Recargar</button>
+          </div>
+          <div class="card__body">
+            <p class="hint-inline" style="margin-top:0">
+              Solo los formularios marcados se muestran a los colaboradores y cuentan en el dashboard.
+              Un proyecto sin formularios queda fuera de los indicadores. Los formularios nuevos aparecen
+              aquí desactivados y no afectan el cumplimiento hasta que HSEQ los habilite.
+            </p>
+            <div class="input-row" style="margin-top:14px">
+              <input id="frmBuscar" autocomplete="off" placeholder="Buscar proyecto…">
+              <button id="frmLimpiar" class="btn btn--ghost btn--icon" type="button" title="Limpiar búsqueda">✕</button>
+            </div>
+            <div id="frmStatus" class="status" aria-live="polite"></div>
+            <div id="frmLista" class="project-form-list" style="margin-top:12px"></div>
+          </div>
+        </section>
+      </div>
     </section>
   </main>
 
@@ -174,6 +201,9 @@
     $('btnCalendario').addEventListener('click', cargarCalendario);
     $('calBuscar').addEventListener('input', () => pintarCalendario());
     $('calLimpiar').addEventListener('click', () => { $('calBuscar').value = ''; pintarCalendario(); });
+    $('btnFormularios').addEventListener('click', cargarFormulariosProyecto);
+    $('frmBuscar').addEventListener('input', pintarFormulariosProyecto);
+    $('frmLimpiar').addEventListener('click', () => { $('frmBuscar').value = ''; pintarFormulariosProyecto(); });
 
     /* ---------- Pestañas del panel ---------- */
     document.querySelectorAll('.tab[data-v]').forEach((t) => {
@@ -184,6 +214,7 @@
         $('v-' + t.dataset.v).classList.remove('hidden');
         // El calendario se carga la primera vez que se abre la pestaña.
         if (t.dataset.v === 'calendario' && !calData) cargarCalendario();
+        if (t.dataset.v === 'formularios' && !frmData) cargarFormulariosProyecto();
       });
     });
     $('btnGuardar').addEventListener('click', guardar);
@@ -479,6 +510,91 @@
         const sub = fila.querySelector('.hint-inline');
         if (sub) sub.textContent = sub.textContent.replace(' · usando valores por defecto', '');
       } catch (err) { setStatus('calStatus', err.message, 'error'); }
+    }
+
+    /* ---------- Formularios habilitados por proyecto ---------- */
+    let frmData = null;
+
+    async function cargarFormulariosProyecto() {
+      setStatus('frmStatus', 'Cargando asignaciones…', 'info');
+      try {
+        frmData = await adminCall('formulariosProyecto', {});
+        pintarFormulariosProyecto();
+        const proyectos = frmData.proyectos || [];
+        const activos = proyectos.filter((p) => Number(p.habilitados || 0) > 0).length;
+        setStatus('frmStatus', `${proyectos.length} proyecto(s) · ${activos} con formularios habilitados.`, 'ok');
+      } catch (err) { setStatus('frmStatus', err.message, 'error'); }
+    }
+
+    function pintarFormulariosProyecto() {
+      if (!frmData) return;
+      const q = $('frmBuscar').value.trim().toLowerCase();
+      const todos = frmData.proyectos || [];
+      const formularios = frmData.formularios || [];
+      const proyectos = todos.filter((p) => p.proyecto.toLowerCase().includes(q));
+      if (!todos.length) {
+        $('frmLista').innerHTML = '<p class="hint-inline">No hay proyectos en la matriz.</p>';
+        return;
+      }
+      if (!proyectos.length) {
+        $('frmLista').innerHTML = `<p class="hint-inline">Ningún proyecto coincide con “${esc(q)}”.</p>`;
+        return;
+      }
+      $('frmLista').innerHTML =
+        `<p class="hint-inline" style="margin:0 0 6px">Mostrando ${proyectos.length} de ${todos.length} proyecto(s)</p>` +
+        proyectos.map((p) => {
+          const seleccion = p.formularios || {};
+          const habilitados = formularios.filter((f) => f.activo_global && seleccion[f.id] === true).length;
+          const estado = habilitados > 0
+            ? `<span class="project-form-state on">${habilitados} habilitado(s)</span>`
+            : '<span class="project-form-state off">Fuera del dashboard</span>';
+          const controles = formularios.map((f) => {
+            const checked = f.activo_global && seleccion[f.id] === true;
+            const disabled = f.activo_global ? '' : 'disabled';
+            const nota = f.activo_global ? '' : '<small>Inactivo globalmente</small>';
+            return `<label class="form-toggle ${checked ? 'on' : ''} ${f.activo_global ? '' : 'disabled'}">
+              <input type="checkbox" data-project="${esc(p.proyecto)}" data-form="${esc(f.id)}"
+                ${checked ? 'checked' : ''} ${disabled}>
+              <span><b>${esc(f.nombre)}</b><small>${esc(f.id)}</small>${nota}</span>
+            </label>`;
+          }).join('');
+          return `<article class="project-form-row" data-project-row="${esc(p.proyecto)}">
+            <div class="project-form-head">
+              <div><b>${esc(p.proyecto)}</b><small>${p.activos} colaborador(es) activo(s)</small></div>
+              ${estado}
+            </div>
+            <div class="project-form-options">${controles}</div>
+          </article>`;
+        }).join('');
+
+      $('frmLista').querySelectorAll('input[data-project][data-form]').forEach((input) => {
+        input.addEventListener('change', () => guardarFormularioProyecto(input));
+      });
+    }
+
+    async function guardarFormularioProyecto(input) {
+      const proyecto = input.dataset.project;
+      const formulario = input.dataset.form;
+      const activo = input.checked;
+      input.disabled = true;
+      setStatus('frmStatus', `Guardando ${proyecto}…`, 'info');
+      try {
+        const r = await adminCall('guardarFormularioProyecto', {
+          proyecto, formulario_id: formulario, activo,
+        });
+        const p = (frmData.proyectos || []).find((x) => x.proyecto === proyecto);
+        if (p) {
+          p.formularios = p.formularios || {};
+          p.formularios[formulario] = activo;
+          p.habilitados = r.habilitados;
+        }
+        pintarFormulariosProyecto();
+        setStatus('frmStatus', `✓ ${proyecto}: configuración actualizada.`, 'ok');
+      } catch (err) {
+        input.checked = !activo;
+        input.disabled = false;
+        setStatus('frmStatus', err.message, 'error');
+      }
     }
 
     function setStatus(id, msg, type) { const n = $(id); n.className = `status show status--${type}`; n.textContent = msg; }

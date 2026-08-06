@@ -450,6 +450,33 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .daychk:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-dark); }
 @media (max-width: 860px) { .calrow { grid-template-columns: 1fr; } }
 
+/* ---------- Formularios por proyecto (administración) ---------- */
+.project-form-list { display: grid; gap: 10px; }
+.project-form-row {
+  border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+  background: var(--card); box-shadow: var(--shadow-sm);
+}
+.project-form-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.project-form-head > div { min-width: 0; overflow-wrap: anywhere; }
+.project-form-head small, .form-toggle small { display: block; color: var(--muted); font-size: 11px; margin-top: 3px; }
+.project-form-state { border-radius: 999px; padding: 5px 10px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.project-form-state.on { color: var(--success); background: var(--success-soft); }
+.project-form-state.off { color: var(--muted); background: var(--surface-2); }
+.project-form-options { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 8px; margin-top: 12px; }
+.form-toggle {
+  display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 9px 11px;
+  border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-2); cursor: pointer;
+}
+.form-toggle.on { border-color: var(--success); background: var(--success-soft); }
+.form-toggle.disabled { opacity: .55; cursor: not-allowed; }
+.form-toggle input { width: 19px; height: 19px; min-height: 0; margin: 0; accent-color: var(--success); flex: 0 0 auto; }
+.form-toggle span { min-width: 0; }
+.form-toggle b { display: block; line-height: 1.25; }
+@media (max-width: 560px) {
+  .project-form-head { align-items: flex-start; flex-direction: column; }
+  .project-form-options { grid-template-columns: 1fr; }
+}
+
 .hidden { display: none !important; }
 .spin { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

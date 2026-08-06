@@ -11,6 +11,7 @@
 -- ------------------------------------------------------------
 alter table colaboradores    enable row level security;
 alter table formularios      enable row level security;
+alter table proyectos_formularios enable row level security;
 alter table preguntas        enable row level security;
 alter table opciones         enable row level security;
 alter table registros        enable row level security;
@@ -20,6 +21,19 @@ alter table justificaciones  enable row level security;
 alter table historial        enable row level security;
 alter table config           enable row level security;
 
+-- Regla única reutilizable por formularios, escritura y dashboard.
+create or replace function formulario_habilitado(v_proyecto text, v_formulario text)
+returns boolean language sql stable set search_path = public as $$
+  select exists (
+    select 1
+    from proyectos_formularios pf
+    join formularios f on f.id=pf.formulario_id and f.activo
+    where pf.proyecto=coalesce(v_proyecto,'')
+      and pf.formulario_id=v_formulario
+      and pf.activo
+  );
+$$;
+
 -- ------------------------------------------------------------
 --  1) getBootstrap
 -- ------------------------------------------------------------
@@ -27,12 +41,24 @@ create or replace function api_get_bootstrap()
 returns jsonb language sql security definer set search_path = public as $$
   select jsonb_build_object(
     'formularios', coalesce((
-      select jsonb_agg(jsonb_build_object('id_formulario', id, 'nombre_formulario', nombre) order by orden)
-      from formularios where activo), '[]'::jsonb),
+      select jsonb_agg(jsonb_build_object('id_formulario', f.id, 'nombre_formulario', f.nombre) order by f.orden)
+      from formularios f
+      where f.activo and exists (
+        select 1 from proyectos_formularios pf
+        join colaboradores c on c.proyecto=pf.proyecto and c.activo
+        where pf.formulario_id=f.id and pf.activo
+      )), '[]'::jsonb),
     'proyectos', coalesce((
       select jsonb_agg(jsonb_build_object('proyecto_id', proyecto_id, 'proyecto', proyecto))
-      from (select distinct proyecto_id, proyecto from colaboradores
-            where activo and coalesce(proyecto,'') <> '' order by proyecto) p), '[]'::jsonb)
+      from (select distinct c.proyecto_id, c.proyecto
+            from colaboradores c
+            where c.activo and coalesce(c.proyecto,'') <> ''
+              and exists (
+                select 1 from proyectos_formularios pf
+                join formularios f on f.id=pf.formulario_id and f.activo
+                where pf.proyecto=c.proyecto and pf.activo
+              )
+            order by c.proyecto) p), '[]'::jsonb)
   );
 $$;
 
@@ -62,7 +88,13 @@ begin
   v_obs := coalesce(nullif(btrim(c.observacion_coordinador), ''), '');
 
   if c.activo then
-    for f in select id, nombre from formularios where activo order by orden loop
+    for f in
+      select frm.id, frm.nombre
+      from formularios frm
+      join proyectos_formularios pf on pf.formulario_id=frm.id and pf.activo
+      where frm.activo and pf.proyecto=coalesce(c.proyecto,'')
+      order by frm.orden
+    loop
       select id::text as rid, to_char(hora,'HH24:MI') as h into r
         from registros
        where regexp_replace(cedula,'\D','','g') = ncedula
@@ -107,8 +139,10 @@ begin
       'tipo_vehiculo', coalesce(c.tipo_vehiculo,'')
     ),
     'formulariosRequeridos', coalesce((
-      select jsonb_agg(jsonb_build_object('id_formulario', id, 'nombre_formulario', nombre) order by orden)
-      from formularios where activo), '[]'::jsonb),
+      select jsonb_agg(jsonb_build_object('id_formulario', frm.id, 'nombre_formulario', frm.nombre) order by frm.orden)
+      from formularios frm
+      join proyectos_formularios pf on pf.formulario_id=frm.id and pf.activo
+      where frm.activo and pf.proyecto=coalesce(c.proyecto,'')), '[]'::jsonb),
     'estadoDiario', estado,
     'documentos', docs
   );

@@ -54,6 +54,20 @@ create table if not exists formularios (
   orden        int default 0
 );
 
+-- Asignación explícita de formularios por proyecto. La ausencia de una fila
+-- activa significa que ese formulario NO es exigible para el proyecto.
+-- Esto evita que formularios nuevos alteren automáticamente el cumplimiento.
+create table if not exists proyectos_formularios (
+  proyecto       text not null,
+  formulario_id  text not null references formularios(id) on delete cascade,
+  activo         boolean not null default true,
+  actualizado_en timestamptz not null default now(),
+  actualizado_por uuid,
+  primary key (proyecto, formulario_id)
+);
+create index if not exists idx_proy_form_activos
+  on proyectos_formularios (proyecto, formulario_id) where activo;
+
 create table if not exists preguntas (
   id                  text primary key,    -- PRE_001, LIM_008, ...
   formulario_id       text not null references formularios(id) on delete cascade,
@@ -171,6 +185,19 @@ insert into formularios (id, nombre, descripcion, orden) values
   ('PREOPERACIONAL', 'Registro diario preoperacional', 'Inspección diaria antes de operar la moto.', 1),
   ('LIMPIEZA_MOTO',  'Limpieza y desinfección de la moto', 'Limpieza y desinfección diaria.', 2)
 on conflict (id) do nothing;
+
+-- Compatibilidad inicial: al instalar por primera vez, los proyectos ya
+-- existentes conservan los formularios activos actuales. Los formularios y
+-- proyectos creados después quedan sin asignación hasta que HSEQ los active.
+insert into proyectos_formularios (proyecto, formulario_id, activo)
+select p.proyecto, f.id, true
+from (
+  select distinct proyecto from colaboradores where coalesce(proyecto,'') <> ''
+) p
+cross join formularios f
+where f.activo
+  and not exists (select 1 from proyectos_formularios)
+on conflict (proyecto, formulario_id) do nothing;
 
 -- ------------------------------------------------------------
 -- 7) Vista de apoyo: activos por proyecto (para cumplimiento/dashboard)

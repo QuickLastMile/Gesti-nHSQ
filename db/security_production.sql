@@ -11,6 +11,11 @@ create table if not exists app_roles (
 alter table app_roles enable row level security;
 revoke all on app_roles from anon, authenticated;
 
+-- La asignación de formularios por proyecto solo se consulta/modifica a
+-- través de funciones protegidas; nunca directamente desde el navegador.
+alter table proyectos_formularios enable row level security;
+revoke all on proyectos_formularios from anon, authenticated;
+
 -- Evita bloquear al usuario real que ya administra la aplicacion.
 insert into app_roles(user_id, email, rol, activo)
 select id, email, 'ADMIN', true
@@ -54,4 +59,3 @@ create policy "personal_hseq_ve_evidencias" on storage.objects
     and coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) = false
     and hseq_tiene_rol(array['ADMIN','HSEQ','COORDINADOR'])
   );
-

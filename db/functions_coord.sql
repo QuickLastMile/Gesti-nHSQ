@@ -30,18 +30,36 @@ declare
   h text; jt text; jm text; es_just boolean; es_completo boolean;
   alertas_persona text;
 begin
-  forms := coalesce((select jsonb_agg(jsonb_build_object('id', id, 'nombre', nombre) order by orden)
-                     from formularios where activo), '[]'::jsonb);
-  select count(*) into nforms from formularios where activo;
+  forms := coalesce((
+    select jsonb_agg(jsonb_build_object('id', frm.id, 'nombre', frm.nombre) order by frm.orden)
+    from formularios frm
+    where frm.activo and exists (
+      select 1 from proyectos_formularios pf
+      join colaboradores c on c.proyecto=pf.proyecto and c.activo
+      where pf.formulario_id=frm.id and pf.activo
+        and (filtro_proy='' or c.proyecto=filtro_proy or c.proyecto_id::text=filtro_proy)
+    )), '[]'::jsonb);
 
   for rec in
     select c.cedula, c.nombre, c.proyecto, c.ciudad, c.placa_moto
     from colaboradores c
     where c.activo and (filtro_proy = '' or c.proyecto = filtro_proy or c.proyecto_id::text = filtro_proy)
+      and exists (
+        select 1 from proyectos_formularios pf
+        join formularios frm on frm.id=pf.formulario_id and frm.activo
+        where pf.proyecto=coalesce(c.proyecto,'') and pf.activo
+      )
     order by c.nombre
   loop
-    estados := '{}'::jsonb; hechos := 0; alertas_persona := '';
-    for f in select id, nombre from formularios where activo order by orden loop
+    estados := '{}'::jsonb; hechos := 0; nforms := 0; alertas_persona := '';
+    for f in
+      select frm.id, frm.nombre
+      from formularios frm
+      join proyectos_formularios pf on pf.formulario_id=frm.id and pf.activo
+      where frm.activo and pf.proyecto=coalesce(rec.proyecto,'')
+      order by frm.orden
+    loop
+      nforms := nforms + 1;
       h := null;
       select to_char(r.hora,'HH24:MI') into h from registros r
         where regexp_replace(r.cedula,'\D','','g') = regexp_replace(rec.cedula,'\D','','g')
@@ -58,7 +76,8 @@ begin
     select coalesce(string_agg(r.alertas, ' | ' order by r.hora), '') into alertas_persona
       from registros r
       where regexp_replace(r.cedula,'\D','','g') = regexp_replace(rec.cedula,'\D','','g')
-        and r.fecha = dia and coalesce(r.alertas,'') <> '';
+        and r.fecha = dia and coalesce(r.alertas,'') <> ''
+        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id);
 
     jt := null; jm := null;
     select j.tipo, j.motivo into jt, jm from justificaciones j

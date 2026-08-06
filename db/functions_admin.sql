@@ -94,6 +94,81 @@ begin
 end;
 $$;
 
+-- Matriz de formularios exigibles por proyecto. Incluye todos los proyectos
+-- conocidos para que HSEQ pueda activar un proyecto que hoy no genera métricas.
+create or replace function admin_formularios_proyecto()
+returns jsonb language sql security definer set search_path = public as $$
+  select jsonb_build_object(
+    'formularios', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', f.id, 'nombre', f.nombre, 'descripcion', coalesce(f.descripcion,''),
+        'activo_global', f.activo, 'orden', f.orden
+      ) order by f.orden, f.nombre)
+      from formularios f
+    ), '[]'::jsonb),
+    'proyectos', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'proyecto', p.proyecto,
+        'activos', p.activos,
+        'habilitados', coalesce(a.habilitados,0),
+        'formularios', coalesce(a.formularios,'{}'::jsonb)
+      ) order by p.proyecto)
+      from (
+        select c.proyecto, count(*) filter (where c.activo)::int activos
+        from colaboradores c
+        where coalesce(c.proyecto,'') <> ''
+        group by c.proyecto
+      ) p
+      left join lateral (
+        select count(*) filter (where pf.activo and f.activo)::int habilitados,
+               coalesce(jsonb_object_agg(pf.formulario_id, pf.activo),'{}'::jsonb) formularios
+        from proyectos_formularios pf
+        join formularios f on f.id=pf.formulario_id
+        where pf.proyecto=p.proyecto
+      ) a on true
+    ), '[]'::jsonb)
+  );
+$$;
+
+create or replace function admin_guardar_formulario_proyecto(payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v_proyecto text := btrim(coalesce(payload->>'proyecto',''));
+  v_formulario text := upper(btrim(coalesce(payload->>'formulario_id','')));
+  v_activo boolean := coalesce((nullif(payload->>'activo',''))::boolean, false);
+  v_nombre text;
+begin
+  if v_proyecto='' then raise exception 'Proyecto invalido.'; end if;
+  if not exists (select 1 from colaboradores where proyecto=v_proyecto) then
+    raise exception 'El proyecto no existe en la matriz.';
+  end if;
+  select nombre into v_nombre from formularios where id=v_formulario;
+  if not found then raise exception 'El formulario no existe.'; end if;
+  if v_activo and not exists (select 1 from formularios where id=v_formulario and activo) then
+    raise exception 'El formulario esta inactivo globalmente.';
+  end if;
+
+  insert into proyectos_formularios
+    (proyecto, formulario_id, activo, actualizado_en, actualizado_por)
+  values (v_proyecto, v_formulario, v_activo, now(), auth.uid())
+  on conflict (proyecto, formulario_id) do update set
+    activo=excluded.activo,
+    actualizado_en=excluded.actualizado_en,
+    actualizado_por=excluded.actualizado_por;
+
+  insert into historial(tipo, detalle)
+  values ('FORMULARIO_PROYECTO',
+    v_proyecto || ' · ' || v_nombre || ': ' || case when v_activo then 'ACTIVADO' else 'INACTIVADO' end);
+
+  return jsonb_build_object(
+    'proyecto',v_proyecto,'formulario_id',v_formulario,'activo',v_activo,
+    'habilitados',(select count(*) from proyectos_formularios pf
+      join formularios f on f.id=pf.formulario_id and f.activo
+      where pf.proyecto=v_proyecto and pf.activo)
+  );
+end;
+$$;
+
 -- Router de administración: SOLO usuarios con sesión (encargado HSQ).
 create or replace function hseq_admin(action text, payload jsonb default '{}'::jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -112,6 +187,8 @@ begin
     when 'guardarColaborador' then result := admin_guardar_colaborador(payload);
     when 'calendario'         then result := admin_calendario();
     when 'guardarCalendario'  then result := admin_guardar_calendario(payload);
+    when 'formulariosProyecto' then result := admin_formularios_proyecto();
+    when 'guardarFormularioProyecto' then result := admin_guardar_formulario_proyecto(payload);
     else raise exception 'Accion no reconocida: %', action;
   end case;
   return jsonb_build_object('ok', true, 'result', result);

@@ -364,8 +364,8 @@
 
     function filaCompacta(p, r) {
       const est = estadoPersona(p);
-      const chips = r.formularios.map((f) => {
-        const e = p.estados[f.id] || {};
+      const chips = r.formularios.filter((f) => p.estados && p.estados[f.id]).map((f) => {
+        const e = p.estados[f.id];
         return `<span class="dot ${e.hecho ? 'dot--ok' : 'dot--no'}" title="${escapeHtml(f.nombre)}${e.hora ? ' · ' + e.hora : ''}">${e.hecho ? '✓' : '✗'}</span>`;
       }).join('');
       const jtxt = p.justificado && p.justificacion
