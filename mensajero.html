@@ -603,10 +603,12 @@
             }
           } else if (files[0]) {
             try {
-              await validarArchivoDocumento(q.id_pregunta, files[0]);
+              if (esPreguntaDocumento(q.id_pregunta)) await validarArchivoDocumento(q.id_pregunta, files[0]);
+              else await validarEvidencia(files[0]);
               archivos.push(await fileToPayload(q.id_pregunta, files[0]));
             } catch (err) {
-              return showStatus(err.message, 'error');
+              // Con varios adjuntos en pantalla, decir cuál falló.
+              return showStatus(q.pregunta + ': ' + err.message, 'error');
             }
           } else if (obligatoria) faltantes.push(q.pregunta);
         } else {
@@ -792,6 +794,22 @@
         r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
         r.readAsDataURL(file);
       });
+    }
+
+    // Solo los documentos del vehículo pasan por la validación estricta de
+    // legibilidad: son los que alguien debe poder leer después.
+    const PREGUNTAS_DOCUMENTO = ['DOC_SOAT', 'DOC_TECNOMECANICA', 'DOC_LICENCIA_TRANSITO'];
+    function esPreguntaDocumento(idPregunta) {
+      return PREGUNTAS_DOCUMENTO.includes(idPregunta);
+    }
+
+    // Evidencia común (foto de la moto, del lavado, un soporte): basta con que
+    // sea una imagen y no exceda el máximo. No se exige resolución mínima.
+    async function validarEvidencia(file) {
+      const esImagen = /^image\//i.test(file.type || '');
+      const esPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+      if (!esImagen && !esPdf) throw new Error('Adjunta una foto o un PDF.');
+      if (file.size > 12 * 1024 * 1024) throw new Error('El archivo supera el máximo de 12 MB.');
     }
 
     async function validarArchivoDocumento(idPregunta, file) {
