@@ -26,6 +26,7 @@ comment on column preguntas.no_precargar is
 --    Se excluyen:
 --      · preguntas de tipo archivo (las evidencias son del día)
 --      · fechas de vencimiento de documentos (vienen de la matriz)
+--      · la fecha y la hora del propio registro (son de hoy, siempre)
 --      · la pregunta que abre el bloque documental (decisión diaria)
 --      · las marcadas con no_precargar
 -- ------------------------------------------------------------
@@ -60,7 +61,12 @@ begin
     and p.activo
     and not p.no_precargar
     and p.tipo_respuesta <> 'archivo'
+    and p.tipo_respuesta <> 'hora'          -- la hora es la del momento
     and doc_key(p.pregunta, p.tipo_respuesta, p.documento) is null
+    -- La fecha del propio registro es siempre la de hoy, nunca la anterior.
+    and not (p.tipo_respuesta = 'fecha' and (
+          sin_tildes(p.seccion) like '%DATOS DEL REGISTRO%'
+          or sin_tildes(p.pregunta) ~ 'FECHA DE (LA )?(INSPECCION|LIMPIEZA|REGISTRO)'))
     and p.id <> 'DOC_PRIMERA_O_RENOVACION'
     and coalesce(btrim(r.valor), '') <> '';
 
