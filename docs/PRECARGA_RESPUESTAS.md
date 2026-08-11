@@ -10,9 +10,14 @@ formulario; el mensajero solo corrige lo que hoy esté diferente y adjunta las f
 |---|---|
 | Texto, número, párrafo, sí/no, desplegable, casillas, fechas normales | **Se precargan** con la respuesta anterior |
 | Fotos y adjuntos (`archivo`) | **Nunca** se precargan — son la evidencia del día |
+| Fecha de la inspección y hora de inicio | Las pone el sistema, siempre las de hoy |
 | Vencimientos de SOAT, tecnomecánica y licencia | Vienen de la matriz, como siempre |
 | "¿Es la primera inspección / renovación?" | Queda en blanco: es una decisión de cada día |
 | Preguntas marcadas con `no_precargar` | Se responden desde cero cada día |
+
+En el preoperacional esto se traduce, con datos reales, en **41 de 48 preguntas
+precargadas**. Las 7 restantes son la fecha y la hora del registro, los tres
+vencimientos de documentos y los dos adjuntos de certificados.
 
 La precarga es **por persona y por formulario**: cada quien ve sus propias
 respuestas anteriores, y el preoperacional no se mezcla con el de limpieza.
