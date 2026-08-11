@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=12">
+  <link rel="stylesheet" href="assets/styles.css?v=13">
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demostración · datos de ejemplo, no se guarda nada real</div>
@@ -395,6 +395,9 @@
       pintarAvisoPrecarga();
       wireConditionals();
       revisarDocumentos();
+      // Si alguna evidencia exige ver la moto, se va descargando el
+      // reconocimiento mientras el mensajero responde.
+      if (data.preguntas.some((q) => q.verificar_vehiculo)) precargarVision();
     }
 
     /* ---------- Precarga: respuestas del último registro ----------
@@ -551,7 +554,12 @@
             return `<input name="${id}" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" ${req}>
                     <span class="auto-tag">Adjunta el PDF completo o una foto clara donde se vea todo el documento.</span>`;
           }
-          return `<input name="${id}" type="file" accept="image/*" capture="environment" ${req}>`;
+          // Sin permitir_galeria se abre la cámara y la foto debe ser del momento.
+          const cam = q.permitir_galeria ? '' : 'capture="environment"';
+          const nota = q.verificar_vehiculo
+            ? '<span class="auto-tag auto-tag--warn">Toma la foto ahora, con la moto completa a la vista.</span>'
+            : (q.permitir_galeria ? '' : '<span class="auto-tag">Toma la foto en el momento.</span>');
+          return `<input name="${id}" type="file" accept="image/*" ${cam} ${req}>${nota}`;
         }
         case 'si_no': return `<select name="${id}" ${req}><option value="">Selecciona…</option><option${sel('SI')}>SI</option><option${sel('NO')}>NO</option></select>`;
         case 'desplegable': return `<select name="${id}" ${req}><option value="">Selecciona…</option>${options.map((o) => `<option${sel(o)}>${escapeHtml(o)}</option>`).join('')}</select>`;
@@ -604,7 +612,7 @@
           } else if (files[0]) {
             try {
               if (esPreguntaDocumento(q.id_pregunta)) await validarArchivoDocumento(q.id_pregunta, files[0]);
-              else await validarEvidencia(files[0]);
+              else await validarEvidencia(files[0], q);
               archivos.push(await fileToPayload(q.id_pregunta, files[0]));
             } catch (err) {
               // Con varios adjuntos en pantalla, decir cuál falló.
@@ -805,11 +813,76 @@
 
     // Evidencia común (foto de la moto, del lavado, un soporte): basta con que
     // sea una imagen y no exceda el máximo. No se exige resolución mínima.
-    async function validarEvidencia(file) {
+    async function validarEvidencia(file, q) {
       const esImagen = /^image\//i.test(file.type || '');
       const esPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
       if (!esImagen && !esPdf) throw new Error('Adjunta una foto o un PDF.');
       if (file.size > 12 * 1024 * 1024) throw new Error('El archivo supera el máximo de 12 MB.');
+      if (!q) return;
+      if (!q.permitir_galeria) validarFotoReciente(file);
+      if (q.verificar_vehiculo && esImagen) await validarVehiculo(file);
+    }
+
+    /* ---------- Foto tomada en el momento ----------
+       El atributo capture abre la cámara, pero algunos Android permiten
+       salirse a la galería. La fecha del archivo delata la foto vieja. */
+    const MAX_ANTIGUEDAD_MIN = 120;
+    function validarFotoReciente(file) {
+      const t = Number(file.lastModified);
+      if (!t || !isFinite(t)) return;                  // el equipo no la reporta
+      const minutos = (Date.now() - t) / 60000;
+      if (minutos < 0 || minutos > 60 * 24 * 365) return;   // dato no confiable
+      if (minutos > MAX_ANTIGUEDAD_MIN) {
+        throw new Error('esta foto no fue tomada ahora. Ábrela con la cámara y tómala en el momento.');
+      }
+    }
+
+    /* ---------- La foto debe mostrar la moto ----------
+       Se reconoce el vehículo en el propio celular; la imagen no sale de él.
+       El modelo se descarga una sola vez y queda en caché del navegador.
+       Si no alcanza a cargar, NO se bloquea el registro: la operación
+       nunca se detiene por un problema de red. */
+    const TFJS = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
+    const COCO = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js';
+    const VEHICULOS = { motorcycle: 0.40, bicycle: 0.45, car: 0.45, truck: 0.45, bus: 0.45 };
+    const vision = { promesa: null, modelo: null };
+
+    function cargarScript(src) {
+      return new Promise((ok, no) => {
+        const s = document.createElement('script');
+        s.src = src; s.async = true;
+        s.onload = ok; s.onerror = () => no(new Error('sin conexión'));
+        document.head.appendChild(s);
+      });
+    }
+
+    // Se dispara al abrir el formulario, para que el modelo esté listo
+    // cuando el mensajero termine de responder.
+    function precargarVision() {
+      if (vision.promesa) return vision.promesa;
+      vision.promesa = (async () => {
+        await cargarScript(TFJS);
+        await cargarScript(COCO);
+        vision.modelo = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+        return vision.modelo;
+      })().catch(() => null);
+      return vision.promesa;
+    }
+
+    async function validarVehiculo(file) {
+      showStatus('Revisando la foto…', 'info');
+      const modelo = await Promise.race([
+        precargarVision(),
+        new Promise((ok) => setTimeout(() => ok(vision.modelo), 12000)),
+      ]);
+      if (!modelo) return;                    // sin modelo no se bloquea
+      let img;
+      try { img = await cargarImagen(file); } catch { return; }
+      const hallazgos = await modelo.detect(img, 12, 0.15);
+      const hay = hallazgos.some((d) => d.score >= (VEHICULOS[d.class] ?? Infinity));
+      if (!hay) {
+        throw new Error('no se reconoce la moto en la foto. Tómala completa, con el vehículo a la vista y buena luz.');
+      }
     }
 
     async function validarArchivoDocumento(idPregunta, file) {
