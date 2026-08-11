@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=10">
+  <link rel="stylesheet" href="assets/styles.css?v=12">
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demostración · datos de ejemplo, no se guarda nada real</div>
@@ -104,6 +104,7 @@
         </div>
         <span id="questionCount" class="counter">0</span>
       </div>
+      <div id="precargaAviso" class="precarga hidden"></div>
       <div id="questions" class="questions"></div>
     </form>
 
@@ -324,10 +325,14 @@
       state.formularios.forEach((f) => {
         const id = f.id_formulario;
         if (state.formCache[id] || (state.estado[id] && state.estado[id].hecho)) return;
-        HSQ_API.call('cargarFormulario', { id_formulario: id })
+        HSQ_API.call('cargarFormulario', { id_formulario: id, cedula: cedulaActual() })
           .then((data) => { state.formCache[id] = data; })
           .catch(() => { /* si falla, se cargara al tocar */ });
       });
+    }
+
+    function cedulaActual() {
+      return (state.persona && state.persona.cedula) || '';
     }
 
     function renderChecklist() {
@@ -369,7 +374,7 @@
       $('bottomForm').textContent = f ? f.nombre_formulario : 'Registro';
       showStatus('Cargando preguntas…', 'info');
       try {
-        state.formData = state.formCache[id] || await HSQ_API.call('cargarFormulario', { id_formulario: id });
+        state.formData = state.formCache[id] || await HSQ_API.call('cargarFormulario', { id_formulario: id, cedula: cedulaActual() });
         state.formCache[id] = state.formData;
         renderQuestions();
         $('registroForm').classList.remove('hidden');
@@ -387,8 +392,48 @@
       if (!data) return;
       $('questionCount').textContent = data.preguntas.length + (data.preguntas.length === 1 ? ' pregunta' : ' preguntas');
       $('questions').innerHTML = data.preguntas.map(renderQuestion).join('');
+      pintarAvisoPrecarga();
       wireConditionals();
       revisarDocumentos();
+    }
+
+    /* ---------- Precarga: respuestas del último registro ----------
+       El mensajero no vuelve a diligenciar lo repetitivo: se traen sus
+       respuestas anteriores y solo cambia lo que hoy esté distinto.
+       Las fotos NUNCA se precargan: son la evidencia del día. */
+    function previas() {
+      return (state.formData && state.formData.previas) || {};
+    }
+
+    // Valor anterior de una pregunta, o '' si no aplica precarga.
+    function valorPrevio(q) {
+      if (q.tipo_respuesta === 'archivo') return '';
+      const v = previas()[q.id_pregunta];
+      return v === undefined || v === null ? '' : String(v);
+    }
+
+    function hayPrecarga() {
+      return Object.keys(previas()).length > 0;
+    }
+
+    function pintarAvisoPrecarga() {
+      const aviso = $('precargaAviso');
+      if (!hayPrecarga()) { aviso.classList.add('hidden'); aviso.innerHTML = ''; return; }
+      const n = $('questions').querySelectorAll('.question.pre').length;
+      const f = String(state.formData.previasFecha || '').trim();
+      aviso.innerHTML = `
+        <strong>Respuestas traídas de tu último registro${f ? ' del ' + escapeHtml(fechaLarga(f)) : ''}.</strong>
+        Revisa la moto y corrige lo que hoy esté diferente. ${n} respuesta${n === 1 ? '' : 's'} precargada${n === 1 ? '' : 's'}.
+        <span class="precarga__req">Las fotos sí debes tomarlas hoy.</span>`;
+      aviso.classList.remove('hidden');
+    }
+
+    function fechaLarga(iso) {
+      const p = String(iso).split('-');
+      if (p.length !== 3) return iso;
+      const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+      return Number(p[2]) + ' de ' + (meses[Number(p[1]) - 1] || p[1]);
     }
 
     // Preguntas condicionales: se muestran solo cuando la pregunta "madre" tiene el valor esperado.
@@ -433,10 +478,11 @@
       const hint = q.ayuda ? `<div class="question__hint">${escapeHtml(q.ayuda)}</div>` : '';
       const cond = q.depende_de ? ' cond hidden' : '';
       const dep = q.depende_de ? ` data-depende-de="${escapeHtml(q.depende_de)}" data-depende-valor="${escapeHtml(q.depende_valor || '')}"` : '';
+      const pre = valorPrevio(q) !== '' ? ' pre' : '';
       // Las preguntas condicionales no llevan required HTML (ocultas bloquearían el envío);
       // el motivo/obligatoriedad lo valida el backend cuando la condición se cumple.
       return `
-        <div class="question${cond}" data-qid="${escapeHtml(q.id_pregunta)}"${dep}>
+        <div class="question${cond}${pre}" data-qid="${escapeHtml(q.id_pregunta)}"${dep}>
           <div class="question__top">
             <span class="question__num">${escapeHtml(q.orden)}</span>
             <span class="question__label">${escapeHtml(q.pregunta)}</span>
@@ -444,6 +490,7 @@
           <div class="question__meta">
             <span class="badge badge--opt">${escapeHtml(q.seccion || 'General')}</span>
             <span class="badge ${required ? 'badge--req' : 'badge--opt'}">${required ? 'Obligatoria' : 'Opcional'}</span>
+            ${pre ? '<span class="badge badge--pre">De tu último registro</span>' : ''}
           </div>
           ${hint}
           ${fotoRef(q)}
@@ -469,9 +516,13 @@
       const id = escapeHtml(q.id_pregunta);
       const req = required ? 'required' : '';
       const options = (state.formData.opciones && state.formData.opciones[q.grupo_opciones]) || [];
+      const prev = valorPrevio(q);                       // respuesta del último registro
+      const val = prev ? ` value="${escapeHtml(prev)}"` : '';
+      const sel = (o) => (prev && String(o) === prev ? ' selected' : '');
+      const marcada = (o) => (prev.split(',').map((x) => x.trim()).includes(String(o)) ? ' checked' : '');
       switch (q.tipo_respuesta) {
-        case 'parrafo': return `<textarea name="${id}" ${req} placeholder="Escribe aquí…"></textarea>`;
-        case 'numero': return `<input name="${id}" type="number" inputmode="numeric" ${req} placeholder="0">`;
+        case 'parrafo': return `<textarea name="${id}" ${req} placeholder="Escribe aquí…">${escapeHtml(prev)}</textarea>`;
+        case 'numero': return `<input name="${id}" type="number" inputmode="numeric" ${req} placeholder="0"${val}>`;
         case 'fecha': {
           // 1) Vencimiento de documento: se precarga de la matriz y va bloqueado,
           //    salvo que el mensajero marque "primera vez / renovación".
@@ -488,7 +539,7 @@
             return `<input name="${id}" type="date" value="${hoyISO()}" readonly ${req}><span class="auto-tag">Registrada automáticamente</span>`;
           }
           // 3) Cualquier otra fecha: editable normalmente.
-          return `<input name="${id}" type="date" ${req}>`;
+          return `<input name="${id}" type="date" ${req}${val}>`;
         }
         case 'hora': return `<input name="${id}" type="time" value="${ahoraHM()}" readonly ${req}><span class="auto-tag">Registrada automáticamente</span>`;
         case 'archivo': {
@@ -502,10 +553,10 @@
           }
           return `<input name="${id}" type="file" accept="image/*" capture="environment" ${req}>`;
         }
-        case 'si_no': return `<select name="${id}" ${req}><option value="">Selecciona…</option><option>SI</option><option>NO</option></select>`;
-        case 'desplegable': return `<select name="${id}" ${req}><option value="">Selecciona…</option>${options.map((o) => `<option>${escapeHtml(o)}</option>`).join('')}</select>`;
-        case 'checkbox': return `<div class="checks">${options.map((o) => `<label><input type="checkbox" name="${id}" value="${escapeHtml(o)}">${escapeHtml(o)}</label>`).join('')}</div>`;
-        default: return `<input name="${id}" type="text" ${req} placeholder="Respuesta">`;
+        case 'si_no': return `<select name="${id}" ${req}><option value="">Selecciona…</option><option${sel('SI')}>SI</option><option${sel('NO')}>NO</option></select>`;
+        case 'desplegable': return `<select name="${id}" ${req}><option value="">Selecciona…</option>${options.map((o) => `<option${sel(o)}>${escapeHtml(o)}</option>`).join('')}</select>`;
+        case 'checkbox': return `<div class="checks">${options.map((o) => `<label><input type="checkbox" name="${id}" value="${escapeHtml(o)}"${marcada(o)}>${escapeHtml(o)}</label>`).join('')}</div>`;
+        default: return `<input name="${id}" type="text" ${req} placeholder="Respuesta"${val}>`;
       }
     }
 
@@ -707,6 +758,10 @@
     /* ---------- utilidades ---------- */
     function resetFlujo() {
       state.currentForm = null; state.formData = null;
+      // El caché guarda las respuestas previas de la persona consultada:
+      // se descarta al buscar otra cédula para no precargar datos ajenos.
+      state.formCache = {};
+      $('precargaAviso').classList.add('hidden');
       $('cardPlaca').classList.add('hidden');
       $('cardChecklist').classList.add('hidden');
       $('registroForm').classList.add('hidden');

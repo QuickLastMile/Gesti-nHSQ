@@ -243,6 +243,7 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .badge--ok { background: var(--success-soft); color: var(--success); }
 .badge--req { background: var(--danger-soft); color: var(--danger); }
 .badge--opt { background: var(--surface-2); color: var(--muted); }
+.badge--pre { background: var(--warning-soft); color: var(--warning); }
 .counter {
   margin-left: auto;
   padding: 5px 11px;
@@ -565,6 +566,22 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .checkitem__chev svg { width: 20px; height: 20px; }
 .checkitem.done .checkitem__chev { display: none; }
 .field-note { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+
+/* ---------- Aviso de respuestas precargadas ---------- */
+.precarga {
+  margin: 0 16px 2px;          /* alineado con el padding de .question */
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--warning-soft);
+  border: 1px solid #f0dcb4;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #6d4a10;
+}
+.precarga strong { display: block; color: var(--warning); margin-bottom: 2px; }
+.precarga__req { display: block; margin-top: 6px; font-weight: 800; color: var(--danger); }
+/* Barra lateral suave en las preguntas que llegan con respuesta anterior */
+.question.pre { border-left: 3px solid #e4b458; }
 .auto-tag { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark); }
 .auto-tag--warn { color: var(--warning); }
 .auto-tag--err { color: var(--danger); }

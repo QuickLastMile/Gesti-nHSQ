@@ -150,17 +150,22 @@ end;
 $$;
 
 -- ------------------------------------------------------------
---  3) cargarFormulario(id_formulario)
+--  3) cargarFormulario(id_formulario [, cedula])
 --     Devuelve las preguntas crudas; el bloque de documentación del
 --     preoperacional lo agrega el frontend (igual que hoy).
+--     Con cédula agrega además 'previas': las respuestas del último
+--     registro, para no volver a diligenciar lo repetitivo.
+--     Ver db/precarga_respuestas.sql (define api_respuestas_previas).
 -- ------------------------------------------------------------
 create or replace function api_cargar_formulario(payload jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   fid text := payload->>'id_formulario';
+  ced text := coalesce(payload->>'cedula', '');
   frm record;
   preg jsonb;
   opc  jsonb;
+  prev jsonb;
 begin
   select * into frm from formularios where id = fid and activo;
   if not found then raise exception 'Formulario no encontrado o inactivo.'; end if;
@@ -183,12 +188,22 @@ begin
     ) t
   ), '{}'::jsonb);
 
+  -- api_respuestas_previas vive en db/precarga_respuestas.sql. Si aún no se
+  -- ejecutó ese script, el formulario sigue funcionando sin precarga.
+  begin
+    prev := api_respuestas_previas(ced, fid);
+  exception when undefined_function then
+    prev := jsonb_build_object('valores', '{}'::jsonb);
+  end;
+
   return jsonb_build_object(
     'formulario', jsonb_build_object(
       'id_formulario', frm.id, 'nombre_formulario', frm.nombre,
       'descripcion', frm.descripcion, 'activo', case when frm.activo then 'SI' else 'NO' end),
     'preguntas', preg,
-    'opciones', opc
+    'opciones', opc,
+    'previas', prev->'valores',
+    'previasFecha', coalesce(prev->>'fecha', '')
   );
 end;
 $$;
