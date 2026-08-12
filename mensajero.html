@@ -196,6 +196,8 @@
       state.estado = resp.estadoDiario || {};
       state.documentos = resp.documentos || {};
       pintarPersona();
+      // EVA avisa si algún documento está vencido o próximo a vencer.
+      document.dispatchEvent(new CustomEvent('hseq:persona'));
 
       if (!resp.activo) return showStatus(resp.mensaje, 'error');
       if (!state.formularios.length) {
@@ -1000,6 +1002,6 @@
     function escapeHtml(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
     function cssEscape(v) { return String(v).replace(/"/g, '\\"'); }
   </script>
-  <script src="assets/asistente.js?v=1"></script>
+  <script src="assets/asistente.js?v=2"></script>
 </body>
 </html>
