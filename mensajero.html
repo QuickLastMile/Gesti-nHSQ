@@ -395,9 +395,6 @@
       pintarAvisoPrecarga();
       wireConditionals();
       revisarDocumentos();
-      // Si alguna evidencia exige ver la moto, se va descargando el
-      // reconocimiento mientras el mensajero responde.
-      if (data.preguntas.some((q) => q.verificar_vehiculo)) precargarVision();
     }
 
     /* ---------- Precarga: respuestas del último registro ----------
@@ -551,15 +548,10 @@
                     <span class="auto-tag">Selecciona exactamente 2 fotos claras: frente y reverso de la licencia.</span>`;
           }
           if (['DOC_SOAT', 'DOC_TECNOMECANICA'].includes(q.id_pregunta)) {
-            return `<input name="${id}" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" ${req}>
-                    <span class="auto-tag">Adjunta el PDF completo o una foto clara donde se vea todo el documento.</span>`;
+            return `<input name="${id}" type="file" accept="application/pdf" ${req}>
+                    <span class="auto-tag">Solo PDF. Es el archivo que te entregan al expedir el documento.</span>`;
           }
-          // Sin permitir_galeria se abre la cámara y la foto debe ser del momento.
-          const cam = q.permitir_galeria ? '' : 'capture="environment"';
-          const nota = q.verificar_vehiculo
-            ? '<span class="auto-tag auto-tag--warn">Toma la foto ahora, con la moto completa a la vista.</span>'
-            : (q.permitir_galeria ? '' : '<span class="auto-tag">Toma la foto en el momento.</span>');
-          return `<input name="${id}" type="file" accept="image/*" ${cam} ${req}>${nota}`;
+          return `<input name="${id}" type="file" accept="image/*" ${req}>`;
         }
         case 'si_no': return `<select name="${id}" ${req}><option value="">Selecciona…</option><option${sel('SI')}>SI</option><option${sel('NO')}>NO</option></select>`;
         case 'desplegable': return `<select name="${id}" ${req}><option value="">Selecciona…</option>${options.map((o) => `<option${sel(o)}>${escapeHtml(o)}</option>`).join('')}</select>`;
@@ -612,7 +604,7 @@
           } else if (files[0]) {
             try {
               if (esPreguntaDocumento(q.id_pregunta)) await validarArchivoDocumento(q.id_pregunta, files[0]);
-              else await validarEvidencia(files[0], q);
+              else await validarEvidencia(files[0]);
               archivos.push(await fileToPayload(q.id_pregunta, files[0]));
             } catch (err) {
               // Con varios adjuntos en pantalla, decir cuál falló.
@@ -804,99 +796,30 @@
       });
     }
 
-    // Solo los documentos del vehículo pasan por la validación estricta de
-    // legibilidad: son los que alguien debe poder leer después.
-    const PREGUNTAS_DOCUMENTO = ['DOC_SOAT', 'DOC_TECNOMECANICA', 'DOC_LICENCIA_TRANSITO'];
+    // SOAT y tecnomecánica se adjuntan en PDF: es el formato en que llegan y
+    // evita los problemas de las fotos. La licencia sigue siendo fotográfica
+    // (frente y reverso), porque no existe en PDF.
+    const PREGUNTAS_PDF = ['DOC_SOAT', 'DOC_TECNOMECANICA'];
     function esPreguntaDocumento(idPregunta) {
-      return PREGUNTAS_DOCUMENTO.includes(idPregunta);
+      return PREGUNTAS_PDF.includes(idPregunta);
     }
 
-    // Evidencia común (foto de la moto, del lavado, un soporte): basta con que
-    // sea una imagen y no exceda el máximo. No se exige resolución mínima.
-    async function validarEvidencia(file, q) {
+    // Evidencia común (foto de la moto, del lavado, un soporte, la licencia):
+    // solo se comprueba el tipo de archivo y el tamaño.
+    async function validarEvidencia(file) {
       const esImagen = /^image\//i.test(file.type || '');
       const esPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
       if (!esImagen && !esPdf) throw new Error('Adjunta una foto o un PDF.');
       if (file.size > 12 * 1024 * 1024) throw new Error('El archivo supera el máximo de 12 MB.');
-      if (!q) return;
-      if (!q.permitir_galeria) validarFotoReciente(file);
-      if (q.verificar_vehiculo && esImagen) await validarVehiculo(file);
     }
 
-    /* ---------- Foto tomada en el momento ----------
-       El atributo capture abre la cámara, pero algunos Android permiten
-       salirse a la galería. La fecha del archivo delata la foto vieja. */
-    const MAX_ANTIGUEDAD_MIN = 120;
-    function validarFotoReciente(file) {
-      const t = Number(file.lastModified);
-      if (!t || !isFinite(t)) return;                  // el equipo no la reporta
-      const minutos = (Date.now() - t) / 60000;
-      if (minutos < 0 || minutos > 60 * 24 * 365) return;   // dato no confiable
-      if (minutos > MAX_ANTIGUEDAD_MIN) {
-        throw new Error('esta foto no fue tomada ahora. Ábrela con la cámara y tómala en el momento.');
-      }
-    }
-
-    /* ---------- La foto debe mostrar la moto ----------
-       Se reconoce el vehículo en el propio celular; la imagen no sale de él.
-       El modelo se descarga una sola vez y queda en caché del navegador.
-       Si no alcanza a cargar, NO se bloquea el registro: la operación
-       nunca se detiene por un problema de red. */
-    const TFJS = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
-    const COCO = 'https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js';
-    const VEHICULOS = { motorcycle: 0.40, bicycle: 0.45, car: 0.45, truck: 0.45, bus: 0.45 };
-    const vision = { promesa: null, modelo: null };
-
-    function cargarScript(src) {
-      return new Promise((ok, no) => {
-        const s = document.createElement('script');
-        s.src = src; s.async = true;
-        s.onload = ok; s.onerror = () => no(new Error('sin conexión'));
-        document.head.appendChild(s);
-      });
-    }
-
-    // Se dispara al abrir el formulario, para que el modelo esté listo
-    // cuando el mensajero termine de responder.
-    function precargarVision() {
-      if (vision.promesa) return vision.promesa;
-      vision.promesa = (async () => {
-        await cargarScript(TFJS);
-        await cargarScript(COCO);
-        vision.modelo = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-        return vision.modelo;
-      })().catch(() => null);
-      return vision.promesa;
-    }
-
-    async function validarVehiculo(file) {
-      showStatus('Revisando la foto…', 'info');
-      const modelo = await Promise.race([
-        precargarVision(),
-        new Promise((ok) => setTimeout(() => ok(vision.modelo), 12000)),
-      ]);
-      if (!modelo) return;                    // sin modelo no se bloquea
-      let img;
-      try { img = await cargarImagen(file); } catch { return; }
-      const hallazgos = await modelo.detect(img, 12, 0.15);
-      const hay = hallazgos.some((d) => d.score >= (VEHICULOS[d.class] ?? Infinity));
-      if (!hay) {
-        throw new Error('no se reconoce la moto en la foto. Tómala completa, con el vehículo a la vista y buena luz.');
-      }
-    }
-
+    // SOAT y tecnomecánica: únicamente PDF, que es como los entregan.
     async function validarArchivoDocumento(idPregunta, file) {
       const esPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
-      const esImagen = /^image\/(jpeg|png|webp)$/i.test(file.type || '');
-      if (!esPdf && !esImagen) {
-        throw new Error('SOAT y tecnomecánica solo admiten PDF, JPG, PNG o WEBP.');
+      if (!esPdf) {
+        throw new Error('adjunta el documento en PDF. Si lo tienes en foto, conviértelo a PDF antes de subirlo.');
       }
-      if (file.size < 12000) throw new Error('El archivo es demasiado pequeño para contener un documento legible.');
       if (file.size > 12 * 1024 * 1024) throw new Error('El documento supera el máximo permitido de 12 MB.');
-      if (esImagen) await validarCalidadImagen(file);
-      if (['DOC_SOAT', 'DOC_TECNOMECANICA'].includes(idPregunta) && esPdf && file.size < 25000) {
-        throw new Error('El PDF parece incompleto. Adjunta el documento completo.');
-      }
     }
 
     function cargarImagen(file) {
@@ -909,37 +832,10 @@
       });
     }
 
-    async function validarCalidadImagen(file) {
-      const img = await cargarImagen(file);
-      if (img.width < 900 || img.height < 550) {
-        throw new Error('La foto no tiene suficiente resolución. Acerca el documento y vuelve a tomarla completa.');
-      }
-      const cv = document.createElement('canvas');
-      const escala = Math.min(1, 700 / Math.max(img.width, img.height));
-      cv.width = Math.max(1, Math.round(img.width * escala));
-      cv.height = Math.max(1, Math.round(img.height * escala));
-      const x = cv.getContext('2d', { willReadFrequently: true });
-      x.drawImage(img, 0, 0, cv.width, cv.height);
-      const px = x.getImageData(0, 0, cv.width, cv.height).data;
-      let suma = 0, suma2 = 0, n = 0, oscuros = 0, claros = 0;
-      for (let i = 0; i < px.length; i += 16) {
-        const y = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-        suma += y; suma2 += y * y; n++;
-        if (y < 25) oscuros++;
-        if (y > 245) claros++;
-      }
-      const variacion = suma2 / n - Math.pow(suma / n, 2);
-      if (variacion < 420 || oscuros / n > 0.72 || claros / n > 0.88) {
-        throw new Error('La foto está borrosa, oscura o sobreexpuesta. Tómala nuevamente con buena luz y texto visible.');
-      }
-    }
-
     async function unirLicencia(frente, reverso) {
       if (!/^image\//i.test(frente.type) || !/^image\//i.test(reverso.type)) {
         throw new Error('La licencia debe adjuntarse como dos fotografías.');
       }
-      await validarCalidadImagen(frente);
-      await validarCalidadImagen(reverso);
       const imgs = [await cargarImagen(frente), await cargarImagen(reverso)];
       const ancho = 1400;
       const altos = imgs.map((img) => Math.round(img.height * ancho / img.width));
@@ -1104,5 +1000,6 @@
     function escapeHtml(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
     function cssEscape(v) { return String(v).replace(/"/g, '\\"'); }
   </script>
+  <script src="assets/asistente.js?v=1"></script>
 </body>
 </html>

@@ -172,6 +172,7 @@
             <select id="justTipo">
               <option value="">Elige…</option>
               <option value="DESCANSO">Descanso (día consultado)</option>
+              <option value="INCAPACIDAD">Incapacidad (elegir días)</option>
               <option value="PERMISO">Permiso (elegir días)</option>
               <option value="VACACIONES">Vacaciones (elegir días)</option>
               <option value="SUSPENSION">Suspensión (elegir fechas)</option>
@@ -406,13 +407,13 @@
     }
     function toggleJustRango() {
       const t = $('justTipo').value;
-      const conRango = ['PERMISO', 'VACACIONES', 'SUSPENSION'].includes(t);
+      const conRango = ['INCAPACIDAD', 'PERMISO', 'VACACIONES', 'SUSPENSION'].includes(t);
       $('justRango').classList.toggle('hidden', !conRango);
     }
     async function guardarJust() {
       const tipo = $('justTipo').value;
       if (!tipo) return setStatusId('justStatus', 'Elige el tipo.', 'error');
-      const conRango = ['PERMISO', 'VACACIONES', 'SUSPENSION'].includes(tipo);
+      const conRango = ['INCAPACIDAD', 'PERMISO', 'VACACIONES', 'SUSPENSION'].includes(tipo);
       if (tipo === 'RENUNCIA' && !confirm(`¿Registrar RENUNCIA de ${justActual.nombre}? Quedará inactivo y no podrá registrar.`)) return;
       const payload = {
         cedula: justActual.cedula, nombre: justActual.nombre, proyecto: justActual.proyecto,
@@ -653,5 +654,6 @@
     function showStatus(message, type) { const n = $('status'); n.className = `status show status--${type}`; n.textContent = message; }
     function escapeHtml(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   </script>
+  <script src="assets/asistente.js?v=1"></script>
 </body>
 </html>
