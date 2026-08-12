@@ -486,23 +486,23 @@
     + '#qk-bot{right:18px;bottom:18px;width:84px;height:84px;border:0;background:transparent;cursor:pointer;padding:0;'
     + 'animation:qk-flota 3.4s ease-in-out infinite;-webkit-tap-highlight-color:transparent}'
     + '#qk-bot:hover{animation-play-state:paused;transform:scale(1.07)}'
-    + '#qk-bot svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 7px 15px rgba(7,56,43,.34))}'
     + '@keyframes qk-flota{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}'
-    /* Los anillos giran cada uno a su ritmo; el achatamiento simula la órbita. */
-    + '.eva-aro{transform-box:fill-box;transform-origin:center;transform-style:preserve-3d}'
-    + '.eva-aro1{animation:eva-orb1 5.2s linear infinite}'
-    + '.eva-aro2{animation:eva-orb2 7.4s linear infinite}'
-    + '.eva-aro3{animation:eva-orb3 6.1s linear infinite}'
-    + '@keyframes eva-orb1{0%{transform:rotate(0deg) scaleY(1)}25%{transform:rotate(90deg) scaleY(.35)}'
-    + '50%{transform:rotate(180deg) scaleY(1)}75%{transform:rotate(270deg) scaleY(.35)}100%{transform:rotate(360deg) scaleY(1)}}'
-    + '@keyframes eva-orb2{0%{transform:rotate(360deg) scaleY(.5)}50%{transform:rotate(180deg) scaleY(1)}100%{transform:rotate(0deg) scaleY(.5)}}'
-    + '@keyframes eva-orb3{0%{transform:rotate(0deg) scaleX(1)}50%{transform:rotate(180deg) scaleX(.4)}100%{transform:rotate(360deg) scaleX(1)}}'
-    /* Parpadeo ocasional */
-    + '.eva-ojos{transition:transform .16s ease-out}'
-    + '.eva-ojo{transform-box:fill-box;transform-origin:center;animation:eva-parpadeo 5.6s ease-in-out infinite}'
-    + '@keyframes eva-parpadeo{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.12)}97%{transform:scaleY(1)}}'
-    + '#qk-halo{animation:qk-pulso 2.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}'
-    + '@keyframes qk-pulso{0%,100%{opacity:.35;transform:scale(.9)}50%{opacity:.7;transform:scale(1.08)}}'
+    /* Las tres capas de la ilustración, superpuestas */
+    + '.eva{position:relative;display:block;width:100%;height:100%}'
+    + '.eva img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}'
+    + '.eva-cuerpo{filter:drop-shadow(0 7px 14px rgba(7,56,43,.32))}'
+    /* Los anillos orbitan: giran y se inclinan para dar profundidad */
+    + '.eva-aros{animation:eva-orbita 9s linear infinite;will-change:transform}'
+    + '@keyframes eva-orbita{0%{transform:rotate(0deg) scaleX(1)}25%{transform:rotate(90deg) scaleX(.86)}'
+    + '50%{transform:rotate(180deg) scaleX(1)}75%{transform:rotate(270deg) scaleX(.86)}'
+    + '100%{transform:rotate(360deg) scaleX(1)}}'
+    /* Los ojos siguen el cursor y parpadean de vez en cuando */
+    + '.eva-ojos{transition:transform .18s ease-out;animation:eva-parpadeo 6.4s ease-in-out infinite}'
+    + '@keyframes eva-parpadeo{0%,93%,100%{opacity:1}95%{opacity:.06}97%{opacity:1}}'
+    + '#qk-bot::before{content:"";position:absolute;left:14%;top:8%;width:72%;height:62%;border-radius:50%;'
+    + 'background:radial-gradient(circle,rgba(255,194,31,.5),transparent 70%);animation:qk-pulso 2.8s ease-in-out infinite}'
+    + '@keyframes qk-pulso{0%,100%{opacity:.3;transform:scale(.9)}50%{opacity:.65;transform:scale(1.1)}}'
+    + '@media(prefers-reduced-motion:reduce){#qk-bot,.eva-aros,.eva-ojos,#qk-bot::before{animation:none}}'
     + '#qk-globo{position:fixed;right:96px;bottom:38px;z-index:9999;max-width:210px;background:#fff;color:#1b2b25;'
     + 'border:1px solid #d9e7e1;border-radius:14px;padding:10px 12px;font-size:13.5px;line-height:1.35;'
     + 'box-shadow:0 10px 26px rgba(7,56,43,.18);animation:qk-entra .3s ease}'
@@ -515,8 +515,7 @@
     + 'border:1px solid #d9e7e1}'
     + '#qk-panel.abierto{display:flex;animation:qk-entra .22s ease}'
     + '#qk-head{background:#07382b;color:#fff;padding:13px 14px;display:flex;align-items:center;gap:10px;flex:0 0 auto}'
-    + '#qk-head .qk-avatar{width:38px;height:38px;flex:0 0 auto;display:block}'
-    + '#qk-head .qk-avatar svg{width:100%;height:100%;display:block}'
+    + '#qk-head .qk-avatar{width:40px;height:40px;flex:0 0 auto;object-fit:contain}'
     + '#qk-head b{font-size:15px;display:block}'
     + '#qk-head span{font-size:11.5px;color:#a9c4ba}'
     + '#qk-cerrar{margin-left:auto;background:transparent;border:0;color:#a9c4ba;font-size:22px;cursor:pointer;line-height:1;padding:2px 6px}'
@@ -545,68 +544,37 @@
     + 'body.qk-subir #qk-panel{bottom:170px}}'
     + '@media(print){#qk-bot,#qk-panel,#qk-globo{display:none !important}}';
 
-  /* ---------- EVA en SVG ----------
-     Se dibuja por partes para poder animar los anillos y mover los ojos.
-     `mini` la reduce para el encabezado del chat. */
-  function svgEva(mini) {
-    var anillos = mini ? '' :
-      '<g fill="none" stroke="#c9a227" stroke-width="2.6" stroke-linecap="round" opacity=".95">' +
-        '<ellipse class="eva-aro eva-aro1" cx="60" cy="56" rx="54" ry="26"/>' +
-        '<ellipse class="eva-aro eva-aro2" cx="60" cy="60" rx="26" ry="54" transform="rotate(28 60 60)"/>' +
-        '<ellipse class="eva-aro eva-aro3" cx="60" cy="62" rx="50" ry="30" transform="rotate(-32 60 62)"/>' +
-      '</g>';
+  /* ---------- EVA ----------
+     Es la ilustración original, separada en tres capas para poder animarla
+     sin alterar el diseño: los anillos giran detrás, el cuerpo va fijo y los
+     ojos se desplazan sobre el visor. */
+  function figuraEva() {
     return '' +
-      '<svg viewBox="0 0 120 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-        '<defs>' +
-          '<radialGradient id="evaCuerpo" cx="38%" cy="28%">' +
-            '<stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dfe6e3"/>' +
-          '</radialGradient>' +
-          '<radialGradient id="evaHalo" cx="50%" cy="50%">' +
-            '<stop offset="0" stop-color="#ffc21f" stop-opacity=".55"/>' +
-            '<stop offset="1" stop-color="#ffc21f" stop-opacity="0"/>' +
-          '</radialGradient>' +
-        '</defs>' +
-        (mini ? '' : '<circle id="qk-halo" cx="60" cy="58" r="46" fill="url(#evaHalo)"/>') +
-        anillos +
-        // brazos
-        '<ellipse cx="19" cy="74" rx="13" ry="8" fill="url(#evaCuerpo)" transform="rotate(-28 19 74)"/>' +
-        '<ellipse cx="101" cy="88" rx="13" ry="8" fill="url(#evaCuerpo)" transform="rotate(24 101 88)"/>' +
-        // cuerpo
-        '<ellipse cx="60" cy="97" rx="23" ry="27" fill="url(#evaCuerpo)"/>' +
-        '<path d="M62 84l-8 13h6l-3 11 9-14h-6z" fill="#ffc21f"/>' +
-        // cabeza y visor
-        '<ellipse cx="60" cy="52" rx="41" ry="34" fill="url(#evaCuerpo)"/>' +
-        '<ellipse cx="60" cy="50" rx="32" ry="23" fill="#100f0d"/>' +
-        // ojos
-        '<g class="eva-ojos">' +
-          '<ellipse class="eva-ojo" cx="48" cy="50" rx="7.5" ry="9.5" fill="#ffc21f"/>' +
-          '<ellipse class="eva-ojo" cx="72" cy="50" rx="7.5" ry="9.5" fill="#ffc21f"/>' +
-        '</g>' +
-      '</svg>';
+      '<span class="eva">' +
+        '<img class="eva-aros" src="' + BASE + 'assets/eva-aros.png" alt="">' +
+        '<img class="eva-cuerpo" src="' + BASE + 'assets/eva-cuerpo.png" alt="">' +
+        '<img class="eva-ojos" src="' + BASE + 'assets/eva-ojos.png" alt="">' +
+      '</span>';
   }
 
   // Los ojos apuntan hacia el cursor, con un recorrido corto.
   function seguirMouse() {
     var ojos = document.querySelector('#qk-bot .eva-ojos');
     if (!ojos || !window.matchMedia('(pointer:fine)').matches) return;
-    var pend = false, mx = 0, my = 0;
+    var ultimo = 0;
     document.addEventListener('mousemove', function (e) {
-      mx = e.clientX; my = e.clientY;
-      if (pend) return;
-      pend = true;
-      requestAnimationFrame(function () {
-        pend = false;
-        var b = document.getElementById('qk-bot');
-        if (!b) return;
-        var r = b.getBoundingClientRect();
-        var dx = mx - (r.left + r.width / 2);
-        var dy = my - (r.top + r.height * 0.42);
-        var d = Math.sqrt(dx * dx + dy * dy) || 1;
-        var max = 4.2;
-        var f = Math.min(1, d / 260);
-        ojos.style.transform = 'translate(' + (dx / d * max * f).toFixed(2) + 'px,' +
-          (dy / d * max * f).toFixed(2) + 'px)';
-      });
+      var ahora = e.timeStamp || 0;
+      if (ahora && ahora - ultimo < 40) return;      // como mucho, 25 veces por segundo
+      ultimo = ahora;
+      var b = document.getElementById('qk-bot');
+      if (!b) return;
+      var r = b.getBoundingClientRect();
+      var dx = e.clientX - (r.left + r.width / 2);
+      var dy = e.clientY - (r.top + r.height * 0.42);
+      var d = Math.sqrt(dx * dx + dy * dy) || 1;
+      var f = Math.min(1, d / 240) * 4.4;            // recorrido máximo, en píxeles
+      ojos.style.transform = 'translate(' + (dx / d * f).toFixed(2) + 'px,' +
+        (dy / d * f).toFixed(2) + 'px)';
     }, { passive: true });
   }
 
@@ -619,7 +587,7 @@
     btn.id = 'qk-bot';
     btn.type = 'button';
     btn.setAttribute('aria-label', 'Abrir el asistente EVA');
-    btn.innerHTML = svgEva();
+    btn.innerHTML = figuraEva();
     document.body.appendChild(btn);
     seguirMouse();
 
@@ -627,7 +595,7 @@
     panel.id = 'qk-panel';
     panel.innerHTML =
       '<div id="qk-head">' +
-        '<span class="qk-avatar">' + svgEva(true) + '</span>' +
+        '<img class="qk-avatar" src="' + BASE + 'assets/bot-quick.png" alt="">' +
         '<div><b>EVA</b><span>' + (PERFIL === 'mensajero' ? 'Tu asistente de registro' : 'Asistente de Gestión HSEQ') + '</span></div>' +
         '<button id="qk-cerrar" type="button" aria-label="Cerrar">&times;</button>' +
       '</div>' +
