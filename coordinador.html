@@ -73,6 +73,15 @@
               <span class="hint-inline">Solo un formulario a la vez (preoperacional o limpieza tienen columnas distintas).</span>
             </div>
             <div class="field">
+              <span class="label">Tipo de vehículo</span>
+              <select id="filtroPerfil">
+                <option value="">Todos</option>
+                <option value="MOTO">Motos (mensajeros)</option>
+                <option value="VEHICULO">Vehículos (conductores)</option>
+              </select>
+              <span class="hint-inline">El preoperacional es uno solo, pero las preguntas cambian según el cargo. Elige un tipo para descargar solo sus columnas.</span>
+            </div>
+            <div class="field">
               <span class="label">Fecha inicial</span>
               <input id="fechaInicio" type="date">
             </div>
@@ -201,8 +210,8 @@
 
   </main>
 
-  <script src="assets/config.js?v=15"></script>
-  <script src="assets/api.js?v=15"></script>
+  <script src="assets/config.js?v=20"></script>
+  <script src="assets/api.js?v=20"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -573,6 +582,7 @@
         formularios: [formId],
         proyectos: resolverProyecto(),
         cedula: $('filtroCedula').value.trim(),
+        perfil: $('filtroPerfil').value,      // MOTO, VEHICULO o vacío = todos
       };
       if (!filtros.fechaInicio || !filtros.fechaFin) return showStatus('Selecciona el rango de fechas.', 'error');
 

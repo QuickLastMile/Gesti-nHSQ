@@ -196,11 +196,13 @@
       fechaFin: filtros.fechaFin,
       proyecto: (filtros.proyectos && filtros.proyectos[0]) || filtros.proyecto || '',
       cedula: filtros.cedula || '',
+      perfil: filtros.perfil || '',        // MOTO / VEHICULO / vacío = todos
     };
     const r = await rpc('generarExportable', p);
     await firmarEvidenciasExportable(r.filas || []);
 
-    const base = ['fecha', 'hora', 'cedula', 'nombre', 'cargo', 'proyecto_id', 'proyecto',
+    // 'tipo' distingue moto de vehículo en el mismo archivo.
+    const base = ['fecha', 'hora', 'cedula', 'nombre', 'cargo', 'tipo', 'proyecto_id', 'proyecto',
       'ciudad', 'placa_moto', 'tipo_vehiculo', 'estado', 'estado_cumplimiento',
       'alertas_documentales', 'id_registro'];
     const preg = r.preguntas || [];
@@ -226,7 +228,7 @@
     // BOM UTF-8 + CRLF para que Excel muestre bien tildes y columnas.
     const csv = '﻿sep=;\r\n' + lineas.join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const sufijo = p.cedula ? '_CC' + p.cedula : '';
+    const sufijo = (p.perfil ? '_' + p.perfil : '') + (p.cedula ? '_CC' + p.cedula : '');
     const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '').slice(0, 15);
     return {
       ok: true, filas: r.total || 0, columnas: encabezados.length,
