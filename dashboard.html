@@ -413,6 +413,16 @@
               <div id="opEmpty" class="empty hidden">Sin novedades registradas en el periodo.</div>
             </div></div>
           </article>
+
+          <article class="card">
+            <div class="card-head"><div><h2>Requieren mantenimiento</h2><p>El mismo punto reportado como <b>No cumple</b> tres veces o más en los últimos 30 días. Un día puede ser un descuido; repetido es un daño sin atender.</p></div>
+              <input id="mtoSearch" class="search" placeholder="Buscar mensajero, placa o punto"></div>
+            <div class="card-body"><div class="tbl-wrap">
+              <table style="min-width:820px"><thead><tr><th>Mensajero</th><th>Placa</th><th>Proyecto</th><th>Punto reportado</th><th>Veces</th><th>Primera</th><th>Última</th></tr></thead>
+              <tbody id="mtoRows"></tbody></table>
+              <div id="mtoEmpty" class="empty hidden">Ningún punto se ha reportado en mal estado de forma repetida. </div>
+            </div></div>
+          </article>
         </section>
 
         <!-- ============ DOCUMENTOS ============ -->
@@ -468,6 +478,7 @@
     $('docSearch').addEventListener('input', pintarDocs);
     $('mSearch').addEventListener('input', pintarMensajeros);
     $('opSearch').addEventListener('input', pintarNovedades);
+    $('mtoSearch').addEventListener('input', pintarMantenimiento);
     $('focusBackdrop').addEventListener('click', cerrarEnfoque);
     document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && focusedCard) cerrarEnfoque(); });
     sideToggle.addEventListener('click', () => actualizarMenuLateral(!layout.classList.contains('side-collapsed'), true));
@@ -625,6 +636,7 @@
       pintarTendencias(r);
       pintarGraficas(); pintarFormularios(); pintarProyectos();
       pintarRankings(); pintarMensajeros(); pintarInactividad(); pintarNovedades(); pintarDocs(); pintarFallas();
+      cargarMantenimiento();
     }
 
     function pintarTendencias(r) {
@@ -904,6 +916,42 @@
          <td style="max-width:340px">${esc(a.alertas)}</td></tr>`).join('');
     }
 
+    /* ---------- Requieren mantenimiento ----------
+       Se consulta aparte del dashboard: mira los últimos 30 días, no el
+       periodo filtrado, porque busca reincidencia y no un corte mensual. */
+    let mantenimiento = null;
+
+    async function cargarMantenimiento() {
+      try {
+        const proy = $('fProject').selectedIndex > 0
+          ? $('fProject').options[$('fProject').selectedIndex].text : '';
+        const r = await HSQ_API.call('alertasMantenimiento', { dias: 30, minimo: 3, proyecto: proy });
+        mantenimiento = r || null;
+      } catch (e) {
+        mantenimiento = null;
+      }
+      pintarMantenimiento();
+    }
+
+    function pintarMantenimiento() {
+      const cuerpo = $('mtoRows'), vacio = $('mtoEmpty');
+      if (!cuerpo) return;
+      const arr = (mantenimiento && mantenimiento.alertas) || [];
+      const q = ($('mtoSearch').value || '').toLowerCase();
+      const rows = arr.filter((a) =>
+        ((a.nombre || '') + ' ' + (a.placa || '') + ' ' + (a.punto || '') + ' ' + (a.proyecto || ''))
+          .toLowerCase().includes(q));
+      vacio.classList.toggle('hidden', rows.length > 0);
+      cuerpo.innerHTML = rows.map((a) => `
+        <tr><td><div class="t-name">${esc(a.nombre || '')}</div><div class="t-sub tnum">CC ${esc(a.cedula || '')}</div></td>
+        <td>${esc(a.placa || '—')}</td>
+        <td class="t-sub">${esc(a.proyecto || '')}</td>
+        <td style="max-width:320px">${esc(a.punto || '')}</td>
+        <td><span class="badge ${a.veces >= 5 ? 'bad' : 'warn'}">${a.veces} veces</span></td>
+        <td class="tnum">${esc(a.primera || '')}</td>
+        <td class="tnum">${esc(a.ultima || '')}</td></tr>`).join('');
+    }
+
     function contextoInforme() {
       const f = data?.filtros || {};
       const proyecto = $('fProject').selectedIndex > 0
@@ -1092,6 +1140,6 @@
         <td>${esc(a.placa_moto || '—')}</td><td class="t-sub">${esc(a.proyecto || 'Sin proyecto')}</td></tr>`).join('');
     }
   </script>
-  <script src="assets/asistente.js?v=4"></script>
+  <script src="assets/asistente.js?v=5"></script>
 </body>
 </html>

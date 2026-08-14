@@ -227,6 +227,37 @@
       },
       c: ['¿Cómo actualizo el SOAT?', '¿Puedo trabajar con el SOAT vencido?'] },
 
+    { id: 'mi_cumplimiento', solo: 'mensajero', peso: 1.5,
+      k: ['como voy', 'como voy este mes', 'mi cumplimiento', 'mi porcentaje', 'cuanto llevo',
+          'cuantos dias llevo', 'mi racha', 'voy bien', 'como voy en el mes', 'mis registros del mes',
+          'cuantas veces he registrado', 'mi indicador'],
+      asinc: function (cb) {
+        var s = estadoPagina();
+        var ced = s && s.persona && s.persona.cedula;
+        if (!ced) {
+          return cb('Primero digita tu cédula arriba y te digo cómo vas este mes.');
+        }
+        if (!window.HSQ_API || !HSQ_API.call) {
+          return cb('No puedo consultarlo en este momento.');
+        }
+        HSQ_API.call('miCumplimiento', { cedula: ced }).then(function (d) {
+          if (!d || d.sin_datos) return cb(d && d.mensaje ? d.mensaje : 'Todavía no hay datos de este mes.');
+          var semaforo = d.en_meta ? '🟢' : (d.porcentaje >= d.meta - 15 ? '🟠' : '🔴');
+          var t = 'Así vas este mes:<br><br>' +
+            semaforo + ' <b>' + d.porcentaje + '%</b> de cumplimiento (meta ' + d.meta + '%)<br>' +
+            '📋 <b>' + d.realizados + '</b> de <b>' + d.esperados + '</b> registros<br>' +
+            '📅 ' + d.dias_exigibles + ' días que debías registrar';
+          if (d.racha > 1) t += '<br>🔥 <b>' + d.racha + ' días seguidos</b> cumpliendo. ¡Sigue así!';
+          t += '<br><br>' + (d.en_meta
+            ? 'Estás por encima de la meta. Gracias por ser juicioso.'
+            : 'Te faltan <b>' + Math.max(0, d.esperados - d.realizados) + '</b> registros para ir al día. Los días que no laboraste y tu coordinador justificó no cuentan en tu contra.');
+          cb(t);
+        }).catch(function () {
+          cb('No pude consultar tu cumplimiento en este momento. Intenta de nuevo en un momento.');
+        });
+      },
+      c: ['¿Cómo van mis documentos?', '¿Qué me falta hoy?'] },
+
     { id: 'comprobante', solo: 'mensajero', peso: 1.2,
       k: ['comprobante', 'certificado', 'constancia', 'soporte de que registre', 'como se que quedo', 'quedo guardado', 'no me llego nada', 'descargar comprobante'],
       r: 'Cuando terminas <b>los dos formularios</b> del día aparece el comprobante con tu nombre, la placa, la fecha y la hora de cada registro. Puedes <b>descargarlo</b> con el botón azul y guardarlo o enviarlo por WhatsApp.<br><br>Si ya cerraste esa ventana, vuelve a buscar tu cédula: si completaste todo, el comprobante se muestra de nuevo.',
@@ -949,6 +980,23 @@
   }
 
   function responder(intent, texto) {
+    // asinc() consulta la base y responde cuando llega el dato.
+    if (intent.asinc) {
+      var esperando = document.createElement('div');
+      esperando.className = 'qk-m qk-bot';
+      esperando.textContent = 'Consultando…';
+      var cont = document.getElementById('qk-msgs');
+      cont.appendChild(esperando);
+      cont.scrollTop = cont.scrollHeight;
+      var contestado = false;
+      return intent.asinc(function (html) {
+        if (contestado) return;
+        contestado = true;
+        esperando.remove();
+        decir(html);
+        chips(intent.c || []);
+      });
+    }
     pensando(function () {
       // din() arma la respuesta con datos de la sesión (vigencias, avance…).
       decir(intent.din ? intent.din(texto) : intent.r, intent.pide ? null : intent.link, intent.linkTxt);
