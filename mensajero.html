@@ -6,6 +6,10 @@
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
   <link rel="stylesheet" href="assets/styles.css?v=13">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/icono-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
   <div id="demoBanner" class="demo-banner hidden">Modo demostración · datos de ejemplo, no se guarda nada real</div>
@@ -651,6 +655,28 @@
           $('cardChecklist').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       } catch (err) {
+        // Sin señal: el registro queda en el celular y se envía solo después.
+        if (esFalloDeRed(err) && window.HSQ_OFFLINE) {
+          try {
+            await HSQ_OFFLINE.encolar(payload);
+            state.estado[state.currentForm] = { hecho: true, hora: ahoraHM(), pendiente: true };
+            state.currentForm = null;
+            state.formData = null;
+            $('registroForm').classList.add('hidden');
+            $('bottombar').classList.add('hidden');
+            $('guardar').disabled = true;
+            renderChecklist();
+            showStatus('✓ Guardado en tu celular. No hay señal ahora: se enviará solo cuando vuelva. No tienes que repetirlo.', 'ok');
+            $('cardChecklist').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          } catch (e) {
+            showStatus('No hay señal y tampoco pude guardarlo en el celular. Intenta de nuevo donde tengas datos.', 'error');
+            $('bottombar').classList.remove('hidden');
+            return;
+          } finally {
+            setLoading($('guardar'), false);
+          }
+        }
         showStatus(err.message, 'error');
         $('bottombar').classList.remove('hidden');
         $('registroForm').classList.remove('hidden');
@@ -787,6 +813,13 @@
         ? file.name.replace(/\.[^.]+$/, '.jpg')
         : file.name;
       return { id_pregunta: idPregunta, nombre, tipo: 'image/jpeg', dataUrl };
+    }
+
+    // Distingue "no hay señal" de "el servidor rechazó el registro".
+    function esFalloDeRed(err) {
+      if (!navigator.onLine) return true;
+      var m = String((err && err.message) || '');
+      return /conexi|network|failed to fetch|load failed|networkerror|tiempo de espera/i.test(m);
     }
 
     function leerArchivo(file) {
@@ -1002,6 +1035,15 @@
     function escapeHtml(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
     function cssEscape(v) { return String(v).replace(/"/g, '\\"'); }
   </script>
+  <script src="assets/offline.js?v=1"></script>
   <script src="assets/asistente.js?v=5"></script>
+  <script>
+    /* Guarda la aplicación en el celular para que abra sin señal. */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () { /* sin problema */ });
+      });
+    }
+  </script>
 </body>
 </html>
