@@ -69,6 +69,83 @@
     return { lineas: lineas, urgentes: urgentes };
   }
 
+  /* ---------- avance del formulario abierto ----------
+     Cuenta las obligatorias que ya tienen respuesta y ubica la primera
+     que falta, para llevar al mensajero hasta ella. */
+  function progresoFormulario() {
+    var s = estadoPagina();
+    var form = document.getElementById('registroForm');
+    if (!s || !s.formData || !form || form.classList.contains('hidden')) return null;
+    var total = 0, hechas = 0, faltan = [];
+    (s.formData.preguntas || []).forEach(function (q) {
+      var cont = form.querySelector('.question[data-qid="' + String(q.id_pregunta).replace(/"/g, '\\"') + '"]');
+      if (!cont) return;
+      if (cont.classList.contains('cond') && cont.classList.contains('hidden')) return;  // condicional oculta
+      if (String(q.obligatorio).toUpperCase() !== 'SI') return;
+      total++;
+      var nodos = Array.prototype.slice.call(form.querySelectorAll('[name="' + String(q.id_pregunta).replace(/"/g, '\\"') + '"]'));
+      var lleno;
+      if (q.tipo_respuesta === 'checkbox') {
+        lleno = nodos.some(function (n) { return n.checked; });
+      } else if (q.tipo_respuesta === 'archivo') {
+        lleno = nodos[0] && nodos[0].files && nodos[0].files.length > 0;
+      } else {
+        lleno = nodos[0] && String(nodos[0].value || '').trim() !== '';
+      }
+      if (lleno) hechas++;
+      else faltan.push({ q: q, cont: cont });
+    });
+    return { total: total, hechas: hechas, faltan: faltan };
+  }
+
+  function irAFaltante() {
+    var p = progresoFormulario();
+    if (!p || !p.faltan.length) return false;
+    var c = p.faltan[0].cont;
+    c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    c.classList.add('qk-resalta');
+    setTimeout(function () { c.classList.remove('qk-resalta'); }, 2600);
+    var campo = c.querySelector('input, select, textarea');
+    if (campo && window.innerWidth > 640) setTimeout(function () { campo.focus(); }, 400);
+    if (abierto) alternar();          // se cierra el chat para dejarle ver la pregunta
+    return true;
+  }
+
+  /* ---------- glosario de la inspección ----------
+     Términos que a más de uno le generan duda al responder. */
+  var TERMINOS = {
+    'labrado': 'El <b>labrado</b> es el dibujo con canales de la llanta, lo que agarra el piso. Si está muy liso, en piso mojado no frena. Mide la profundidad con una moneda: en moto debe quedar al menos 1 mm, en vehículo 1.6 mm.',
+    'nipple': 'El <b>nipple</b> es la boquilla por donde se infla la llanta, la del tapita. Revisa que no esté torcida, rota ni con fugas de aire.',
+    'rin': 'El <b>rin</b> es el aro metálico donde va montada la llanta. No debe estar golpeado, doblado ni con fisuras.',
+    'tuercas': 'Las <b>tuercas</b> son las que sujetan la rueda al vehículo. Deben estar todas puestas y bien apretadas.',
+    'tensado': 'El <b>tensado</b> es qué tan floja o apretada está la cadena. Si la mueves con el dedo debe ceder poco (más o menos dos dedos). Muy floja se sale, muy apretada daña el piñón.',
+    'lubricacion': 'La <b>lubricación</b> es el aceite de la cadena. Si se ve seca, oxidada o hace ruido, le falta.',
+    'piñon': 'El <b>piñón</b> y la <b>corona</b> son las ruedas dentadas por donde corre la cadena. Revisa que los dientes no estén puntiagudos, gastados ni partidos.',
+    'testigos': 'Los <b>testigos de mando</b> son las luces del tablero: aceite, temperatura, direccionales, luz alta. Al encender deben prender y luego apagarse.',
+    'refrigerante': 'El <b>refrigerante</b> es el líquido que evita que el motor se recaliente. Se revisa en el depósito, con el motor frío, entre las marcas de mínimo y máximo.',
+    'liquido de frenos': 'El <b>líquido de frenos</b> va en un depósito pequeño cerca del manubrio o del pedal. Si está por debajo del mínimo o se ve oscuro, repórtalo.',
+    'fuga': 'Una <b>fuga</b> es cualquier goteo o mancha de aceite, gasolina o líquido debajo del vehículo. Si ves manchas donde estuvo parqueado, marca <b>No cumple</b>.',
+    'casco abatible': 'El <b>casco abatible</b> es el que tiene la mentonera que se levanta, como el de los policías. El <b>cerrado</b> es de una sola pieza, no se abre.',
+    'tecnomecanica': 'La <b>revisión tecnomecánica</b> certifica que el vehículo está apto para circular. Se hace en un CDA y hay que renovarla cada año.',
+    'soat': 'El <b>SOAT</b> es el seguro obligatorio que cubre a los lesionados en un accidente. Sin él no puedes circular y te inmovilizan el vehículo.',
+    'licencia de transito': 'La <b>licencia de tránsito</b> es la tarjeta de propiedad, el documento del vehículo. No la confundas con la licencia de conducción, que es la tuya.',
+    'preoperacional': 'El <b>preoperacional</b> es la revisión que haces <b>antes</b> de salir a rodar, para confirmar que el vehículo está en condiciones seguras.',
+    'apoya cabezas': 'El <b>apoyacabezas</b> es el respaldo de la cabeza en la silla. Debe estar puesto y a la altura de tus orejas: evita lesiones de cuello en un choque.',
+    'air bag': 'El <b>airbag</b> es la bolsa de aire. Revisa que el testigo del tablero no quede encendido, porque eso significa que está averiado.',
+    'freno de servicio': 'El <b>freno de servicio</b> es el pedal que usas normalmente. El <b>de emergencia</b> o de mano es el que deja el vehículo quieto al parquear.',
+    'no aplica': 'Marca <b>No aplica</b> cuando tu vehículo no tiene ese elemento. No lo uses para saltarte una revisión: si lo tiene y está malo, va <b>No cumple</b>.'
+  };
+
+  function buscarTermino(texto) {
+    var t = normalizar(texto);
+    var mejor = null, largo = 0;
+    Object.keys(TERMINOS).forEach(function (k) {
+      var n = normalizar(k);
+      if (t.indexOf(n) !== -1 && n.length > largo) { mejor = k; largo = n.length; }
+    });
+    return mejor;
+  }
+
   /* ============================================================
      BASE DE CONOCIMIENTO
      k  = palabras o frases que disparan la respuesta
@@ -87,6 +164,50 @@
       k: ['ayuda', 'ayudame', 'que puedes hacer', 'que sabes', 'opciones', 'menu', 'no se que preguntar', 'para que sirves', 'que haces'],
       r: 'Te ayudo con tu registro diario. Puedo explicarte:<br><br>• Cómo <b>diligenciar</b> el preoperacional y la limpieza<br>• Cómo van tus <b>documentos</b> (SOAT, tecnomecánica, licencia)<br>• Cómo <b>actualizar</b> un documento que se venció<br>• Qué hacer si <b>no te deja</b> guardar o adjuntar<br>• Cómo <b>cambiar la placa</b> de tu moto<br><br>Escríbeme con tus palabras.',
       c: ['¿Cómo van mis documentos?', 'No me deja adjuntar la foto', 'Cambiar mi placa', 'Ya registré hoy'] },
+
+    { id: 'progreso', peso: 1.6,
+      k: ['cuanto me falta', 'que me falta', 'me falta algo', 'ya termine', 'cuantas faltan',
+          'no me deja guardar', 'faltan preguntas', 'preguntas obligatorias', 'donde esta lo que falta',
+          'que falta por responder', 'sin responder', 'incompleto', 'llevame a la que falta'],
+      din: function () {
+        var p = progresoFormulario();
+        if (!p) {
+          return 'Primero abre un formulario y te voy diciendo cuánto llevas.<br><br>Si te aparece un aviso rojo al guardar, es porque falta alguna pregunta obligatoria: vuelve a preguntarme y te llevo hasta ella.';
+        }
+        if (!p.faltan.length) {
+          return '¡Vas completo! Respondiste las <b>' + p.total + '</b> preguntas obligatorias.<br><br>Ya puedes darle <b>Guardar</b>.';
+        }
+        var n = p.faltan.length;
+        var lista = p.faltan.slice(0, 3).map(function (f) {
+          return '• ' + esc(String(f.q.pregunta).slice(0, 60));
+        }).join('<br>');
+        return 'Llevas <b>' + p.hechas + ' de ' + p.total + '</b> obligatorias.<br><br>Te falta' +
+          (n === 1 ? '' : 'n') + ' <b>' + n + '</b>:<br>' + lista +
+          (n > 3 ? '<br>• y ' + (n - 3) + ' más' : '') +
+          '<br><br>Toca el botón y te llevo hasta la primera.';
+      },
+      c: ['Llévame a la que falta'] },
+
+    { id: 'ir_faltante', peso: 2.0,
+      k: ['llevame a la que falta', 'llevame', 'muestramela', 'donde esta', 'ir a la pregunta', 'si llevame'],
+      din: function () {
+        setTimeout(irAFaltante, 350);
+        var p = progresoFormulario();
+        if (!p || !p.faltan.length) return 'No te falta ninguna obligatoria. Ya puedes guardar.';
+        return 'Te llevo a: <b>' + esc(String(p.faltan[0].q.pregunta).slice(0, 70)) + '</b>';
+      } },
+
+    { id: 'glosario', peso: 1.4,
+      k: ['que es', 'que significa', 'no entiendo', 'como se revisa', 'como reviso', 'a que se refiere',
+          'explicame', 'glosario', 'no se que es', 'que quiere decir'],
+      din: function (texto) {
+        var k = buscarTermino(texto || '');
+        if (k) return TERMINOS[k];
+        return 'Dime cuál punto de la inspección no te queda claro y te lo explico. Por ejemplo:<br><br>' +
+          '• ¿Qué es el <b>labrado</b>?<br>• ¿Qué es el <b>tensado</b> de la cadena?<br>' +
+          '• ¿Qué son los <b>testigos</b> de mando?<br>• ¿Cuándo marco <b>No aplica</b>?';
+      },
+      c: ['¿Qué es el labrado?', '¿Qué es el tensado?', '¿Cuándo marco No aplica?'] },
 
     { id: 'mis_documentos', solo: 'mensajero', peso: 1.5,
       k: ['mis documentos', 'como van mis documentos', 'cuando se me vence', 'mi soat', 'mi tecnomecanica', 'mi licencia', 'se me vence', 'vencimiento de mis documentos', 'estan al dia', 'tengo algo vencido', 'documentos vencidos', 'soat', 'tecnomecanica', 'tecno mecanica', 'licencia', 'vencido', 'vence', 'por vencer', 'vigencia'],
@@ -537,6 +658,15 @@
     + '#qk-in:focus{border-color:#12875f}'
     + '#qk-send{background:#0d5c41;color:#fff;border:0;border-radius:10px;width:40px;cursor:pointer;font-size:16px}'
     + '#qk-send:hover{background:#12875f}'
+    + '#qk-mic{background:#fff;border:1px solid #cbe0d6;border-radius:10px;width:40px;cursor:pointer;font-size:17px;flex:0 0 auto}'
+    + '#qk-mic:hover{background:#e4f4ec}'
+    + '#qk-mic.oyendo{background:#b83a33;border-color:#b83a33;animation:qk-oye 1.1s ease-in-out infinite}'
+    + '@keyframes qk-oye{0%,100%{box-shadow:0 0 0 0 rgba(184,58,51,.5)}50%{box-shadow:0 0 0 8px rgba(184,58,51,0)}}'
+    + '#qk-voz{background:transparent;border:0;color:#a9c4ba;font-size:16px;cursor:pointer;padding:2px 6px;line-height:1}'
+    + '#qk-voz.on{color:#ffc21f}'
+    /* La pregunta que falta se resalta un momento */
+    + '.qk-resalta{animation:qk-late 2.4s ease;border-radius:10px}'
+    + '@keyframes qk-late{0%,100%{background:transparent}15%,65%{background:#fdf3e2;box-shadow:inset 3px 0 0 #b57611}}'
     // Cuando la página tiene barra inferior (botón Guardar), el asistente sube.
     + 'body.qk-subir #qk-bot{bottom:92px}body.qk-subir #qk-panel{bottom:176px}body.qk-subir #qk-globo{bottom:112px}'
     + '@media(max-width:640px){#qk-panel{right:10px;left:10px;width:auto;bottom:98px;height:min(70vh,460px)}'
@@ -602,13 +732,15 @@
       '<div id="qk-msgs"></div>' +
       '<div id="qk-chips"></div>' +
       '<form id="qk-form" autocomplete="off">' +
-        '<input id="qk-in" placeholder="Escribe tu pregunta…" aria-label="Tu pregunta">' +
+        '<button id="qk-mic" type="button" aria-label="Dictar la pregunta" title="Dictar">&#127908;</button>' +
+        '<input id="qk-in" placeholder="Escribe o dicta tu pregunta…" aria-label="Tu pregunta">' +
         '<button id="qk-send" type="submit" aria-label="Enviar">&#10148;</button>' +
       '</form>';
     document.body.appendChild(panel);
 
     btn.addEventListener('click', alternar);
     document.getElementById('qk-cerrar').addEventListener('click', alternar);
+    montarVoz();
     document.getElementById('qk-form').addEventListener('submit', function (e) {
       e.preventDefault();
       var v = document.getElementById('qk-in').value.trim();
@@ -638,6 +770,81 @@
       g.addEventListener('click', alternar);
       setTimeout(function () { if (g.parentNode) g.remove(); }, 9000);
     }, 2600);
+  }
+
+  /* ---------- voz ----------
+     Dictado: lo trae el navegador (Chrome en Android). Necesita conexión,
+     así que si no está disponible el micrófono simplemente no aparece.
+     Lectura: funciona sin datos, útil para quien no ve bien la letra. */
+  var vozLee = sessionStorage.getItem('eva-voz') === '1';
+
+  function puedeDictar() {
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+  function puedeLeer() {
+    return 'speechSynthesis' in window;
+  }
+
+  function leer(html) {
+    if (!vozLee || !puedeLeer()) return;
+    var texto = String(html).replace(/<br\s*\/?>/gi, '. ').replace(/<[^>]+>/g, '')
+      .replace(/[🔴🟠🟢⚪👋•—]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!texto) return;
+    try {
+      speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(texto);
+      u.lang = 'es-CO'; u.rate = 0.98;
+      speechSynthesis.speak(u);
+    } catch (e) { /* si el equipo no puede, no pasa nada */ }
+  }
+
+  function montarVoz() {
+    var mic = document.getElementById('qk-mic');
+    if (!puedeDictar()) { if (mic) mic.remove(); }
+    else {
+      var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      var rec = new Rec();
+      rec.lang = 'es-CO'; rec.interimResults = false; rec.maxAlternatives = 1;
+      var oyendo = false;
+      rec.onresult = function (e) {
+        var t = e.results && e.results[0] && e.results[0][0] ? e.results[0][0].transcript : '';
+        if (t) { document.getElementById('qk-in').value = ''; preguntar(t.trim()); }
+      };
+      rec.onerror = function (e) {
+        if (e.error === 'not-allowed') {
+          decir('Para dictar necesito permiso del micrófono. Actívalo en el candado de la barra de direcciones y vuelve a intentarlo.');
+        } else if (e.error === 'no-speech') {
+          decir('No alcancé a escucharte. Toca el micrófono y habla cerca del celular.');
+        }
+      };
+      rec.onend = function () { oyendo = false; mic.classList.remove('oyendo'); };
+      mic.addEventListener('click', function () {
+        if (oyendo) { rec.stop(); return; }
+        try {
+          rec.start(); oyendo = true; mic.classList.add('oyendo');
+        } catch (e) { /* ya estaba activo */ }
+      });
+    }
+
+    // Interruptor para que EVA lea sus respuestas en voz alta
+    if (puedeLeer()) {
+      var b = document.createElement('button');
+      b.id = 'qk-voz'; b.type = 'button';
+      b.title = 'Leer las respuestas en voz alta';
+      b.setAttribute('aria-label', 'Leer en voz alta');
+      b.textContent = vozLee ? '🔊' : '🔇';
+      b.classList.toggle('on', vozLee);
+      b.addEventListener('click', function () {
+        vozLee = !vozLee;
+        sessionStorage.setItem('eva-voz', vozLee ? '1' : '0');
+        b.textContent = vozLee ? '🔊' : '🔇';
+        b.classList.toggle('on', vozLee);
+        if (vozLee) leer('Listo, ahora te leo mis respuestas en voz alta.');
+        else if (puedeLeer()) speechSynthesis.cancel();
+      });
+      var cerrar = document.getElementById('qk-cerrar');
+      cerrar.parentNode.insertBefore(b, cerrar);
+    }
   }
 
   function alternar() {
@@ -670,6 +877,7 @@
     var c = document.getElementById('qk-msgs');
     c.appendChild(m);
     c.scrollTop = c.scrollHeight;
+    leer(html);
   }
 
   function decirYo(t) {
@@ -722,19 +930,28 @@
     }
 
     var intent = buscar(texto);
+
+    // Si no reconoció el tema pero nombró un punto de la inspección, se explica.
+    if (!intent && buscarTermino(texto)) {
+      return pensando(function () {
+        decir(TERMINOS[buscarTermino(texto)]);
+        chips(['¿Cuánto me falta?', '¿Cuándo marco No aplica?']);
+      });
+    }
+
     if (!intent) {
       return pensando(function () {
         decir('No estoy seguro de haber entendido. Puedo ayudarte con el cumplimiento, las justificaciones, los documentos, el registro diario y la configuración.<br><br>Prueba con una de estas, o escríbemelo con otras palabras:');
         chips(sugerenciasParecidas(texto));
       });
     }
-    responder(intent);
+    responder(intent, texto);
   }
 
-  function responder(intent) {
+  function responder(intent, texto) {
     pensando(function () {
-      // din() arma la respuesta con datos de la sesión (p. ej. sus vigencias).
-      decir(intent.din ? intent.din() : intent.r, intent.pide ? null : intent.link, intent.linkTxt);
+      // din() arma la respuesta con datos de la sesión (vigencias, avance…).
+      decir(intent.din ? intent.din(texto) : intent.r, intent.pide ? null : intent.link, intent.linkTxt);
       if (intent.pide) { pendiente = intent; chips([]); }
       else chips(intent.c || []);
     });
