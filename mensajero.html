@@ -158,10 +158,6 @@
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
 
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
-    if (HSQ_API.backend === 'supabase') {
-      $('demoBanner').textContent = 'Modo base de datos (prueba) · conectado a Supabase';
-      $('demoBanner').classList.remove('hidden');
-    }
 
     $('buscar').addEventListener('click', buscarPersona);
     $('cedula').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarPersona(); } });
@@ -1036,7 +1032,7 @@
     function cssEscape(v) { return String(v).replace(/"/g, '\\"'); }
   </script>
   <script src="assets/offline.js?v=1"></script>
-  <script src="assets/instalar.js?v=2"></script>
+  <script src="assets/instalar.js?v=3"></script>
   <script src="assets/asistente.js?v=5"></script>
   <script>
     /* Guarda la aplicación en el celular para que abra sin señal. */

@@ -31,7 +31,8 @@
     + '#inst-app button{border:0;border-radius:9px;padding:9px 14px;font:700 13px inherit;cursor:pointer;flex:0 0 auto}'
     + '#inst-si{background:#ffc21f;color:#07382b}'
     + '#inst-no{background:transparent;color:#a9c4ba;padding:9px 6px}'
-    + '@media(max-width:420px){#inst-app{flex-wrap:wrap}#inst-app .txt{flex:1 1 100%;order:-1}}'
+    + '@media(max-width:520px){#inst-app{flex-wrap:wrap;right:96px}'
+    + '#inst-app .txt{flex:1 1 100%;order:-1}#inst-app button{flex:1 1 auto}}'
     + '@media print{#inst-app{display:none !important}}';
 
   function tarjeta(titulo, detalle, alInstalar) {
