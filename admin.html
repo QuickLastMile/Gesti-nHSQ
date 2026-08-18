@@ -75,12 +75,49 @@
               <option value="todos">Todos</option>
               <option value="activos">Solo activos</option>
               <option value="inactivos">Solo inactivos</option>
+              <option value="provisionales">Ingresos provisionales</option>
+              <option value="trasladados">Trasladados a otro proyecto</option>
             </select>
           </div>
           <button id="btnListar" class="btn btn--ghost btn--block" type="button" style="margin-top:10px">Ver listado</button>
 
           <div id="buscarStatus" class="status" aria-live="polite"></div>
           <div id="resultados" style="margin-top:12px"></div>
+        </div>
+      </section>
+
+      <!-- Ingreso provisional -->
+      <section class="card">
+        <div class="card__head">
+          <p class="card__title">Ingreso provisional</p>
+        </div>
+        <div class="card__body">
+          <p class="hint-inline" style="margin-top:0">
+            Para quien entró a mitad de periodo y todavía no aparece en la nómina.
+            Queda habilitado para registrar de una vez y, cuando llegue la matriz,
+            se vuelve definitivo solo. <b>La actualización de matriz no lo inactiva.</b>
+          </p>
+          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:12px">
+            <div class="field"><span class="label">Cédula</span>
+              <input id="p_cedula" inputmode="numeric" autocomplete="off" placeholder="Sin puntos ni espacios"></div>
+            <div class="field"><span class="label">Nombre completo</span>
+              <input id="p_nombre" autocomplete="off" placeholder="Nombres y apellidos"></div>
+            <div class="field"><span class="label">Proyecto</span>
+              <input id="p_proyecto" list="proyLista" autocomplete="off" placeholder="Escribe para buscar…"></div>
+            <div class="field"><span class="label">Cargo</span>
+              <select id="p_cargo">
+                <option value="">Selecciona…</option>
+                <option value="QUICKER - MENSAJERO">QUICKER - MENSAJERO (moto)</option>
+                <option value="QUICKER - CONDUCTOR">QUICKER - CONDUCTOR (vehículo)</option>
+              </select></div>
+            <div class="field" style="grid-column:1/-1"><span class="label">Ciudad (opcional)</span>
+              <input id="p_ciudad" autocomplete="off" placeholder="Ej: BOGOTÁ"></div>
+          </div>
+          <datalist id="proyLista"></datalist>
+          <button id="btnProvisional" class="btn btn--primary btn--block" type="button" style="margin-top:12px">
+            Habilitar para registrar
+          </button>
+          <div id="provStatus" class="status" aria-live="polite"></div>
         </div>
       </section>
 
@@ -119,6 +156,24 @@
 
           <p class="label" style="margin-top:16px">Documentos adjuntos</p>
           <div id="docsView" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+
+          <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
+          <span class="label">Proyecto donde está laborando</span>
+          <p class="hint-inline" style="margin:4px 0 8px">
+            Úsalo cuando esté prestado a otra operación. <b>No modifica la matriz:</b> en nómina
+            sigue perteneciendo a su proyecto, pero el registro y el cumplimiento se le cuentan
+            donde realmente trabaja. Deja el campo vacío para devolverlo.
+          </p>
+          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr">
+            <div class="field"><span class="label">Proyecto operativo</span>
+              <input id="f_proy_op" list="proyLista" autocomplete="off" placeholder="Vacío = su proyecto de nómina"></div>
+            <div class="field"><span class="label">Motivo del traslado</span>
+              <input id="f_proy_motivo" autocomplete="off" placeholder="Ej: apoyo a la operación"></div>
+          </div>
+          <button id="btnTraslado" class="btn btn--dark btn--block" type="button" style="margin-top:10px">
+            Guardar traslado
+          </button>
+          <div id="trasladoStatus" class="status" aria-live="polite"></div>
 
           <button id="btnGuardar" class="btn btn--primary btn--block" type="button" style="margin-top:18px">Guardar cambios</button>
           <div id="fichaStatus" class="status" aria-live="polite"></div>
@@ -218,6 +273,8 @@
       });
     });
     $('btnGuardar').addEventListener('click', guardar);
+    $('btnProvisional').addEventListener('click', crearProvisional);
+    $('btnTraslado').addEventListener('click', guardarTraslado);
     $('f_activo').addEventListener('change', pintarEstado);
 
     async function login() {
@@ -257,11 +314,60 @@
       cargarProyectos();
     }
 
+    // ---------- Ingreso provisional ----------
+    async function crearProvisional() {
+      const datos = {
+        cedula: $('p_cedula').value.trim(),
+        nombre: $('p_nombre').value.trim(),
+        proyecto: $('p_proyecto').value.trim(),
+        cargo: $('p_cargo').value,
+        ciudad: $('p_ciudad').value.trim(),
+      };
+      if (!datos.cedula || !datos.nombre || !datos.proyecto || !datos.cargo) {
+        return setStatus('provStatus', 'Completa cédula, nombre, proyecto y cargo.', 'error');
+      }
+      $('btnProvisional').disabled = true;
+      setStatus('provStatus', 'Habilitando…', 'info');
+      try {
+        const r = await adminCall('crearProvisional', datos);
+        setStatus('provStatus', '✓ ' + (r.mensaje || 'Listo.'), 'ok');
+        ['p_cedula', 'p_nombre', 'p_ciudad'].forEach((id) => { $(id).value = ''; });
+        cargarProyectos();
+      } catch (err) {
+        setStatus('provStatus', err.message, 'error');
+      } finally {
+        $('btnProvisional').disabled = false;
+      }
+    }
+
+    // ---------- Traslado a otra operación ----------
+    async function guardarTraslado() {
+      if (!fichaActual) return;
+      const destino = $('f_proy_op').value.trim();
+      $('btnTraslado').disabled = true;
+      setStatus('trasladoStatus', 'Guardando…', 'info');
+      try {
+        const r = await adminCall('moverProyecto', {
+          cedula: $('f_cedula').value,
+          proyecto_operativo: destino,
+          motivo: $('f_proy_motivo').value.trim(),
+        });
+        setStatus('trasladoStatus', '✓ ' + (r.mensaje || 'Listo.'), 'ok');
+        fichaActual.proyecto_operativo = r.proyecto_operativo || '';
+        cargarProyectos();
+      } catch (err) {
+        setStatus('trasladoStatus', err.message, 'error');
+      } finally {
+        $('btnTraslado').disabled = false;
+      }
+    }
+
     async function cargarProyectos() {
       try {
         const proys = await adminCall('proyectos', {});
-        $('filProyecto').innerHTML = '<option value="">Todos los proyectos</option>' +
-          (proys || []).map((p) => `<option value="${esc(p.proyecto)}">${esc(p.proyecto)}</option>`).join('');
+        const opciones = (proys || []).map((p) => `<option value="${esc(p.proyecto)}">${esc(p.proyecto)}</option>`).join('');
+        $('filProyecto').innerHTML = '<option value="">Todos los proyectos</option>' + opciones;
+        $('proyLista').innerHTML = opciones;
       } catch (e) { /* si falla, queda solo "Todos" */ }
     }
 
@@ -344,7 +450,14 @@
       fichaActual = c;
       $('f_cedula').value = c.cedula;
       $('f_nombre').textContent = c.nombre || '(sin nombre)';
-      $('f_meta').textContent = 'CC ' + c.cedula + (c.proyecto ? ' · ' + c.proyecto : '') + (c.ciudad ? ' · ' + c.ciudad : '');
+      const marcas = [];
+      if (c.provisional) marcas.push('🟡 Provisional' + (c.provisional_desde ? ' desde ' + c.provisional_desde : ''));
+      if (c.proyecto_operativo) marcas.push('🔄 Laborando en ' + c.proyecto_operativo);
+      $('f_meta').textContent = 'CC ' + c.cedula + (c.proyecto ? ' · ' + c.proyecto : '') +
+        (c.ciudad ? ' · ' + c.ciudad : '') + (marcas.length ? ' · ' + marcas.join(' · ') : '');
+      $('f_proy_op').value = c.proyecto_operativo || '';
+      $('f_proy_motivo').value = c.proyecto_operativo_motivo || '';
+      clearStatus('trasladoStatus');
       $('f_activo').value = c.activo ? 'true' : 'false';
       $('f_obs').value = c.observacion_coordinador || '';
       $('f_placa').value = c.placa_moto || '';
