@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d3b2a">
+  <title>Instalar la app · Gestión HSEQ</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/icono-192.png">
+  <link rel="stylesheet" href="assets/styles.css?v=13">
+  <style>
+    .chk { display:flex; gap:10px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line); font-size:14px }
+    .chk:last-child { border-bottom:0 }
+    .chk b { display:block }
+    .chk .ico { flex:0 0 auto; width:22px; text-align:center; font-size:16px }
+    .chk .det { color:var(--muted); font-size:12.5px; margin-top:2px; overflow-wrap:anywhere }
+    .pasos { counter-reset:p; margin:0; padding:0; list-style:none }
+    .pasos li { counter-increment:p; position:relative; padding:9px 0 9px 38px; font-size:14.5px; line-height:1.45 }
+    .pasos li::before { content:counter(p); position:absolute; left:0; top:8px; width:26px; height:26px;
+      border-radius:50%; background:var(--brand); color:#fff; font-weight:800; font-size:13px;
+      display:flex; align-items:center; justify-content:center }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header__inner">
+      <img class="brand-logo" src="assets/icono-192.png" alt="" style="width:34px;height:34px;border-radius:8px">
+      <div class="brand-text"><h1>Instalar la app</h1><p>Gestión HSEQ Motos</p></div>
+      <a class="header-back" href="mensajero.html">Registrar</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div class="card__head"><div><p class="card__title">Instala la app en tu celular</p>
+        <p class="card__sub">Queda con su ícono y abre más rápido</p></div></div>
+      <div class="card__body">
+        <div id="acciones"></div>
+        <div id="pasos"></div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <div class="card__head"><p class="card__title">Revisión técnica</p></div>
+      <div class="card__body">
+        <p class="hint-inline" style="margin-top:0">Si algo sale en rojo, envía una captura de esta pantalla.</p>
+        <div id="diag" style="margin-top:8px"></div>
+      </div>
+    </section>
+  </main>
+
+<script>
+var $ = function (id) { return document.getElementById(id); };
+var evento = null;
+var ua = navigator.userAgent;
+
+function esIOS()      { return /iphone|ipad|ipod/i.test(ua) && !window.MSStream; }
+function esAndroid()  { return /android/i.test(ua); }
+function esEmbebido() { return /\bwv\b|FBAN|FBAV|Instagram|Line\/|; ?wv\)/i.test(ua); }
+function esSafari()   { return /safari/i.test(ua) && !/crios|fxios|edgios|chrome/i.test(ua); }
+function instalada()  { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
+
+function fila(ok, titulo, detalle) {
+  var d = document.createElement('div');
+  d.className = 'chk';
+  d.innerHTML = '<span class="ico">' + (ok === null ? '⏳' : (ok ? '✅' : '❌')) + '</span>' +
+    '<span><b>' + titulo + '</b><span class="det">' + detalle + '</span></span>';
+  $('diag').appendChild(d);
+  return d;
+}
+
+function pasos(titulo, lista, nota) {
+  $('pasos').innerHTML = '<p style="font-weight:700;margin:14px 0 6px;color:var(--brand)">' + titulo + '</p>' +
+    '<ol class="pasos">' + lista.map(function (p) { return '<li>' + p + '</li>'; }).join('') + '</ol>' +
+    (nota ? '<p class="hint-inline">' + nota + '</p>' : '');
+}
+
+function botonInstalar() {
+  $('acciones').innerHTML = '<button id="btnInst" class="btn btn--primary btn--block" type="button">Instalar ahora</button>';
+  $('btnInst').addEventListener('click', function () {
+    if (!evento) return;
+    evento.prompt();
+    evento.userChoice.then(function (r) {
+      if (r.outcome === 'accepted') {
+        $('acciones').innerHTML = '<p class="status ok">✓ Instalada. Búscala en tu pantalla de inicio.</p>';
+      }
+      evento = null;
+    });
+  });
+}
+
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();
+  evento = e;
+  botonInstalar();
+  $('pasos').innerHTML = '';
+  var f = document.querySelector('[data-k="prompt"]');
+  if (f) f.innerHTML = '<span class="ico">✅</span><span><b>El celular permite instalarla</b>' +
+    '<span class="det">Toca el botón verde de arriba.</span></span>';
+});
+
+window.addEventListener('load', function () {
+  // ---------- guía según el navegador ----------
+  if (instalada()) {
+    $('acciones').innerHTML = '<p class="status ok">✓ Ya la tienes instalada. Estás usándola ahora mismo.</p>';
+  } else if (esEmbebido()) {
+    pasos('Estás abriendo el enlace dentro de otra aplicación', [
+      'Toca los <b>tres puntos</b> de la esquina.',
+      'Elige <b>Abrir en Chrome</b> (o en tu navegador).',
+      'Ya en el navegador, vuelve a esta página e instala.'
+    ], 'Desde el navegador de WhatsApp no se puede instalar; hay que abrirla en Chrome.');
+  } else if (esIOS()) {
+    if (!esSafari()) {
+      pasos('En iPhone solo se puede instalar desde Safari', [
+        'Copia el enlace de esta página.',
+        'Ábrelo en <b>Safari</b>.',
+        'Toca <b>Compartir</b> y luego <b>Agregar a inicio</b>.'
+      ]);
+    } else {
+      pasos('Instalación en iPhone', [
+        'Toca el botón <b>Compartir</b> (el cuadrado con la flecha, abajo).',
+        'Desliza y elige <b>Agregar a inicio</b>.',
+        'Toca <b>Agregar</b> arriba a la derecha.'
+      ], 'El iPhone no muestra un botón automático: siempre se hace por Compartir.');
+    }
+  } else if (esAndroid()) {
+    pasos('Instalación en Android', [
+      'Toca los <b>tres puntos</b> arriba a la derecha.',
+      'Elige <b>Instalar aplicación</b> o <b>Agregar a pantalla principal</b>.',
+      'Confirma con <b>Instalar</b>.'
+    ], 'Si el botón verde aparece arriba, es más rápido usarlo.');
+  } else {
+    pasos('Instalación desde el computador', [
+      'Busca el ícono de instalar en la barra de direcciones, a la derecha.',
+      'O entra al menú del navegador y elige <b>Instalar</b>.'
+    ]);
+  }
+
+  // ---------- revisión técnica ----------
+  fila(location.protocol === 'https:' || location.hostname === 'localhost',
+    'Conexión segura', location.protocol + '//' + location.hostname);
+
+  fila(!esEmbebido(), 'Navegador compatible',
+    esEmbebido() ? 'Estás dentro de otra app (WhatsApp o similar). Ábrela en Chrome.'
+                 : (esIOS() ? 'iPhone' : (esAndroid() ? 'Android' : 'Computador')));
+
+  var fMan = fila(null, 'Archivo de instalación', 'Consultando…');
+  fetch('manifest.json').then(function (r) { return r.json(); }).then(function (m) {
+    fMan.innerHTML = '<span class="ico">✅</span><span><b>Archivo de instalación</b>' +
+      '<span class="det">' + m.short_name + ' · ' + m.icons.length + ' íconos</span></span>';
+  }).catch(function () {
+    fMan.innerHTML = '<span class="ico">❌</span><span><b>Archivo de instalación</b>' +
+      '<span class="det">No se pudo leer manifest.json</span></span>';
+  });
+
+  var fIco = fila(null, 'Ícono de la app', 'Cargando…');
+  var img = new Image();
+  img.onload = function () {
+    fIco.innerHTML = '<span class="ico">✅</span><span><b>Ícono de la app</b>' +
+      '<span class="det">' + img.width + '×' + img.height + ' px</span></span>';
+  };
+  img.onerror = function () {
+    fIco.innerHTML = '<span class="ico">❌</span><span><b>Ícono de la app</b><span class="det">No cargó</span></span>';
+  };
+  img.src = 'assets/icono-192.png';
+
+  var fSW = fila(null, 'Servicio en segundo plano', 'Registrando…');
+  if (!('serviceWorker' in navigator)) {
+    fSW.innerHTML = '<span class="ico">❌</span><span><b>Servicio en segundo plano</b>' +
+      '<span class="det">Este navegador no lo permite</span></span>';
+  } else {
+    navigator.serviceWorker.register('sw.js').then(function (r) {
+      fSW.innerHTML = '<span class="ico">✅</span><span><b>Servicio en segundo plano</b>' +
+        '<span class="det">Activo. La app podrá abrir sin señal.</span></span>';
+      return r;
+    }).catch(function (e) {
+      fSW.innerHTML = '<span class="ico">❌</span><span><b>Servicio en segundo plano</b>' +
+        '<span class="det">' + e.message + '</span></span>';
+    });
+  }
+
+  var fP = fila(null, 'Aviso automático de instalación', 'Esperando al navegador…');
+  fP.setAttribute('data-k', 'prompt');
+  setTimeout(function () {
+    if (evento || instalada()) return;
+    fP.innerHTML = '<span class="ico">⚠️</span><span><b>Aviso automático de instalación</b>' +
+      '<span class="det">No apareció. Usa los pasos de arriba: se instala igual.</span></span>';
+  }, 6000);
+
+  fila(true, 'Tu navegador', ua);
+});
+</script>
+</body>
+</html>

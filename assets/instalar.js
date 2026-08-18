@@ -81,16 +81,17 @@
     if (d) d.remove();
   });
 
-  // iPhone: no hay aviso automático, se indica el paso a paso.
-  if (esIOS() && !yaInstalada() && !pospuesta()) {
-    window.addEventListener('load', function () {
-      setTimeout(function () {
-        tarjeta('Instala la app en tu iPhone',
-          'Toca <b>Compartir</b> abajo y luego <b>Agregar a inicio</b>.',
-          function (d) { d.remove(); });
-      }, 4500);
-    });
-  }
+  // Si el navegador no ofrece el aviso automático (iPhone siempre, y a veces
+  // Android), se remite a la guía con el paso a paso de cada navegador.
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      if (instalable || yaInstalada() || pospuesta()) return;
+      if (document.getElementById('inst-app')) return;
+      tarjeta('Instala la app en tu celular',
+        'Queda con su ícono y abre más rápido. Te muestro cómo.',
+        function () { location.href = 'instalar.html'; });
+    }, 5000);
+  });
 
   // Para poder ofrecerla también desde el asistente
   window.HSQ_INSTALAR = {
