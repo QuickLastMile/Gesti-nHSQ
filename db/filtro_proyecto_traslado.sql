@@ -47,13 +47,13 @@ begin
       select 1 from proyectos_formularios pf
       join colaboradores c on c.proyecto_efectivo=pf.proyecto and c.activo
       where pf.formulario_id=frm.id and pf.activo
-        and (filtro_proy='' or c.proyecto_efectivo = coalesce(nombre_proyecto(filtro_proy), filtro_proy))
+        and (filtro_proy='' or c.proyecto_efectivo = filtro_proy or c.proyecto_efectivo = nombre_proyecto(filtro_proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = filtro_proy))
     )), '[]'::jsonb);
 
   for rec in
     select c.cedula, c.nombre, c.proyecto_efectivo as proyecto, c.ciudad, c.placa_moto
     from colaboradores c
-    where c.activo and (filtro_proy='' or c.proyecto_efectivo = coalesce(nombre_proyecto(filtro_proy), filtro_proy))
+    where c.activo and (filtro_proy='' or c.proyecto_efectivo = filtro_proy or c.proyecto_efectivo = nombre_proyecto(filtro_proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = filtro_proy))
       and exists (
         select 1 from proyectos_formularios pf
         join formularios frm on frm.id=pf.formulario_id and frm.activo
@@ -188,7 +188,7 @@ begin
     join proyectos_formularios pf on pf.proyecto=c.proyecto_efectivo and pf.activo
     join formularios f on f.id=pf.formulario_id and f.activo
     where c.activo
-      and (proy='' or c.proyecto_efectivo = coalesce(nombre_proyecto(proy), proy))
+      and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy))
       and (form_f='' or pf.formulario_id=form_f);
 
   -- Una fila por colaborador + formulario + días realmente exigibles.
@@ -379,7 +379,7 @@ begin
         group by regexp_replace(tc.cedula,'\D','','g')
       ) jus on jus.ced = regexp_replace(c.cedula,'\D','','g')
       where c.activo and req.cedula is not null
-        and (proy='' or c.proyecto_efectivo = coalesce(nombre_proyecto(proy), proy))
+        and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy))
     ) x),'[]'::jsonb),
 
     -- Cumplimiento por tipo de formulario (preoperacional vs limpieza).
@@ -444,7 +444,7 @@ begin
           and (form_f='' or r.formulario_id=form_f)
         group by regexp_replace(r.cedula,'\D','','g')
       ) u on u.ced=regexp_replace(c.cedula,'\D','','g')
-      where c.activo and (proy='' or c.proyecto_efectivo = coalesce(nombre_proyecto(proy), proy))
+      where c.activo and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy))
         and exists (
           select 1 from proyectos_formularios pf
           join formularios f on f.id=pf.formulario_id and f.activo
@@ -498,7 +498,7 @@ begin
              case when d.fecha_vencimiento is null or d.fecha_vencimiento<hoy then 1 else 2 end prioridad
       from colaboradores c
       cross join lateral (values ('SOAT',c.soat_vence),('TECNOMECÁNICA',c.tecnomecanica_vence),('LICENCIA',c.licencia_vence)) d(documento,fecha_vencimiento)
-      where c.activo and (proy='' or c.proyecto_efectivo = coalesce(nombre_proyecto(proy), proy))
+      where c.activo and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy))
         and exists (
           select 1 from proyectos_formularios pf
           join formularios f on f.id=pf.formulario_id and f.activo
