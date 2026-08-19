@@ -48,6 +48,7 @@
     <section id="panel" class="hidden">
       <nav class="tabs" role="tablist">
         <button class="tab active" type="button" data-v="colaboradores">Colaboradores</button>
+        <button class="tab" type="button" data-v="provisional">Ingreso provisional</button>
         <button class="tab" type="button" data-v="calendario">Calendario y metas</button>
         <button class="tab" type="button" data-v="formularios">Formularios por proyecto</button>
         <button id="btnSalir" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Salir</button>
@@ -83,41 +84,6 @@
 
           <div id="buscarStatus" class="status" aria-live="polite"></div>
           <div id="resultados" style="margin-top:12px"></div>
-        </div>
-      </section>
-
-      <!-- Ingreso provisional -->
-      <section class="card">
-        <div class="card__head">
-          <p class="card__title">Ingreso provisional</p>
-        </div>
-        <div class="card__body">
-          <p class="hint-inline" style="margin-top:0">
-            Para quien entró a mitad de periodo y todavía no aparece en la nómina.
-            Queda habilitado para registrar de una vez y, cuando llegue la matriz,
-            se vuelve definitivo solo. <b>La actualización de matriz no lo inactiva.</b>
-          </p>
-          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:12px">
-            <div class="field"><span class="label">Cédula</span>
-              <input id="p_cedula" inputmode="numeric" autocomplete="off" placeholder="Sin puntos ni espacios"></div>
-            <div class="field"><span class="label">Nombre completo</span>
-              <input id="p_nombre" autocomplete="off" placeholder="Nombres y apellidos"></div>
-            <div class="field"><span class="label">Proyecto</span>
-              <input id="p_proyecto" list="proyLista" autocomplete="off" placeholder="Escribe para buscar…"></div>
-            <div class="field"><span class="label">Cargo</span>
-              <select id="p_cargo">
-                <option value="">Selecciona…</option>
-                <option value="QUICKER - MENSAJERO">QUICKER - MENSAJERO (moto)</option>
-                <option value="QUICKER - CONDUCTOR">QUICKER - CONDUCTOR (vehículo)</option>
-              </select></div>
-            <div class="field" style="grid-column:1/-1"><span class="label">Ciudad (opcional)</span>
-              <input id="p_ciudad" autocomplete="off" placeholder="Ej: BOGOTÁ"></div>
-          </div>
-          <datalist id="proyLista"></datalist>
-          <button id="btnProvisional" class="btn btn--primary btn--block" type="button" style="margin-top:12px">
-            Habilitar para registrar
-          </button>
-          <div id="provStatus" class="status" aria-live="polite"></div>
         </div>
       </section>
 
@@ -182,6 +148,43 @@
       </div>
 
       <!-- ============ CALENDARIO Y METAS ============ -->
+      <div id="v-provisional" class="view hidden">
+      <section class="card">
+        <div class="card__head">
+          <p class="card__title">Ingreso provisional</p>
+        </div>
+        <div class="card__body">
+          <p class="hint-inline" style="margin-top:0">
+            Para quien entró a mitad de periodo y todavía no aparece en la nómina.
+            Queda habilitado para registrar de una vez y, cuando llegue la matriz,
+            se vuelve definitivo solo. <b>La actualización de matriz no lo inactiva.</b>
+          </p>
+          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:12px">
+            <div class="field"><span class="label">Cédula</span>
+              <input id="p_cedula" inputmode="numeric" autocomplete="off" placeholder="Sin puntos ni espacios"></div>
+            <div class="field"><span class="label">Nombre completo</span>
+              <input id="p_nombre" autocomplete="off" placeholder="Nombres y apellidos"></div>
+            <div class="field"><span class="label">Proyecto</span>
+              <input id="p_proyecto" list="proyLista" autocomplete="off" placeholder="Escribe para buscar…"></div>
+            <div class="field"><span class="label">Cargo</span>
+              <select id="p_cargo">
+                <option value="">Selecciona…</option>
+                <option value="QUICKER - MENSAJERO">QUICKER - MENSAJERO (moto)</option>
+                <option value="QUICKER - CONDUCTOR">QUICKER - CONDUCTOR (vehículo)</option>
+              </select></div>
+            <div class="field" style="grid-column:1/-1"><span class="label">Ciudad (opcional)</span>
+              <input id="p_ciudad" autocomplete="off" placeholder="Ej: BOGOTÁ"></div>
+          </div>
+          <datalist id="proyLista"></datalist>
+          <button id="btnProvisional" class="btn btn--primary btn--block" type="button" style="margin-top:12px">
+            Habilitar para registrar
+          </button>
+          <div id="provStatus" class="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      </div>
+
       <div id="v-calendario" class="view hidden">
         <section class="card">
           <div class="card__head">

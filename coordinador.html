@@ -619,7 +619,7 @@
         box.innerHTML += `
           <div style="margin-top:16px">
             <p class="label">Administrar registros consultados</p>
-            <p class="hint-inline">Anula únicamente registros con documentación incorrecta. Se conservará la auditoría.</p>
+            <p class="hint-inline">Elimina únicamente registros con documentación incorrecta. Pide PIN de autorización y el colaborador podrá volver a diligenciar. Queda la constancia en el historial.</p>
             <div style="display:grid;gap:8px;margin-top:10px">
               ${registros.map((r) => `
                 <div style="border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
@@ -628,7 +628,7 @@
                     <div class="hint-inline">CC ${escapeHtml(r.cedula)} · ${escapeHtml(r.fecha)} ${escapeHtml(r.hora || '')}</div>
                     <div class="hint-inline">ID: ${escapeHtml(r.id_registro)}</div>
                   </div>
-                  <button class="btn btn--ghost" type="button" data-anular="${escapeHtml(r.id_registro)}" data-nombre="${escapeHtml(r.nombre || '')}">Anular registro</button>
+                  <button class="btn btn--ghost" type="button" data-anular="${escapeHtml(r.id_registro)}" data-nombre="${escapeHtml(r.nombre || '')}">Eliminar registro</button>
                 </div>`).join('')}
             </div>
           </div>`;
@@ -639,17 +639,27 @@
     }
 
     async function anularRegistro(idRegistro, nombre) {
-      const motivo = prompt(`Motivo para anular el registro de ${nombre || 'este mensajero'}:`);
+      const quien = nombre || 'este mensajero';
+      const motivo = prompt(
+        'Vas a ELIMINAR el registro de ' + quien + '.\n\n' +
+        'El registro se borra por completo y ' + quien + ' podrá volver a diligenciar ' +
+        'el formulario hoy mismo. Queda la constancia de quién lo eliminó y por qué.\n\n' +
+        'Motivo (mínimo 5 caracteres):');
       if (motivo === null) return;
       if (motivo.trim().length < 5) return showStatus('Escribe un motivo de al menos 5 caracteres.', 'error');
-      if (!confirm('El registro dejará de contar en cumplimiento y exportables. ¿Confirmas la anulación?')) return;
-      showStatus('Anulando registro…', 'info');
+
+      const pin = prompt('Digita el PIN de autorización (4 dígitos).\n\nSi no lo tienes, solicítalo al área de HSEQ.');
+      if (pin === null) return;
+      if (!/^\d{4}$/.test(pin.trim())) return showStatus('El PIN son 4 dígitos.', 'error');
+
+      showStatus('Eliminando registro…', 'info');
       try {
-        await HSQ_API.call('anularRegistro', {
+        const r = await HSQ_API.call('anularRegistro', {
           id_registro: idRegistro,
           motivo: motivo.trim(),
+          pin: pin.trim(),
         });
-        showStatus('✓ Registro anulado. Se conservó la trazabilidad.', 'ok');
+        showStatus('✓ ' + (r && r.mensaje ? r.mensaje : 'Registro eliminado.'), 'ok');
         await generarExportable();
       } catch (err) {
         showStatus(err.message, 'error');
