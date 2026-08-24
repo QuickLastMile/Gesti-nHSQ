@@ -141,7 +141,9 @@ returns int language plpgsql set search_path = public as $fn$
 declare n int;
 begin
   -- El trigger de arriba hace el cálculo; basta con tocar cada fila.
-  update colaboradores set actualizado_en = actualizado_en;
+  -- El WHERE es obligatorio: Supabase bloquea los UPDATE sin condición.
+  update colaboradores set actualizado_en = actualizado_en
+   where cedula is not null;
   get diagnostics n = row_count;
   return n;
 end;
