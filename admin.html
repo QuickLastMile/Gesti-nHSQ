@@ -860,7 +860,8 @@
     $('encGuardarCarga').addEventListener('click', guardarCarga);
     $('encVerHuerfanos').addEventListener('click', verHuerfanos);
     $('encGuardarProyecto').addEventListener('click', guardarEncargadoProyecto);
-    $('encGuardarFrente').addEventListener('click', guardarFrente);
+    // Sin el envoltorio, el clic le llega a la funcion como si fueran los datos del frente.
+    $('encGuardarFrente').addEventListener('click', () => guardarFrente());
     $('encAplicar').addEventListener('click', aplicarAsignacion);
     $('encPersonaBuscar').addEventListener('input', pintarPersonas);
     $('encPersonaLimpiar').addEventListener('click', () => { $('encPersonaBuscar').value = ''; pintarPersonas(); });
@@ -1121,10 +1122,10 @@
       $('encGuardarFrente').disabled = true;
       setStatus('encFrenteStatus', 'Guardando\u2026', 'info');
       try {
+        // El frente solo lleva su coordinador: el jefe y el lider los hereda
+        // del proyecto, para que al cambiarlos arriba cambien tambien aqui.
         const r = await adminCall('guardarEncargado', Object.assign({
           proyecto_id: $('e_pid').value,
-          jefatura: $('e_jefatura').value.trim(),
-          lider: $('e_lider').value.trim(),
         }, datos));
         setStatus('encFrenteStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
         $('e_frente').value = '';
