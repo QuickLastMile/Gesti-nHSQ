@@ -197,8 +197,9 @@
       proyecto: (filtros.proyectos && filtros.proyectos[0]) || filtros.proyecto || '',
       cedula: filtros.cedula || '',
       perfil: filtros.perfil || '',        // MOTO / VEHICULO / vacío = todos
-      encargado_tipo: filtros.encargado_tipo || '',
-      encargado: filtros.encargado || '',
+      jefatura: filtros.jefatura || '',
+      lider: filtros.lider || '',
+      coordinador: filtros.coordinador || '',
     };
     const r = await rpc('generarExportable', p);
     await firmarEvidenciasExportable(r.filas || []);

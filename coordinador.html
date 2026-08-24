@@ -160,8 +160,8 @@
           <div class="cmp-filtros">
             <div class="field"><span class="label">Fecha</span><input id="cumFecha" type="date"></div>
             <div class="field"><span class="label">Proyecto</span><input id="cumProyecto" list="proyDatalist" autocomplete="off" placeholder="Todos"></div>
-            <div class="field"><span class="label">Encargado</span>
-              <select id="cumEncargado"><option value="">Todos</option></select></div>
+            <div class="field hidden" id="cumCoordBox"><span class="label">Coordinador</span>
+              <select id="cumCoordinador"><option value="">Todos</option></select></div>
             <button id="btnCumplimiento" class="btn btn--primary" type="button">
               <svg viewBox="0 0 24 24" fill="none"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
               Consultar
@@ -218,7 +218,7 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=21"></script>
+  <script src="assets/api.js?v=22"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -302,10 +302,15 @@
       $('cumFiltroChips').classList.add('hidden');
       try {
         cumData = await HSQ_API.call('getCumplimientoDia',
-          Object.assign({ fecha, proyecto: resolverTexto($('cumProyecto').value) }, encargadoDe('cumEncargado')));
+          Object.assign({ fecha, proyecto: resolverTexto($('cumProyecto').value) }, encargadoDe('cumCoordinador')));
         cumFiltro = 'todos';
         pintarCumplimiento();
-        clearCum();
+        const coord = encargadoDe('cumCoordinador').coordinador;
+        if (!(cumData.personas || []).length && coord) {
+          showCum('Ning\u00fan colaborador cumple los dos filtros a la vez. '
+            + 'Revisa en Administraci\u00f3n \u2192 Encargados si esa gente ya tiene a '
+            + coord + ' como coordinador.', 'warn');
+        } else { clearCum(); }
       } catch (err) {
         showCum(err.message, 'error');
       } finally {
@@ -572,30 +577,38 @@
     function setBtn(btn, loading) { btn.disabled = loading; btn.style.opacity = loading ? '.7' : ''; }
 
     /* ---------- Filtro por encargado ---------- */
-    // Un solo desplegable con los tres niveles: jefe, líder y coordinador.
     async function cargarEncargados() {
       try {
         const e = await HSQ_API.call('listaEncargados');
-        const grupo = (titulo, tipo, arr) => {
-          if (!arr || !arr.length) return '';
-          return `<optgroup label="${escapeHtml(titulo)}">` + arr.map((x) =>
-            `<option value="${escapeHtml(tipo + '|' + x.nombre)}">${escapeHtml(x.nombre)} (${x.personas})</option>`
-          ).join('') + '</optgroup>';
-        };
-        const html = '<option value="">Todos</option>' +
-          grupo('Jefatura', 'JEFATURA', e.jefaturas) +
-          grupo('Líder', 'LIDER', e.lideres) +
-          grupo('Coordinador', 'COORDINADOR', e.coordinadores);
-        ['filtroEncargado', 'cumEncargado'].forEach((id) => { if ($(id)) $(id).innerHTML = html; });
+        const opcion = (nivel, x) =>
+          `<option value="${escapeHtml(nivel + '|' + x.nombre)}">${escapeHtml(x.nombre)} (${x.personas})</option>`;
+        const grupo = (titulo, nivel, arr) => (!arr || !arr.length) ? ''
+          : `<optgroup label="${escapeHtml(titulo)}">` + arr.map((x) => opcion(nivel, x)).join('') + '</optgroup>';
+
+        // Exportar: los tres niveles en un mismo desplegable.
+        $('filtroEncargado').innerHTML = '<option value="">Todos</option>' +
+          grupo('Jefatura', 'jefatura', e.jefaturas) +
+          grupo('Líder', 'lider', e.lideres) +
+          grupo('Coordinador', 'coordinador', e.coordinadores);
+
+        // Cumplimiento: solo coordinadores, y el campo aparece únicamente
+        // cuando ya hay alguno asignado.
+        const coords = e.coordinadores || [];
+        $('cumCoordinador').innerHTML = '<option value="">Todos</option>' +
+          coords.map((x) => opcion('coordinador', x)).join('');
+        $('cumCoordBox').classList.toggle('hidden', coords.length === 0);
       } catch (err) { /* si falla, los filtros quedan en "Todos" */ }
     }
 
-    // "JEFATURA|JOHN CUESTA" -> { encargado_tipo, encargado }
+    // "lider|MARYU" -> { jefatura:'', lider:'MARYU', coordinador:'' }
     function encargadoDe(id) {
+      const vacio = { jefatura: '', lider: '', coordinador: '' };
       const v = ($(id) && $(id).value) || '';
       const i = v.indexOf('|');
-      if (i < 0) return { encargado_tipo: '', encargado: '' };
-      return { encargado_tipo: v.slice(0, i), encargado: v.slice(i + 1) };
+      if (i < 0) return vacio;
+      const nivel = v.slice(0, i);
+      if (!(nivel in vacio)) return vacio;
+      return Object.assign({}, vacio, { [nivel]: v.slice(i + 1) });
     }
 
     function resolverProyecto() {

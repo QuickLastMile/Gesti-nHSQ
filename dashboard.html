@@ -287,7 +287,9 @@
         <div class="filterbar">
           <div class="filters">
             <div class="field"><label>Proyecto</label><select id="fProject"><option value="">Todos los proyectos</option></select></div>
-            <div class="field"><label>Encargado</label><select id="fOwner"><option value="">Todos</option></select></div>
+            <div class="field"><label>Jefatura</label><select id="fJefe"><option value="">Todas</option></select></div>
+            <div class="field"><label>Líder</label><select id="fLider"><option value="">Todos</option></select></div>
+            <div class="field hidden" id="fCoordBox"><label>Coordinador</label><select id="fCoord"><option value="">Todos</option></select></div>
             <div class="field"><label>Formulario</label><select id="fForm"><option value="TODOS">Todos</option></select></div>
             <div class="field"><label>Año</label><select id="fYear"></select></div>
             <div class="field"><label>Mes</label><select id="fMonth"><option value="">Todo el año</option></select></div>
@@ -372,6 +374,42 @@
             </article>
           </div>
 
+          <div class="grid">
+            <article class="card">
+              <div class="card-head"><div><h2>Cumplimiento por jefatura</h2>
+                <p>Porcentaje del periodo. <b>Sin asignar</b> es la gente que aún no tiene jefe cargado.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cJefe"></canvas></div></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><h2>Cumplimiento por líder</h2>
+                <p>Mismo cálculo de la tabla de proyectos, agrupado por quién responde.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cLider"></canvas></div></div>
+            </article>
+          </div>
+
+          <article id="cardCoord" class="card hidden">
+            <div class="card-head"><div><h2>Cumplimiento por coordinador</h2>
+              <p>Aparece cuando ya hay coordinadores asignados. Una persona con coordinador propio cuenta para ese, no para el del proyecto.</p></div></div>
+            <div class="card-body"><div class="canvas-wrap"><canvas id="cCoord"></canvas></div></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div><h2>Detalle por encargado</h2>
+                <p>Los mismos números de arriba, con esperados y faltantes.</p></div>
+              <select id="encNivel" class="search" style="min-width:170px">
+                <option value="jefatura">Por jefatura</option>
+                <option value="lider">Por líder</option>
+                <option value="coordinador">Por coordinador</option>
+              </select>
+            </div>
+            <div class="card-body"><div class="tbl-wrap">
+              <table><thead><tr><th>#</th><th>Encargado</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
+              <tbody id="encRows"></tbody></table>
+              <div id="encEmpty" class="empty hidden">Nadie tiene ese nivel asignado todavía.</div>
+            </div></div>
+          </article>
+
           <article class="card">
             <div class="card-head"><div><h2>Cumplimiento por días y mensajero</h2><p id="mSub">Todos los activos del filtro</p></div>
               <input id="mSearch" class="search" placeholder="Buscar nombre, cédula o proyecto"></div>
@@ -446,7 +484,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=21"></script>
+  <script src="assets/api.js?v=22"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
@@ -471,6 +509,7 @@
     $('btnPdf').addEventListener('click', exportarPdf);
     $('btnClear').addEventListener('click', () => {
       $('fProject').value = ''; $('fDay').value = ''; $('fForm').value = 'TODOS';
+      $('fJefe').value = ''; $('fLider').value = ''; $('fCoord').value = '';
       $('fYear').value = String(new Date().getFullYear());
       $('fMonth').value = String(new Date().getMonth() + 1);
       cargar();
@@ -582,8 +621,7 @@
           anio: $('fYear').value, mes: $('fMonth').value,
           dia: $('fDay').value, proyecto: $('fProject').value,
           formulario: $('fForm').value,
-          encargado_tipo: encargadoSel().encargado_tipo,
-          encargado: encargadoSel().encargado,
+          ...encargadoSel(),
         });
         pintar();
         $('btnExcel').disabled = false;
@@ -594,34 +632,40 @@
           : (f.mes ? (MESES[f.mes - 1] + ' ' + f.anio) : ('año ' + f.anio));
         const form = $('fForm').value === 'TODOS' ? 'Todos los formularios'
           : $('fForm').options[$('fForm').selectedIndex].text;
-        const enc = $('fOwner').selectedIndex > 0 ? ' · ' + $('fOwner').options[$('fOwner').selectedIndex].text : '';
-        ctx(`<b>${esc(proy)}</b>${esc(enc)} · ${esc(form)} · ${esc(periodo)} · ${f.dias || 0} día(s) · actualizado ${esc(data.actualizado || '')}`);
+        const sel = encargadoSel();
+        const enc = [sel.jefatura && 'jefe ' + sel.jefatura, sel.lider && 'líder ' + sel.lider,
+                     sel.coordinador && 'coord. ' + sel.coordinador].filter(Boolean).join(', ');
+        ctx(`<b>${esc(proy)}</b>${enc ? ' · ' + esc(enc) : ''} · ${esc(form)} · ${esc(periodo)} · ${f.dias || 0} día(s) · actualizado ${esc(data.actualizado || '')}`);
       } catch (e) { manejarError(e); }
     }
 
-    // Un solo desplegable con jefes, líderes y coordinadores.
+    // Un desplegable por nivel. El de coordinador solo se muestra cuando
+    // ya hay alguno asignado.
     async function cargarEncargados() {
       try {
         const e = await HSQ_API.call('listaEncargados');
-        const grupo = (titulo, tipo, arr) => {
-          if (!arr || !arr.length) return '';
-          return `<optgroup label="${esc(titulo)}">` + arr.map((x) =>
-            `<option value="${esc(tipo + '|' + x.nombre)}">${esc(x.nombre)} (${x.personas})</option>`
-          ).join('') + '</optgroup>';
+        const llenar = (id, arr, todos) => {
+          $(id).innerHTML = `<option value="">${esc(todos)}</option>` + (arr || []).map((x) =>
+            `<option value="${esc(x.nombre)}">${esc(x.nombre)} (${x.personas})</option>`).join('');
         };
-        $('fOwner').innerHTML = '<option value="">Todos</option>' +
-          grupo('Jefatura', 'JEFATURA', e.jefaturas) +
-          grupo('Líder', 'LIDER', e.lideres) +
-          grupo('Coordinador', 'COORDINADOR', e.coordinadores);
-      } catch (err) { /* si falla, queda en "Todos" */ }
+        llenar('fJefe', e.jefaturas, 'Todas');
+        llenar('fLider', e.lideres, 'Todos');
+        llenar('fCoord', e.coordinadores, 'Todos');
+        const hayCoord = (e.coordinadores || []).length > 0;
+        $('fCoordBox').classList.toggle('hidden', !hayCoord);
+        $('cardCoord').classList.toggle('hidden', !hayCoord);
+      } catch (err) { /* si falla, quedan en "Todos" */ }
     }
 
     function encargadoSel() {
-      const v = $('fOwner').value || '';
-      const i = v.indexOf('|');
-      if (i < 0) return { encargado_tipo: '', encargado: '' };
-      return { encargado_tipo: v.slice(0, i), encargado: v.slice(i + 1) };
+      return {
+        jefatura: $('fJefe').value || '',
+        lider: $('fLider').value || '',
+        coordinador: $('fCoord').value || '',
+      };
     }
+
+    $('encNivel').addEventListener('change', () => { if (data) pintarEncargados(); });
 
     function ctx(html, bad) { $('ctx').innerHTML = html; $('ctx').className = 'ctxbar' + (bad ? ' err' : ''); }
     function fmt(v) { return Number(v || 0).toLocaleString('es-CO'); }
@@ -663,7 +707,7 @@
       $('kMiss').textContent = fmt(r.no_realizadas);
       $('kAlert').textContent = fmt(r.con_alerta);
       pintarTendencias(r);
-      pintarGraficas(); pintarFormularios(); pintarProyectos();
+      pintarGraficas(); pintarFormularios(); pintarProyectos(); pintarEncargados();
       pintarRankings(); pintarMensajeros(); pintarInactividad(); pintarNovedades(); pintarDocs(); pintarFallas();
       cargarMantenimiento();
     }
@@ -714,6 +758,15 @@
       barrasH('cProjects', (data.por_proyecto || []).slice().sort((a, b) => b.realizadas - a.realizadas).slice(0, 8),
         (d) => d.proyecto, (d) => d.realizadas, C.verde,
         (d) => [fmt(d.realizadas) + ' registros', pct(d.porcentaje) + ' de cumplimiento']);
+      const enc = data.por_encargado || {};
+      const barraEnc = (id, arr) => barrasH(id, (arr || []).slice(0, 10),
+        (d) => d.nombre, (d) => d.porcentaje, C.verde,
+        (d) => [pct(d.porcentaje) + ' de cumplimiento',
+                fmt(d.realizadas) + ' de ' + fmt(d.esperadas) + ' esperados',
+                fmt(d.activos) + ' persona(s)']);
+      barraEnc('cJefe', enc.jefatura);
+      barraEnc('cLider', enc.lider);
+      barraEnc('cCoord', enc.coordinador);
       donaMensajeros();
       barras('cDow', (data.por_dia_semana || []), (d) => DOW[d.dow - 1].slice(0, 3), (d) => d.realizadas, C.lima,
         (d) => [fmt(d.realizadas) + ' registros', 'en ' + fmt(d.dias) + ' día(s)']);
@@ -841,7 +894,7 @@
       });
     }
 
-    ['cDaily','cMonthly','cProjects','cDow','cHour'].forEach((id) => {
+    ['cDaily','cMonthly','cProjects','cDow','cHour','cJefe','cLider','cCoord'].forEach((id) => {
       const c = $(id); if (!c) return;
       c.addEventListener('mousemove', (ev) => {
         const rc = c.getBoundingClientRect(), mx = ev.clientX - rc.left, my = ev.clientY - rc.top;
@@ -888,6 +941,28 @@
         <td class="tnum">${fmt(p.esperadas)}</td><td class="tnum">${fmt(p.no_realizadas)}</td>
         <td>${barra(p.porcentaje)}</td>
         <td class="tnum t-sub">${p.meta != null ? Number(p.meta).toFixed(0) + '%' : '—'}</td>
+        <td>${cls ? `<span class="badge ${cls}">${txt}</span>` : '<span class="t-sub">—</span>'}</td></tr>`;
+      }).join('');
+    }
+
+    // Tabla de detalle por encargado, con el nivel que elija el usuario.
+    function pintarEncargados() {
+      const nivel = $('encNivel').value;
+      const filas = ((data && data.por_encargado) || {})[nivel] || [];
+      $('encEmpty').classList.toggle('hidden', filas.length > 0);
+      const sem = {
+        cumple: ['ok', '● Cumple'], cerca: ['warn', '● Cerca'],
+        no_cumple: ['bad', '● No cumple'], sin_datos: ['', '—'],
+      };
+      $('encRows').innerHTML = filas.map((d, i) => {
+        const [cls, txt] = sem[d.estado] || sem.sin_datos;
+        const sinAsignar = d.nombre === 'Sin asignar';
+        return `
+        <tr><td><span class="rank ${i === 0 && !sinAsignar ? 'gold' : ''}">${i + 1}</span></td>
+        <td class="t-name">${esc(d.nombre)}${sinAsignar ? ' <small class="t-sub">(falta cargarlo)</small>' : ''}</td>
+        <td class="tnum">${fmt(d.activos)}</td><td class="tnum">${fmt(d.realizadas)}</td>
+        <td class="tnum">${fmt(d.esperadas)}</td><td class="tnum">${fmt(d.no_realizadas)}</td>
+        <td>${barra(d.porcentaje)}</td>
         <td>${cls ? `<span class="badge ${cls}">${txt}</span>` : '<span class="t-sub">—</span>'}</td></tr>`;
       }).join('');
     }

@@ -8,12 +8,17 @@ Quién responde por cada operación, para que cada quien revise solo lo suyo:
 - **Administración → Encargados**: cargar de un pegón la tabla de la compañía
   (CECO · CLIENTE · JEFATURA · LÍDER), editar proyecto por proyecto, y asignar
   coordinadores.
-- **Coordinador → Exportar** y **Coordinador → Cumplimiento**: un desplegable
-  *Encargado* filtra por jefe, líder o coordinador.
-- **Dashboard**: el mismo desplegable en la barra de filtros. Todos los
-  indicadores (activos, esperadas, cumplimiento por proyecto, ranking de
-  mensajeros, alertas, inactividad y el periodo anterior) se recalculan sobre
-  ese grupo.
+- **Coordinador → Exportar**: un desplegable *Encargado* con los tres niveles.
+- **Coordinador → Cumplimiento**: solo el filtro de **coordinador**, y el campo
+  aparece únicamente cuando ya hay alguno asignado.
+- **Dashboard**: tres filtros independientes — jefatura, líder y coordinador —
+  que se pueden combinar entre sí y con el de proyecto. Todos los indicadores
+  (activos, esperadas, cumplimiento por proyecto, ranking de mensajeros,
+  alertas, inactividad y el periodo anterior) se recalculan sobre ese grupo.
+- **Dashboard → Cumplimiento**: gráficas de % de cumplimiento por jefatura, por
+  líder y por coordinador, más una tabla de detalle con esperados y faltantes.
+  Quien no tenga encargado sale agrupado como **Sin asignar**: ese es el hueco
+  que hay que ir cerrando.
 - **Exportable CSV**: incluye cuatro columnas nuevas — `jefatura`, `lider`,
   `coordinador` y `frente` — para dinamizar por encargado en Excel.
 
@@ -73,13 +78,23 @@ regla que ya aplica para exigirle y contarle el cumplimiento.
 actualización no toca esas columnas. Si a alguien le cambia el proyecto, sus
 encargados se recalculan solos.
 
+## Si un filtro devuelve cero
+
+Los filtros se **suman**. Si eliges un proyecto y además un líder, ves solo la
+gente que cumple las dos condiciones; si ese proyecto no tiene ese líder
+asignado, el resultado es cero y no hay ningún error.
+
+Para ver dónde falta asignar: **Administración → Encargados**, filtro
+*"Sin jefe o sin líder"* o *"Sin coordinador"*. Arriba de la lista sale contado
+cuántos proyectos con gente activa siguen sin jefe.
+
 ## Scripts
 
 Ejecutar en Supabase → SQL Editor, en este orden:
 
 1. `db/encargados_por_proyecto.sql` — tablas, columnas, resolución de
    encargados, funciones del panel y routers.
-2. `db/filtro_encargado.sql` — cumplimiento, dashboard y exportable aceptan el
-   filtro.
+2. `db/filtro_encargado_v2.sql` — cumplimiento, dashboard y exportable aceptan
+   los filtros, y el dashboard devuelve el cumplimiento agrupado por nivel.
 
 Ambos se pueden volver a ejecutar sin problema.

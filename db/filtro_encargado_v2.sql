@@ -1,16 +1,39 @@
 -- ============================================================
---  Gestión HSEQ Motos — Filtrar por encargado
+--  Gestión HSEQ Motos — Filtrar y medir por encargado (v2)
 --  ------------------------------------------------------------
---  Cumplimiento, dashboard y exportable pasan a aceptar dos datos
---  más: encargado_tipo (JEFATURA / LIDER / COORDINADOR) y el
---  nombre. Con eso cada jefe ve solo sus proyectos, cada líder los
---  suyos y cada coordinador su propia gente.
+--  Reemplaza a filtro_encargado.sql. Dos diferencias:
 --
---  Sin esos datos, todo funciona exactamente igual que antes.
+--  1) Tres filtros independientes en vez de uno solo: jefatura,
+--     lider y coordinador. Se pueden combinar entre ellos y con
+--     el de proyecto. Sin ninguno, todo funciona igual que antes.
+--
+--  2) El dashboard devuelve 'por_encargado': el cumplimiento
+--     agrupado por cada nivel, para graficarlo y tabularlo. Quien
+--     no tenga encargado asignado aparece como "Sin asignar", que
+--     es justo lo que hay que ir cerrando.
 --
 --  Ejecutar DESPUÉS de: encargados_por_proyecto.sql
 --  Supabase → SQL Editor → New query → pegar todo → Run
 -- ============================================================
+
+-- ¿Esta persona cae dentro de los encargados seleccionados?
+-- Los tres criterios se suman: si se eligen jefe y coordinador,
+-- tiene que cumplir los dos.
+create or replace function en_alcance_enc(p_jef text, p_lid text, p_coo text, ced text)
+returns boolean language sql stable set search_path = public as $fn$
+  select (coalesce(btrim(p_jef),'') = '' and coalesce(btrim(p_lid),'') = ''
+          and coalesce(btrim(p_coo),'') = '')
+      or exists (
+        select 1 from colaboradores c
+         where regexp_replace(c.cedula,'\D','','g') = regexp_replace(coalesce(ced,''),'\D','','g')
+           and (coalesce(btrim(p_jef),'') = ''
+                or sin_tildes(btrim(coalesce(c.enc_jefatura,'')))    = sin_tildes(btrim(p_jef)))
+           and (coalesce(btrim(p_lid),'') = ''
+                or sin_tildes(btrim(coalesce(c.enc_lider,'')))       = sin_tildes(btrim(p_lid)))
+           and (coalesce(btrim(p_coo),'') = ''
+                or sin_tildes(btrim(coalesce(c.enc_coordinador,''))) = sin_tildes(btrim(p_coo)))
+      );
+$fn$;
 
 
 -- ---------- api_cumplimiento_dia ----------
@@ -19,8 +42,12 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   dia date := coalesce(nullif(payload->>'fecha','')::date, (now() at time zone 'America/Bogota')::date);
   filtro_proy text := btrim(coalesce(payload->>'proyecto',''));
-  enc_tipo text := upper(btrim(coalesce(payload->>'encargado_tipo','')));
-  enc_nom  text := btrim(coalesce(payload->>'encargado',''));
+  enc_jef text := btrim(coalesce(payload->>'jefatura',''));
+  enc_lid text := btrim(coalesce(payload->>'lider',''));
+  enc_coo text := btrim(coalesce(payload->>'coordinador',''));
+  enc_hay boolean := (btrim(coalesce(payload->>'jefatura','')) <> ''
+                   or btrim(coalesce(payload->>'lider','')) <> ''
+                   or btrim(coalesce(payload->>'coordinador','')) <> '');
   forms jsonb;
   personas jsonb := '[]'::jsonb;
   total int := 0; completos int := 0; justificados int := 0;
@@ -36,13 +63,13 @@ begin
       select 1 from proyectos_formularios pf
       join colaboradores c on c.proyecto_efectivo=pf.proyecto and c.activo
       where pf.formulario_id=frm.id and pf.activo
-        and (filtro_proy='' or c.proyecto_efectivo = filtro_proy or c.proyecto_efectivo = nombre_proyecto(filtro_proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = filtro_proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, c.cedula))
+        and (filtro_proy='' or c.proyecto_efectivo = filtro_proy or c.proyecto_efectivo = nombre_proyecto(filtro_proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = filtro_proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, c.cedula))
     )), '[]'::jsonb);
 
   for rec in
     select c.cedula, c.nombre, c.proyecto_efectivo as proyecto, c.ciudad, c.placa_moto
     from colaboradores c
-    where c.activo and (filtro_proy='' or c.proyecto_efectivo = filtro_proy or c.proyecto_efectivo = nombre_proyecto(filtro_proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = filtro_proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, c.cedula))
+    where c.activo and (filtro_proy='' or c.proyecto_efectivo = filtro_proy or c.proyecto_efectivo = nombre_proyecto(filtro_proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = filtro_proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, c.cedula))
       and exists (
         select 1 from proyectos_formularios pf
         join formularios frm on frm.id=pf.formulario_id and frm.activo
@@ -126,8 +153,12 @@ declare
   anio_f int := coalesce(nullif(payload->>'anio','')::int, extract(year from hoy)::int);
   mes_f int := nullif(payload->>'mes','')::int;
   proy text := btrim(coalesce(payload->>'proyecto',''));
-  enc_tipo text := upper(btrim(coalesce(payload->>'encargado_tipo','')));
-  enc_nom  text := btrim(coalesce(payload->>'encargado',''));
+  enc_jef text := btrim(coalesce(payload->>'jefatura',''));
+  enc_lid text := btrim(coalesce(payload->>'lider',''));
+  enc_coo text := btrim(coalesce(payload->>'coordinador',''));
+  enc_hay boolean := (btrim(coalesce(payload->>'jefatura','')) <> ''
+                   or btrim(coalesce(payload->>'lider','')) <> ''
+                   or btrim(coalesce(payload->>'coordinador','')) <> '');
   form_f text := upper(btrim(coalesce(payload->>'formulario','PREOPERACIONAL')));
   desde date;
   hasta date;
@@ -179,7 +210,7 @@ begin
     join proyectos_formularios pf on pf.proyecto=c.proyecto_efectivo and pf.activo
     join formularios f on f.id=pf.formulario_id and f.activo
     where c.activo
-      and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, c.cedula))
+      and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, c.cedula))
       and (form_f='' or pf.formulario_id=form_f);
 
   -- Una fila por colaborador + formulario + días realmente exigibles.
@@ -189,13 +220,38 @@ begin
     from tmp_dias td
     join tmp_asignados a on a.cedula=td.cedula;
 
+  -- Encargados y dias exigibles de cada persona, para agrupar por nivel.
+  drop table if exists tmp_enc;
+  create temporary table tmp_enc on commit drop as
+    select a.cedula,
+           coalesce(nullif(btrim(c.enc_jefatura),''),'Sin asignar')    as jefatura,
+           coalesce(nullif(btrim(c.enc_lider),''),'Sin asignar')       as lider,
+           coalesce(nullif(btrim(c.enc_coordinador),''),'Sin asignar') as coordinador,
+           coalesce(sum(t.dias),0)::bigint as esperadas
+    from tmp_asignados a
+    join colaboradores c on c.cedula = a.cedula
+    left join tmp_requeridos t on t.cedula = a.cedula and t.formulario_id = a.formulario_id
+    group by a.cedula, c.enc_jefatura, c.enc_lider, c.enc_coordinador;
+
+  -- Registros del periodo, contados por persona.
+  drop table if exists tmp_reg_ced;
+  create temporary table tmp_reg_ced on commit drop as
+    select regexp_replace(r.cedula,'\D','','g') as ced,
+           count(*) as realizadas,
+           count(*) filter (where coalesce(r.alertas,'')<>'') as con_alerta
+    from registros r
+    where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
+      and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
+      and (form_f='' or r.formulario_id=form_f)
+    group by 1;
+
   select count(distinct cedula) into activos from tmp_asignados;
   select coalesce(sum(dias),0)::bigint into esperadas from tmp_requeridos;
   select count(*) into realizadas from registros r
    where r.fecha between desde and hasta and coalesce(r.estado,'') <> 'ANULADO'
      and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
      and (form_f='' or r.formulario_id=form_f)
-     and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula));
+     and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula));
 
   -- Periodo inmediatamente anterior, con la misma cantidad de dias y las
   -- mismas reglas de calendario, festivos y justificaciones.
@@ -205,18 +261,18 @@ begin
    where r.fecha between prev_desde and prev_hasta and coalesce(r.estado,'') <> 'ANULADO'
      and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
      and (form_f='' or r.formulario_id=form_f)
-     and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula));
+     and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula));
   select coalesce(sum(de.dias),0)::bigint into prev_esperadas
     from dias_exigibles(prev_desde, prev_hasta, proy) de
     join proyectos_formularios pf on pf.proyecto=de.proyecto and pf.activo
     join formularios f on f.id=pf.formulario_id and f.activo
     where (form_f='' or pf.formulario_id=form_f)
-      and (enc_nom='' or en_alcance(enc_tipo, enc_nom, de.cedula));
+      and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, de.cedula));
   select count(*) into prev_alertas from registros r
    where r.fecha between prev_desde and prev_hasta and coalesce(r.estado,'') <> 'ANULADO'
      and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
      and coalesce(r.alertas,'')<>'' and (form_f='' or r.formulario_id=form_f)
-     and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula));
+     and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula));
 
   return jsonb_build_object(
     'filtros',jsonb_build_object('anio',anio_f,'mes',mes_f,'dia',dia_f,'proyecto',proy,'formulario',form_f,
@@ -244,7 +300,7 @@ begin
         and coalesce(r.alertas,'')<>'' and coalesce(r.estado,'')<>'ANULADO'
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
-        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula)))
+        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula)))
     ),
 
     -- Solo dias CON registros.
@@ -255,7 +311,7 @@ begin
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
-        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by r.fecha
     ) x),'[]'::jsonb),
 
@@ -266,7 +322,7 @@ begin
       where extract(year from r.fecha)=anio_f and coalesce(r.estado,'')<>'ANULADO'
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
-        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by to_char(r.fecha,'YYYY-MM')
     ) x),'[]'::jsonb),
 
@@ -275,7 +331,7 @@ begin
       from registros r where coalesce(r.estado,'')<>'ANULADO'
        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
        and (form_f='' or r.formulario_id=form_f)
-       and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+       and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by extract(year from r.fecha)
     ) x),'[]'::jsonb),
 
@@ -307,7 +363,7 @@ begin
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
           and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
           and (form_f='' or r.formulario_id=form_f)
-          and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+          and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
         group by coalesce(r.proyecto,'Sin proyecto')
       ) reg on reg.proyecto=p.proyecto
       left join proyectos_calendario pc on pc.proyecto=p.proyecto
@@ -371,7 +427,7 @@ begin
         group by regexp_replace(tc.cedula,'\D','','g')
       ) jus on jus.ced = regexp_replace(c.cedula,'\D','','g')
       where c.activo and req.cedula is not null
-        and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, c.cedula))
+        and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, c.cedula))
     ) x),'[]'::jsonb),
 
     -- Cumplimiento por tipo de formulario (preoperacional vs limpieza).
@@ -392,7 +448,7 @@ begin
         from registros r
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
           and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-          and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+          and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
         group by r.formulario_id
       ) reg on reg.formulario_id=f.id
       where f.activo and (form_f='' or f.id=form_f)
@@ -408,7 +464,7 @@ begin
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
-        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by extract(isodow from r.fecha), to_char(r.fecha,'TMDay')
     ) x),'[]'::jsonb),
 
@@ -420,7 +476,7 @@ begin
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
         and r.hora is not null
-        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by extract(hour from r.hora)
     ) x),'[]'::jsonb),
 
@@ -436,7 +492,7 @@ begin
           and (form_f='' or r.formulario_id=form_f)
         group by regexp_replace(r.cedula,'\D','','g')
       ) u on u.ced=regexp_replace(c.cedula,'\D','','g')
-      where c.activo and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, c.cedula))
+      where c.activo and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, c.cedula))
         and exists (
           select 1 from proyectos_formularios pf
           join formularios f on f.id=pf.formulario_id and f.activo
@@ -456,7 +512,7 @@ begin
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
         and coalesce(r.alertas,'')<>''
-        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       limit 300
     ) x),'[]'::jsonb),
 
@@ -474,7 +530,7 @@ begin
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO'
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
         and (form_f='' or r.formulario_id=form_f)
-        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
         and nullif(btrim(coalesce(p.respuesta_alerta,'')),'') is not null
         and upper(btrim(coalesce(rs.valor,'')))=upper(btrim(p.respuesta_alerta))
       group by p.id,p.seccion,p.pregunta,coalesce(r.proyecto,'Sin proyecto')
@@ -490,7 +546,7 @@ begin
              case when d.fecha_vencimiento is null or d.fecha_vencimiento<hoy then 1 else 2 end prioridad
       from colaboradores c
       cross join lateral (values ('SOAT',c.soat_vence),('TECNOMECÁNICA',c.tecnomecanica_vence),('LICENCIA',c.licencia_vence)) d(documento,fecha_vencimiento)
-      where c.activo and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, c.cedula))
+      where c.activo and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, c.cedula))
         and exists (
           select 1 from proyectos_formularios pf
           join formularios f on f.id=pf.formulario_id and f.activo
@@ -499,6 +555,40 @@ begin
         )
         and (d.fecha_vencimiento is null or d.fecha_vencimiento<=hoy+15)
     ) x),'[]'::jsonb),
+    -- Cumplimiento agrupado por jefatura, por lider y por coordinador.
+    -- Cada persona aporta a los tres niveles a la vez.
+    'por_encargado',coalesce((
+      select jsonb_object_agg(g.nivel, g.filas)
+      from (
+        select z.nivel,
+               jsonb_agg(jsonb_build_object(
+                 'nombre', z.nombre, 'activos', z.activos,
+                 'esperadas', z.esperadas, 'realizadas', z.realizadas,
+                 'no_realizadas', greatest(z.esperadas - z.realizadas, 0),
+                 'con_alerta', z.con_alerta, 'meta', meta_def,
+                 'porcentaje', case when z.esperadas>0
+                                    then round(z.realizadas::numeric*1000/z.esperadas)/10 else 0 end,
+                 'estado', case when z.esperadas=0 then 'sin_datos'
+                                when round(z.realizadas::numeric*1000/z.esperadas)/10 >= meta_def then 'cumple'
+                                when round(z.realizadas::numeric*1000/z.esperadas)/10 >= meta_def*0.8 then 'cerca'
+                                else 'no_cumple' end)
+                 order by case when z.esperadas>0
+                               then round(z.realizadas::numeric*1000/z.esperadas)/10 else 0 end desc, z.nombre) filas
+        from (
+          select v.nivel, v.nombre,
+                 count(*) activos,
+                 coalesce(sum(e.esperadas),0)::bigint esperadas,
+                 coalesce(sum(rc.realizadas),0)::bigint realizadas,
+                 coalesce(sum(rc.con_alerta),0)::bigint con_alerta
+          from tmp_enc e
+          cross join lateral (values ('jefatura', e.jefatura),
+                                     ('lider', e.lider),
+                                     ('coordinador', e.coordinador)) v(nivel, nombre)
+          left join tmp_reg_ced rc on rc.ced = regexp_replace(e.cedula,'\D','','g')
+          group by v.nivel, v.nombre
+        ) z
+        group by z.nivel
+      ) g), '{}'::jsonb),
     'actualizado',to_char(now() at time zone 'America/Bogota','YYYY-MM-DD HH24:MI')
   );
 end;
@@ -513,8 +603,12 @@ declare
   fi date := nullif(payload->>'fechaInicio','')::date;
   ff date := nullif(payload->>'fechaFin','')::date;
   filtro_proy text := btrim(coalesce(payload->>'proyecto',''));
-  enc_tipo text := upper(btrim(coalesce(payload->>'encargado_tipo','')));
-  enc_nom  text := btrim(coalesce(payload->>'encargado',''));
+  enc_jef text := btrim(coalesce(payload->>'jefatura',''));
+  enc_lid text := btrim(coalesce(payload->>'lider',''));
+  enc_coo text := btrim(coalesce(payload->>'coordinador',''));
+  enc_hay boolean := (btrim(coalesce(payload->>'jefatura','')) <> ''
+                   or btrim(coalesce(payload->>'lider','')) <> ''
+                   or btrim(coalesce(payload->>'coordinador','')) <> '');
   ncedula text := regexp_replace(coalesce(payload->>'cedula',''), '\D', '', 'g');
   perfil text := nullif(upper(btrim(coalesce(payload->>'perfil',''))), '');
   preguntas jsonb;
@@ -556,7 +650,7 @@ begin
        limit 1) enc on true
     where r.formulario_id = fid and r.fecha between fi and ff
       and coalesce(r.estado,'') <> 'ANULADO'
-      and (filtro_proy='' or r.proyecto = coalesce(nombre_proyecto(filtro_proy), filtro_proy)) and (enc_nom='' or en_alcance(enc_tipo, enc_nom, r.cedula))
+      and (filtro_proy='' or r.proyecto = coalesce(nombre_proyecto(filtro_proy), filtro_proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       and (ncedula = '' or regexp_replace(r.cedula,'\D','','g') = ncedula)
       and (perfil is null or perfil_cargo(r.cargo) = perfil)
     order by r.fecha, r.hora
