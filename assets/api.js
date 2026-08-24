@@ -197,12 +197,15 @@
       proyecto: (filtros.proyectos && filtros.proyectos[0]) || filtros.proyecto || '',
       cedula: filtros.cedula || '',
       perfil: filtros.perfil || '',        // MOTO / VEHICULO / vacío = todos
+      encargado_tipo: filtros.encargado_tipo || '',
+      encargado: filtros.encargado || '',
     };
     const r = await rpc('generarExportable', p);
     await firmarEvidenciasExportable(r.filas || []);
 
     // 'tipo' distingue moto de vehículo en el mismo archivo.
     const base = ['fecha', 'hora', 'cedula', 'nombre', 'cargo', 'tipo', 'proyecto_id', 'proyecto',
+      'jefatura', 'lider', 'coordinador', 'frente',
       'ciudad', 'placa_moto', 'tipo_vehiculo', 'estado', 'estado_cumplimiento',
       'alertas_documentales', 'id_registro'];
     const preg = r.preguntas || [];

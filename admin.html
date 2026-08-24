@@ -49,6 +49,7 @@
       <nav class="tabs" role="tablist">
         <button class="tab active" type="button" data-v="colaboradores">Colaboradores</button>
         <button class="tab" type="button" data-v="provisional">Ingreso provisional</button>
+        <button class="tab" type="button" data-v="encargados">Encargados</button>
         <button class="tab" type="button" data-v="calendario">Calendario y metas</button>
         <button class="tab" type="button" data-v="formularios">Formularios por proyecto</button>
         <button id="btnSalir" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Salir</button>
@@ -185,6 +186,137 @@
 
       </div>
 
+      <!-- ============ ENCARGADOS POR PROYECTO ============ -->
+      <div id="v-encargados" class="view hidden">
+
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <p class="card__title">Cargar la tabla de jefes y líderes</p>
+              <p class="card__sub">Se pega tal cual desde Excel; la llave es el CECO</p>
+            </div>
+          </div>
+          <div class="card__body">
+            <p class="hint-inline" style="margin-top:0">
+              Copia de tu archivo las columnas <b>CECO · CLIENTE · JEFATURA · LÍDER</b> (con o sin la fila
+              de títulos) y pégalas aquí. Un campo que llegue vacío <b>no borra</b> lo que ya esté guardado,
+              así que puedes cargar la tabla completa cada vez que cambie.
+            </p>
+            <div class="field" style="margin-top:12px">
+              <span class="label">Pega aquí la tabla</span>
+              <textarea id="encPegar" style="min-height:120px"
+                placeholder="593&#9;CAFAM COMERCIAL&#9;GIOVANNY GONGORA&#9;MARYU"></textarea>
+            </div>
+            <label class="hint-inline" style="display:flex;gap:8px;align-items:center;margin-top:8px;cursor:pointer">
+              <input id="encOtro" type="checkbox" checked style="width:18px;height:18px">
+              Tratar <b>OTRO</b> como “sin asignar” (recomendado)
+            </label>
+            <div style="display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-top:12px">
+              <button id="encRevisar" class="btn btn--ghost" type="button">Revisar</button>
+              <button id="encGuardarCarga" class="btn btn--primary" type="button" disabled>Guardar</button>
+            </div>
+            <div id="encCargaStatus" class="status" aria-live="polite"></div>
+            <div id="encPreview" style="margin-top:12px"></div>
+          </div>
+        </section>
+
+        <section class="card" style="margin-top:14px">
+          <div class="card__head">
+            <div>
+              <p class="card__title">Proyectos y sus encargados</p>
+              <p class="card__sub">Toca un proyecto para editarlo</p>
+            </div>
+            <button id="encRecargar" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Recargar</button>
+          </div>
+          <div class="card__body">
+            <div class="input-row">
+              <input id="encBuscar" autocomplete="off" placeholder="Buscar proyecto, CECO, jefe, líder o coordinador…">
+              <button id="encLimpiar" class="btn btn--ghost btn--icon" type="button" title="Limpiar búsqueda">✕</button>
+            </div>
+            <div style="display:grid;gap:10px;grid-template-columns:1fr 1fr;margin-top:10px">
+              <select id="encFiltro">
+                <option value="con_gente">Solo con gente activa</option>
+                <option value="todos">Todos los proyectos</option>
+                <option value="sin_jefe">Sin jefe o sin líder</option>
+                <option value="sin_coord">Sin coordinador</option>
+              </select>
+              <button id="encVerHuerfanos" class="btn btn--ghost" type="button">Ver CECOs sin proyecto</button>
+            </div>
+            <div id="encStatus" class="status" aria-live="polite"></div>
+            <div id="encLista" style="margin-top:12px"></div>
+          </div>
+        </section>
+
+        <!-- Editor de un proyecto -->
+        <section id="encEditor" class="card hidden" style="margin-top:14px">
+          <div class="card__head"><p id="encEditorTitulo" class="card__title">Proyecto</p></div>
+          <div class="card__body">
+            <input id="e_pid" type="hidden">
+
+            <p class="label" style="margin-top:0">Encargados de todo el proyecto</p>
+            <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr">
+              <div class="field"><span class="label">Jefatura</span>
+                <input id="e_jefatura" list="encJefes" autocomplete="off" style="text-transform:uppercase"></div>
+              <div class="field"><span class="label">Líder</span>
+                <input id="e_lider" list="encLideres" autocomplete="off" style="text-transform:uppercase"></div>
+              <div class="field" style="grid-column:1/-1"><span class="label">Coordinador (si el proyecto tiene uno solo)</span>
+                <input id="e_coordinador" list="encCoords" autocomplete="off" style="text-transform:uppercase"
+                  placeholder="Déjalo vacío si el proyecto se divide en frentes"></div>
+            </div>
+            <datalist id="encJefes"></datalist>
+            <datalist id="encLideres"></datalist>
+            <datalist id="encCoords"></datalist>
+            <button id="encGuardarProyecto" class="btn btn--primary btn--block" type="button" style="margin-top:12px">
+              Guardar encargados del proyecto
+            </button>
+            <div id="encProyStatus" class="status" aria-live="polite"></div>
+
+            <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
+            <p class="label" style="margin-top:0">Frentes (cuando hay varios coordinadores)</p>
+            <p class="hint-inline" style="margin:4px 0 10px">
+              Un frente es una parte del proyecto: por ciudad, por ruta o por turno. Cada frente tiene su
+              coordinador y cada persona pertenece a uno. <b>No crea proyectos nuevos ni toca la nómina.</b>
+              Un proyecto sin frentes sigue funcionando igual que hoy.
+            </p>
+            <div id="encFrentes"></div>
+            <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:10px">
+              <div class="field"><span class="label">Nombre del frente</span>
+                <input id="e_frente" autocomplete="off" placeholder="Ej: BOGOTÁ" style="text-transform:uppercase"></div>
+              <div class="field"><span class="label">Coordinador del frente</span>
+                <input id="e_frente_coord" list="encCoords" autocomplete="off" style="text-transform:uppercase"></div>
+            </div>
+            <button id="encGuardarFrente" class="btn btn--dark btn--block" type="button" style="margin-top:10px">
+              Guardar frente
+            </button>
+            <div id="encFrenteStatus" class="status" aria-live="polite"></div>
+
+            <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
+            <p class="label" style="margin-top:0">Personas activas del proyecto</p>
+            <div class="input-row" style="margin-top:8px">
+              <input id="encPersonaBuscar" autocomplete="off" placeholder="Buscar por nombre, cédula o ciudad…">
+              <button id="encPersonaLimpiar" class="btn btn--ghost btn--icon" type="button" title="Limpiar">✕</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+              <button id="encSelTodos" class="btn btn--ghost" type="button" style="min-height:40px">Marcar todos</button>
+              <button id="encSelNinguno" class="btn btn--ghost" type="button" style="min-height:40px">Desmarcar</button>
+              <select id="encSelCiudad" style="max-width:230px"><option value="">Marcar por ciudad…</option></select>
+            </div>
+            <div id="encPersonas" style="margin-top:12px"></div>
+            <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:12px">
+              <div class="field"><span class="label">Asignar al frente</span>
+                <select id="e_asig_frente"><option value="__na__">— no cambiar —</option></select></div>
+              <div class="field"><span class="label">Coordinador propio (opcional)</span>
+                <input id="e_asig_coord" autocomplete="off" style="text-transform:uppercase"
+                  placeholder="— no cambiar —"></div>
+            </div>
+            <button id="encAplicar" class="btn btn--primary btn--block" type="button" style="margin-top:6px">
+              Aplicar a los marcados
+            </button>
+            <div id="encAsigStatus" class="status" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+
       <div id="v-calendario" class="view hidden">
         <section class="card">
           <div class="card__head">
@@ -273,6 +405,7 @@
         // El calendario se carga la primera vez que se abre la pestaña.
         if (t.dataset.v === 'calendario' && !calData) cargarCalendario();
         if (t.dataset.v === 'formularios' && !frmData) cargarFormulariosProyecto();
+        if (t.dataset.v === 'encargados' && !encData) cargarEncargados();
       });
     });
     $('btnGuardar').addEventListener('click', guardar);
@@ -710,6 +843,373 @@
         input.checked = !activo;
         input.disabled = false;
         setStatus('frmStatus', err.message, 'error');
+      }
+    }
+
+    /* ================= ENCARGADOS POR PROYECTO ================= */
+    let encData = null;        // { proyectos:[], huerfanos:[] }
+    let encFilas = [];         // filas revisadas, listas para guardar
+    let encProy = null;        // proyecto abierto en el editor
+    let encPersonas = [];      // personas activas del proyecto abierto
+
+    $('encRecargar').addEventListener('click', cargarEncargados);
+    $('encBuscar').addEventListener('input', pintarEncargados);
+    $('encFiltro').addEventListener('change', pintarEncargados);
+    $('encLimpiar').addEventListener('click', () => { $('encBuscar').value = ''; pintarEncargados(); });
+    $('encRevisar').addEventListener('click', revisarCarga);
+    $('encGuardarCarga').addEventListener('click', guardarCarga);
+    $('encVerHuerfanos').addEventListener('click', verHuerfanos);
+    $('encGuardarProyecto').addEventListener('click', guardarEncargadoProyecto);
+    $('encGuardarFrente').addEventListener('click', guardarFrente);
+    $('encAplicar').addEventListener('click', aplicarAsignacion);
+    $('encPersonaBuscar').addEventListener('input', pintarPersonas);
+    $('encPersonaLimpiar').addEventListener('click', () => { $('encPersonaBuscar').value = ''; pintarPersonas(); });
+    $('encSelTodos').addEventListener('click', () => marcarVisibles(true));
+    $('encSelNinguno').addEventListener('click', () => marcarVisibles(false));
+    $('encSelCiudad').addEventListener('change', () => {
+      const ciudad = $('encSelCiudad').value;
+      if (!ciudad) return;
+      $('encPersonas').querySelectorAll('input[data-ced]').forEach((chk) => {
+        if (chk.dataset.ciudad === ciudad) chk.checked = true;
+      });
+      $('encSelCiudad').value = '';
+    });
+
+    async function cargarEncargados() {
+      setStatus('encStatus', 'Cargando proyectos\u2026', 'info');
+      try {
+        encData = await adminCall('encargados', {});
+        llenarSugerencias();
+        pintarEncargados();
+        clearStatus('encStatus');
+      } catch (err) {
+        setStatus('encStatus', err.message, 'error');
+      }
+    }
+
+    // Los nombres ya usados se ofrecen como sugerencia: evita escribirlos distinto.
+    function llenarSugerencias() {
+      const jefes = new Set(), lideres = new Set(), coords = new Set();
+      (encData.proyectos || []).forEach((p) => {
+        if (p.jefatura) jefes.add(p.jefatura);
+        if (p.lider) lideres.add(p.lider);
+        if (p.coordinador) coords.add(p.coordinador);
+        (p.frentes || []).forEach((f) => { if (f.coordinador) coords.add(f.coordinador); });
+      });
+      const opts = (set) => [...set].sort().map((v) => `<option value="${esc(v)}">`).join('');
+      $('encJefes').innerHTML = opts(jefes);
+      $('encLideres').innerHTML = opts(lideres);
+      $('encCoords').innerHTML = opts(coords);
+    }
+
+    function proyectosFiltrados() {
+      const q = $('encBuscar').value.trim().toLowerCase();
+      const modo = $('encFiltro').value;
+      return (encData.proyectos || []).filter((p) => {
+        if (modo === 'con_gente' && !p.activos) return false;
+        if (modo === 'sin_jefe' && p.jefatura && p.lider) return false;
+        if (modo === 'sin_coord' && !p.sin_coordinador) return false;
+        if (!q) return true;
+        return [p.proyecto, p.proyecto_id, p.cliente, p.jefatura, p.lider, p.coordinador]
+          .join(' ').toLowerCase().includes(q);
+      });
+    }
+
+    function pintarEncargados() {
+      if (!encData) return;
+      const lista = proyectosFiltrados();
+      const totalSinJefe = (encData.proyectos || []).filter((p) => p.activos && !p.jefatura).length;
+      const resumen = `<p class="hint-inline" style="margin:0 0 10px">${lista.length} proyecto(s)` +
+        (totalSinJefe ? ` \u00b7 <b>${totalSinJefe}</b> con gente activa y sin jefe asignado` : '') + '</p>';
+      if (!lista.length) {
+        $('encLista').innerHTML = resumen + '<p class="hint-inline">Nada que mostrar con este filtro.</p>';
+        return;
+      }
+      $('encLista').innerHTML = resumen + lista.map((p, i) => {
+        const completo = p.jefatura && p.lider && !p.sin_coordinador;
+        const partes = [];
+        partes.push('Jefe: ' + (p.jefatura || '\u2014'));
+        partes.push('L\u00edder: ' + (p.lider || '\u2014'));
+        if ((p.frentes || []).length) partes.push((p.frentes || []).length + ' frente(s)');
+        else partes.push('Coord.: ' + (p.coordinador || '\u2014'));
+        const pend = p.sin_coordinador ? ` \u00b7 \u26a0\ufe0f ${p.sin_coordinador} sin coordinador` : '';
+        return `
+        <button type="button" class="checkitem ${completo ? 'done' : 'pending'}" data-p="${i}" style="width:100%;text-align:left">
+          <span class="checkitem__body">
+            <span class="checkitem__title">${esc(p.proyecto || '(sin nombre)')}</span>
+            <span class="checkitem__status">CECO ${esc(p.proyecto_id || '\u2014')} \u00b7 ${p.activos} activo(s) \u00b7 ${esc(partes.join(' \u00b7 '))}${pend}</span>
+          </span>
+          <span class="checkitem__chev"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>`;
+      }).join('');
+      $('encLista').querySelectorAll('[data-p]').forEach((b) => {
+        b.addEventListener('click', () => abrirProyecto(lista[b.dataset.p]));
+      });
+    }
+
+    function verHuerfanos() {
+      const h = (encData && encData.huerfanos) || [];
+      if (!h.length) return setStatus('encStatus', 'Todos los CECOs cargados corresponden a un proyecto de la matriz.', 'ok');
+      setStatus('encStatus', `${h.length} CECO(s) cargados que hoy no tienen ning\u00fan colaborador en la matriz.`, 'info');
+      $('encLista').innerHTML = '<p class="hint-inline" style="margin:0 0 10px">' +
+        'Quedan guardados: si ma\u00f1ana llega gente con ese CECO, el jefe y el l\u00edder se aplican solos.</p>' +
+        h.map((x) => `<div class="checkitem" style="width:100%">
+          <span class="checkitem__body">
+            <span class="checkitem__title">CECO ${esc(x.proyecto_id)}</span>
+            <span class="checkitem__status">${esc(x.cliente || '\u2014')} \u00b7 ${esc(x.jefatura || 'sin jefe')} / ${esc(x.lider || 'sin l\u00edder')}</span>
+          </span></div>`).join('');
+    }
+
+    /* ---------- Carga masiva ---------- */
+    // Acepta el pegado de Excel (tabulaciones) y tambien CSV con ; o ,
+    function partirLinea(linea) {
+      if (linea.indexOf('\t') >= 0) return linea.split('\t');
+      if (linea.indexOf(';') >= 0) return linea.split(';');
+      if ((linea.match(/,/g) || []).length >= 3) return linea.split(',');
+      return linea.split(/\s{2,}/);
+    }
+
+    function revisarCarga() {
+      const texto = $('encPegar').value;
+      const quitarOtro = $('encOtro').checked;
+      const limpiar = (v) => {
+        const t = String(v || '').trim();
+        if (!t) return '';
+        if (quitarOtro && t.toUpperCase() === 'OTRO') return '';
+        return t;
+      };
+      const acumulado = new Map();   // CECO -> fila
+      let leidas = 0, saltadas = 0;
+
+      texto.split(/\r?\n/).forEach((linea) => {
+        if (!linea.trim()) return;
+        const col = partirLinea(linea).map((c) => c.trim());
+        const ceco = (col[0] || '').trim();
+        // Fila de titulos o basura
+        if (!ceco || /^ceco$/i.test(ceco) || /jefatura/i.test(col.join(' ')) && /ceco/i.test(ceco)) { saltadas++; return; }
+        if (/^(ceco|codigo|c\u00f3digo)$/i.test(ceco)) { saltadas++; return; }
+        let cliente = '', jefatura = '', lider = '';
+        if (col.length >= 4) { cliente = limpiar(col[1]); jefatura = limpiar(col[2]); lider = limpiar(col[3]); }
+        else if (col.length === 3) { jefatura = limpiar(col[1]); lider = limpiar(col[2]); }
+        else if (col.length === 2) { jefatura = limpiar(col[1]); }
+        else { saltadas++; return; }
+        leidas++;
+        // Un valor vacio nunca pisa uno que ya venia lleno en una fila anterior.
+        const ya = acumulado.get(ceco) || { proyecto_id: ceco, cliente: '', jefatura: '', lider: '' };
+        if (cliente) ya.cliente = cliente;
+        if (jefatura) ya.jefatura = jefatura;
+        if (lider) ya.lider = lider;
+        acumulado.set(ceco, ya);
+      });
+
+      encFilas = [...acumulado.values()];
+      $('encGuardarCarga').disabled = !encFilas.length;
+      if (!encFilas.length) {
+        $('encPreview').innerHTML = '';
+        return setStatus('encCargaStatus', 'No se reconoci\u00f3 ninguna fila. Revisa que el CECO vaya en la primera columna.', 'error');
+      }
+      const sinNadie = encFilas.filter((f) => !f.jefatura && !f.lider).length;
+      setStatus('encCargaStatus',
+        `${leidas} fila(s) le\u00eddas \u00b7 ${encFilas.length} proyecto(s) distintos` +
+        (sinNadie ? ` \u00b7 ${sinNadie} quedar\u00e1n sin jefe ni l\u00edder` : '') +
+        (saltadas ? ` \u00b7 ${saltadas} l\u00ednea(s) ignoradas` : ''), 'ok');
+      $('encPreview').innerHTML =
+        '<p class="hint-inline" style="margin:0 0 8px">Primeras filas de lo que se va a guardar:</p>' +
+        encFilas.slice(0, 8).map((f) => `<div class="checkitem" style="width:100%">
+          <span class="checkitem__body">
+            <span class="checkitem__title">${esc(f.proyecto_id)} \u00b7 ${esc(f.cliente || '')}</span>
+            <span class="checkitem__status">Jefe: ${esc(f.jefatura || '\u2014')} \u00b7 L\u00edder: ${esc(f.lider || '\u2014')}</span>
+          </span></div>`).join('') +
+        (encFilas.length > 8 ? `<p class="hint-inline">\u2026y ${encFilas.length - 8} m\u00e1s.</p>` : '');
+    }
+
+    async function guardarCarga() {
+      if (!encFilas.length) return;
+      $('encGuardarCarga').disabled = true;
+      setStatus('encCargaStatus', 'Guardando\u2026', 'info');
+      try {
+        const r = await adminCall('cargarEncargados', { filas: encFilas });
+        setStatus('encCargaStatus',
+          `\u2713 ${r.mensaje} ` +
+          `Quedan ${r.proyectos_sin_jefe} proyecto(s) con gente activa sin jefe y ${r.proyectos_sin_lider} sin l\u00edder.`, 'ok');
+        $('encPreview').innerHTML = '';
+        encFilas = [];
+        await cargarEncargados();
+      } catch (err) {
+        setStatus('encCargaStatus', err.message, 'error');
+        $('encGuardarCarga').disabled = false;
+      }
+    }
+
+    /* ---------- Editor de un proyecto ---------- */
+    async function abrirProyecto(p) {
+      encProy = p;
+      $('e_pid').value = p.proyecto_id;
+      $('encEditorTitulo').textContent = (p.proyecto || '(sin nombre)') + '  \u00b7  CECO ' + (p.proyecto_id || '\u2014');
+      $('e_jefatura').value = p.jefatura || '';
+      $('e_lider').value = p.lider || '';
+      $('e_coordinador').value = p.coordinador || '';
+      $('e_frente').value = '';
+      $('e_frente_coord').value = '';
+      ['encProyStatus', 'encFrenteStatus', 'encAsigStatus'].forEach(clearStatus);
+      pintarFrentes();
+      $('encEditor').classList.remove('hidden');
+      $('encEditor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      await cargarPersonas();
+    }
+
+    function pintarFrentes() {
+      const fr = (encProy && encProy.frentes) || [];
+      $('encFrentes').innerHTML = !fr.length
+        ? '<p class="hint-inline" style="margin:0">Este proyecto no tiene frentes: el coordinador de arriba cubre a todos.</p>'
+        : fr.map((f, i) => `<div class="checkitem" style="width:100%">
+            <span class="checkitem__body">
+              <span class="checkitem__title">${esc(f.frente)}</span>
+              <span class="checkitem__status">Coord.: ${esc(f.coordinador || '\u2014')} \u00b7 ${f.personas} persona(s)</span>
+            </span>
+            <span style="display:flex;gap:6px">
+              <button type="button" class="btn btn--ghost" style="min-height:36px;padding:0 10px" data-fedit="${i}">Editar</button>
+              <button type="button" class="btn btn--ghost" style="min-height:36px;padding:0 10px" data-fdel="${i}">Quitar</button>
+            </span>
+          </div>`).join('');
+      $('encFrentes').querySelectorAll('[data-fedit]').forEach((b) => b.addEventListener('click', () => {
+        const f = fr[b.dataset.fedit];
+        $('e_frente').value = f.frente;
+        $('e_frente_coord').value = f.coordinador || '';
+        $('e_frente').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }));
+      $('encFrentes').querySelectorAll('[data-fdel]').forEach((b) => b.addEventListener('click', () => {
+        const f = fr[b.dataset.fdel];
+        if (!confirm(`\u00bfQuitar el frente ${f.frente}? Sus ${f.personas} persona(s) vuelven al coordinador del proyecto.`)) return;
+        guardarFrente({ frente: f.frente, borrar: 'true' });
+      }));
+      // Selector de destino en la asignacion masiva
+      $('e_asig_frente').innerHTML = '<option value="__na__">\u2014 no cambiar \u2014</option>' +
+        '<option value="">Sin frente (todo el proyecto)</option>' +
+        fr.map((f) => `<option value="${esc(f.frente)}">${esc(f.frente)}</option>`).join('');
+    }
+
+    async function guardarEncargadoProyecto() {
+      if (!encProy) return;
+      $('encGuardarProyecto').disabled = true;
+      setStatus('encProyStatus', 'Guardando\u2026', 'info');
+      try {
+        const r = await adminCall('guardarEncargado', {
+          proyecto_id: $('e_pid').value,
+          frente: '',
+          cliente: encProy.cliente || '',
+          jefatura: $('e_jefatura').value.trim(),
+          lider: $('e_lider').value.trim(),
+          coordinador: $('e_coordinador').value.trim(),
+        });
+        setStatus('encProyStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        await refrescarProyecto();
+      } catch (err) {
+        setStatus('encProyStatus', err.message, 'error');
+      } finally {
+        $('encGuardarProyecto').disabled = false;
+      }
+    }
+
+    async function guardarFrente(extra) {
+      if (!encProy) return;
+      const datos = extra || {
+        frente: $('e_frente').value.trim(),
+        coordinador: $('e_frente_coord').value.trim(),
+      };
+      if (!datos.frente) return setStatus('encFrenteStatus', 'Escribe el nombre del frente.', 'error');
+      $('encGuardarFrente').disabled = true;
+      setStatus('encFrenteStatus', 'Guardando\u2026', 'info');
+      try {
+        const r = await adminCall('guardarEncargado', Object.assign({
+          proyecto_id: $('e_pid').value,
+          jefatura: $('e_jefatura').value.trim(),
+          lider: $('e_lider').value.trim(),
+        }, datos));
+        setStatus('encFrenteStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        $('e_frente').value = '';
+        $('e_frente_coord').value = '';
+        await refrescarProyecto();
+      } catch (err) {
+        setStatus('encFrenteStatus', err.message, 'error');
+      } finally {
+        $('encGuardarFrente').disabled = false;
+      }
+    }
+
+    // Vuelve a leer todo y deja abierto el mismo proyecto.
+    async function refrescarProyecto() {
+      const pid = $('e_pid').value;
+      encData = await adminCall('encargados', {});
+      llenarSugerencias();
+      pintarEncargados();
+      encProy = (encData.proyectos || []).find((x) => x.proyecto_id === pid) || encProy;
+      pintarFrentes();
+      await cargarPersonas();
+    }
+
+    async function cargarPersonas() {
+      try {
+        encPersonas = await adminCall('personasProyecto', { proyecto_id: $('e_pid').value });
+      } catch (err) {
+        encPersonas = [];
+        setStatus('encAsigStatus', err.message, 'error');
+      }
+      const ciudades = [...new Set(encPersonas.map((x) => x.ciudad).filter(Boolean))].sort();
+      $('encSelCiudad').innerHTML = '<option value="">Marcar por ciudad\u2026</option>' +
+        ciudades.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      pintarPersonas();
+    }
+
+    function pintarPersonas() {
+      const q = $('encPersonaBuscar').value.trim().toLowerCase();
+      const lista = encPersonas.filter((x) =>
+        !q || (x.nombre + ' ' + x.cedula + ' ' + x.ciudad + ' ' + x.frente).toLowerCase().includes(q));
+      if (!lista.length) {
+        $('encPersonas').innerHTML = '<p class="hint-inline">Sin personas activas para mostrar.</p>';
+        return;
+      }
+      $('encPersonas').innerHTML =
+        `<p class="hint-inline" style="margin:0 0 8px">${lista.length} de ${encPersonas.length} persona(s)</p>` +
+        lista.map((x) => {
+          const propio = x.coordinador_propio ? ' (propio)' : '';
+          return `<label class="checkitem" style="width:100%;cursor:pointer">
+            <input type="checkbox" data-ced="${esc(x.cedula)}" data-ciudad="${esc(x.ciudad)}"
+                   style="width:20px;height:20px;margin-right:10px">
+            <span class="checkitem__body">
+              <span class="checkitem__title">${esc(x.nombre)}</span>
+              <span class="checkitem__status">CC ${esc(x.cedula)} \u00b7 ${esc(x.ciudad || 'sin ciudad')} \u00b7 Frente: ${esc(x.frente || '\u2014')} \u00b7 Coord.: ${esc(x.coordinador || '\u2014')}${propio}</span>
+            </span>
+          </label>`;
+        }).join('');
+    }
+
+    function marcarVisibles(valor) {
+      $('encPersonas').querySelectorAll('input[data-ced]').forEach((c) => { c.checked = valor; });
+    }
+
+    async function aplicarAsignacion() {
+      const ceds = [...$('encPersonas').querySelectorAll('input[data-ced]:checked')].map((c) => c.dataset.ced);
+      if (!ceds.length) return setStatus('encAsigStatus', 'Marca al menos una persona.', 'error');
+      const destino = $('e_asig_frente').value;
+      const coord = $('e_asig_coord').value.trim();
+      const datos = { cedulas: ceds };
+      if (destino !== '__na__') datos.frente = destino;
+      if (coord) datos.coordinador = coord;
+      if (!('frente' in datos) && !('coordinador' in datos)) {
+        return setStatus('encAsigStatus', 'Elige un frente o escribe un coordinador para aplicar.', 'error');
+      }
+      $('encAplicar').disabled = true;
+      setStatus('encAsigStatus', 'Aplicando\u2026', 'info');
+      try {
+        const r = await adminCall('asignarFrente', datos);
+        setStatus('encAsigStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        $('e_asig_coord').value = '';
+        await refrescarProyecto();
+      } catch (err) {
+        setStatus('encAsigStatus', err.message, 'error');
+      } finally {
+        $('encAplicar').disabled = false;
       }
     }
 

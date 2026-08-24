@@ -287,6 +287,7 @@
         <div class="filterbar">
           <div class="filters">
             <div class="field"><label>Proyecto</label><select id="fProject"><option value="">Todos los proyectos</option></select></div>
+            <div class="field"><label>Encargado</label><select id="fOwner"><option value="">Todos</option></select></div>
             <div class="field"><label>Formulario</label><select id="fForm"><option value="TODOS">Todos</option></select></div>
             <div class="field"><label>Año</label><select id="fYear"></select></div>
             <div class="field"><label>Mes</label><select id="fMonth"><option value="">Todo el año</option></select></div>
@@ -445,7 +446,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=20"></script>
+  <script src="assets/api.js?v=21"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
@@ -551,6 +552,7 @@
         (b.proyectos || []).forEach((p) => $('fProject').add(new Option(p.proyecto, p.proyecto_id || p.proyecto)));
         $('fForm').length = 1;
         (b.formularios || []).forEach((f) => $('fForm').add(new Option(f.nombre_formulario, f.id_formulario)));
+        await cargarEncargados();
         await cargar();
       } catch (e) { manejarError(e); }
     }
@@ -580,6 +582,8 @@
           anio: $('fYear').value, mes: $('fMonth').value,
           dia: $('fDay').value, proyecto: $('fProject').value,
           formulario: $('fForm').value,
+          encargado_tipo: encargadoSel().encargado_tipo,
+          encargado: encargadoSel().encargado,
         });
         pintar();
         $('btnExcel').disabled = false;
@@ -590,8 +594,33 @@
           : (f.mes ? (MESES[f.mes - 1] + ' ' + f.anio) : ('año ' + f.anio));
         const form = $('fForm').value === 'TODOS' ? 'Todos los formularios'
           : $('fForm').options[$('fForm').selectedIndex].text;
-        ctx(`<b>${esc(proy)}</b> · ${esc(form)} · ${esc(periodo)} · ${f.dias || 0} día(s) · actualizado ${esc(data.actualizado || '')}`);
+        const enc = $('fOwner').selectedIndex > 0 ? ' · ' + $('fOwner').options[$('fOwner').selectedIndex].text : '';
+        ctx(`<b>${esc(proy)}</b>${esc(enc)} · ${esc(form)} · ${esc(periodo)} · ${f.dias || 0} día(s) · actualizado ${esc(data.actualizado || '')}`);
       } catch (e) { manejarError(e); }
+    }
+
+    // Un solo desplegable con jefes, líderes y coordinadores.
+    async function cargarEncargados() {
+      try {
+        const e = await HSQ_API.call('listaEncargados');
+        const grupo = (titulo, tipo, arr) => {
+          if (!arr || !arr.length) return '';
+          return `<optgroup label="${esc(titulo)}">` + arr.map((x) =>
+            `<option value="${esc(tipo + '|' + x.nombre)}">${esc(x.nombre)} (${x.personas})</option>`
+          ).join('') + '</optgroup>';
+        };
+        $('fOwner').innerHTML = '<option value="">Todos</option>' +
+          grupo('Jefatura', 'JEFATURA', e.jefaturas) +
+          grupo('Líder', 'LIDER', e.lideres) +
+          grupo('Coordinador', 'COORDINADOR', e.coordinadores);
+      } catch (err) { /* si falla, queda en "Todos" */ }
+    }
+
+    function encargadoSel() {
+      const v = $('fOwner').value || '';
+      const i = v.indexOf('|');
+      if (i < 0) return { encargado_tipo: '', encargado: '' };
+      return { encargado_tipo: v.slice(0, i), encargado: v.slice(i + 1) };
     }
 
     function ctx(html, bad) { $('ctx').innerHTML = html; $('ctx').className = 'ctxbar' + (bad ? ' err' : ''); }

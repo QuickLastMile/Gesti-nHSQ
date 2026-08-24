@@ -96,6 +96,11 @@
               <span class="hint-inline">Escribe parte del nombre y elige de la lista. Déjalo vacío para incluir todos.</span>
             </div>
             <div class="field">
+              <span class="label">Encargado</span>
+              <select id="filtroEncargado"><option value="">Todos</option></select>
+              <span class="hint-inline">Descarga solo lo de un jefe, un líder o un coordinador.</span>
+            </div>
+            <div class="field">
               <span class="label">Mensajero (cédula)</span>
               <input id="filtroCedula" inputmode="numeric" autocomplete="off" placeholder="Ej: 1017654321 (vacío = todos)">
               <span class="hint-inline">Escribe la cédula para exportar solo los registros de ese mensajero.</span>
@@ -155,6 +160,8 @@
           <div class="cmp-filtros">
             <div class="field"><span class="label">Fecha</span><input id="cumFecha" type="date"></div>
             <div class="field"><span class="label">Proyecto</span><input id="cumProyecto" list="proyDatalist" autocomplete="off" placeholder="Todos"></div>
+            <div class="field"><span class="label">Encargado</span>
+              <select id="cumEncargado"><option value="">Todos</option></select></div>
             <button id="btnCumplimiento" class="btn btn--primary" type="button">
               <svg viewBox="0 0 24 24" fill="none"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
               Consultar
@@ -211,7 +218,7 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=20"></script>
+  <script src="assets/api.js?v=21"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -278,6 +285,7 @@
       } catch (err) {
         showStatus(err.message, 'error');
       }
+      cargarEncargados();
       cargarMatrizInfo();
     }
 
@@ -293,7 +301,8 @@
       $('cumResumen').classList.add('hidden');
       $('cumFiltroChips').classList.add('hidden');
       try {
-        cumData = await HSQ_API.call('getCumplimientoDia', { fecha, proyecto: resolverTexto($('cumProyecto').value) });
+        cumData = await HSQ_API.call('getCumplimientoDia',
+          Object.assign({ fecha, proyecto: resolverTexto($('cumProyecto').value) }, encargadoDe('cumEncargado')));
         cumFiltro = 'todos';
         pintarCumplimiento();
         clearCum();
@@ -562,6 +571,33 @@
     }
     function setBtn(btn, loading) { btn.disabled = loading; btn.style.opacity = loading ? '.7' : ''; }
 
+    /* ---------- Filtro por encargado ---------- */
+    // Un solo desplegable con los tres niveles: jefe, líder y coordinador.
+    async function cargarEncargados() {
+      try {
+        const e = await HSQ_API.call('listaEncargados');
+        const grupo = (titulo, tipo, arr) => {
+          if (!arr || !arr.length) return '';
+          return `<optgroup label="${escapeHtml(titulo)}">` + arr.map((x) =>
+            `<option value="${escapeHtml(tipo + '|' + x.nombre)}">${escapeHtml(x.nombre)} (${x.personas})</option>`
+          ).join('') + '</optgroup>';
+        };
+        const html = '<option value="">Todos</option>' +
+          grupo('Jefatura', 'JEFATURA', e.jefaturas) +
+          grupo('Líder', 'LIDER', e.lideres) +
+          grupo('Coordinador', 'COORDINADOR', e.coordinadores);
+        ['filtroEncargado', 'cumEncargado'].forEach((id) => { if ($(id)) $(id).innerHTML = html; });
+      } catch (err) { /* si falla, los filtros quedan en "Todos" */ }
+    }
+
+    // "JEFATURA|JOHN CUESTA" -> { encargado_tipo, encargado }
+    function encargadoDe(id) {
+      const v = ($(id) && $(id).value) || '';
+      const i = v.indexOf('|');
+      if (i < 0) return { encargado_tipo: '', encargado: '' };
+      return { encargado_tipo: v.slice(0, i), encargado: v.slice(i + 1) };
+    }
+
     function resolverProyecto() {
       const txt = $('proyectoBusca').value.trim();
       if (!txt) return [];
@@ -580,6 +616,7 @@
         cedula: $('filtroCedula').value.trim(),
         perfil: $('filtroPerfil').value,      // MOTO, VEHICULO o vacío = todos
       };
+      Object.assign(filtros, encargadoDe('filtroEncargado'));
       if (!filtros.fechaInicio || !filtros.fechaFin) return showStatus('Selecciona el rango de fechas.', 'error');
 
       $('result').classList.add('hidden');
