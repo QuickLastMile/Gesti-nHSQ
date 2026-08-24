@@ -9,7 +9,7 @@ Todo lo demás sigue disponible, pero en su sección.
 | Sección | Para qué sirve |
 |---|---|
 | **Resumen** | El estado en menos de diez segundos: KPI, alertas, cumplimiento por proyecto, tendencia, seguimiento y pendientes críticos. |
-| **Seguimiento** | Quién responde por el cumplimiento, la lista completa de pendientes críticos y el espacio reservado para la gestión. |
+| **Seguimiento** | Quién responde por el cumplimiento, los pendientes críticos y el espacio reservado para la gestión. |
 | **HSEQ** | Cumplimiento por colaborador, registros con novedad, top de fallas, actividad por día de la semana y franja horaria. |
 | **Documentos** | SOAT, tecnomecánica y licencia: vencidos, sin fecha o por vencer. |
 | **Preventivo** | Puntos reportados como *No cumple* tres veces o más en 30 días. |
@@ -70,6 +70,14 @@ Muestra el porcentaje diario contra la meta, con selector de 7, 15 o 30 días.
 Necesita saber cuántos registros se esperaban cada día, que es lo que agrega
 `db/por_dia_esperadas.sql`. **Mientras no se ejecute**, la gráfica muestra
 registros por día y lo dice en pantalla — nunca inventa un porcentaje.
+
+## Detalles de uso
+
+- Al entrar, el dashboard viene filtrado en **el día de hoy**. Para ver el mes,
+  borra el campo *Día específico* o usa el enlace de la tendencia.
+- Con un día específico seleccionado no hay serie que graficar: la tendencia lo
+  dice y ofrece volver al mes.
+- Ninguna tabla comparte fila con otra: todas ocupan el ancho completo.
 
 ## Exportaciones
 

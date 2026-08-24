@@ -257,13 +257,16 @@
     .hero-rate.is-ok .hero-state{background:rgba(184,212,63,.24);color:#d7f28c}
     .hero-rate.is-warn .hero-state{background:rgba(255,196,102,.20);color:#ffd9a0}
     .hero-rate.is-bad .hero-state{background:rgba(255,120,110,.22);color:#ffc0b9}
-    .hero-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+    /* Dos arriba y dos abajo: caben mas anchos y la cabecera no se alarga. */
+    .hero-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}
     .kpi.is-good:before{background:var(--ok)}
-    @media (max-width:1100px){
+    @media (max-width:900px){
       .hero{grid-template-columns:1fr}
-      .hero-kpis{grid-template-columns:repeat(2,1fr)}
+      .hero-kpis{grid-template-columns:1fr}
       .hero-num{font-size:52px}
     }
+    /* Las fechas y los numeros nunca se parten en dos lineas. */
+    .tbl-wrap td.tnum,.tbl-wrap th{white-space:nowrap}
 
     /* ---------- Alertas ---------- */
     .alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:11px}
@@ -418,8 +421,11 @@
             </article>
           </div>
 
-          <div class="grid">
-            <article class="card">
+          <article class="card">
+          <div class="card-head"><div><h2>Cumplimiento por formulario</h2><p>Qué tan completo está cada tipo de registro frente a lo esperado.</p></div></div>
+          <div class="card-body"><div id="formRows"></div></div>
+          </article>
+<article class="card">
               <div class="card-head"><div><h2>Seguimiento de operación</h2>
                 <p>Quién responde por el cumplimiento. Toca una fila para filtrar por esa persona.</p></div>
                 <select id="segNivel" class="search" style="min-width:150px">
@@ -435,23 +441,8 @@
                 <button class="linkmore" type="button" data-goto="seguimiento">Ver todo el seguimiento →</button>
               </div>
             </article>
-          <article class="card">
-          <div class="card-head"><div><h2>Cumplimiento por formulario</h2><p>Qué tan completo está cada tipo de registro frente a lo esperado.</p></div></div>
-          <div class="card-body"><div id="formRows"></div></div>
-          </article>
-          </div>
 
-          <article class="card">
-            <div class="card-head"><div><h2>Pendientes críticos</h2>
-              <p>Los casos más urgentes, ordenados por días sin diligenciar.</p></div>
-              <button class="linkmore" type="button" data-goto="seguimiento">Ver todos →</button></div>
-            <div class="card-body"><div class="tbl-wrap" style="max-height:none">
-              <table style="min-width:620px"><thead><tr><th>Mensajero</th><th>Proyecto</th><th>Último registro</th><th>Días sin registrar</th></tr></thead>
-              <tbody id="critRows"></tbody></table>
-              <div id="critEmpty" class="empty hidden">Ningún mensajero lleva 3 días o más sin diligenciar.</div>
-            </div></div>
-          </article>
-        </section>
+          </section>
 
         <!-- ============ SEGUIMIENTO ============ -->
         <section id="seguimiento" class="section">
@@ -501,15 +492,7 @@
             </div>
           </article>
 
-          <article class="card">
-          <div class="card-head"><div><h2>Mensajeros sin registrar</h2><p>Activos que llevan 3 días o más sin diligenciar. Priorizados por antigüedad de la falta.</p></div></div>
-          <div class="card-body"><div class="tbl-wrap">
-          <table style="min-width:640px"><thead><tr><th>Mensajero</th><th>Cédula</th><th>Proyecto</th><th>Último registro</th><th>Días sin registrar</th></tr></thead>
-          <tbody id="inacRows"></tbody></table>
-          <div id="inacEmpty" class="empty hidden">Todos los mensajeros activos registraron en los últimos 3 días.</div>
-          </div></div>
-          </article>
-        </section>
+          </section>
 
         <!-- ============ HSEQ ============ -->
         <section id="hseq" class="section">
@@ -518,7 +501,9 @@
           <div class="card-head"><div><h2>Cumplimiento por colaboradores</h2><p>Cuenta mensajeros únicos, no formularios. Separa quién está al día, parcial o sin diligenciar.</p></div></div>
           <div class="card-body"><div class="canvas-wrap" style="height:220px"><canvas id="cPeople"></canvas></div><div id="peopleLegend" class="people-legend"></div><div id="peopleNote" class="people-note"></div></div>
           </article>
-          <article class="card">
+          
+          </div>
+<article class="card">
           <div class="card-head"><div><h2>Registros con novedad</h2><p>Registros del periodo que quedaron marcados con alerta (documentos o fallas reportadas).</p></div>
           <input id="opSearch" class="search" placeholder="Buscar mensajero o novedad"></div>
           <div class="card-body"><div class="tbl-wrap">
@@ -527,7 +512,6 @@
           <div id="opEmpty" class="empty hidden">Sin novedades registradas en el periodo.</div>
           </div></div>
           </article>
-          </div>
           <article class="card" style="margin-top:16px">
           <div class="card-head"><div><h2>Top de fallas reportadas</h2><p>Componentes con mayor recurrencia en el periodo seleccionado. Sirve para priorizar mantenimiento preventivo.</p></div></div>
           <div class="card-body"><div class="tbl-wrap">
@@ -620,20 +604,18 @@
           <p>Aparece cuando ya hay coordinadores asignados. Una persona con coordinador propio cuenta para ese, no para el del proyecto.</p></div></div>
           <div class="card-body"><div class="canvas-wrap"><canvas id="cCoord"></canvas></div></div>
           </article>
-          <div class="grid">
-          <article class="card">
-          <div class="card-head"><div><h2>Mejor desempeño</h2><p>Los 10 mensajeros con mayor cumplimiento del periodo.</p></div></div>
-          <div class="card-body"><div class="tbl-wrap" style="max-height:none">
-          <table style="min-width:480px"><thead><tr><th>#</th><th>Mensajero</th><th>Hechos</th><th>Cumplimiento</th></tr></thead><tbody id="topRows"></tbody></table>
-          </div></div>
-          </article>
           <article class="card">
           <div class="card-head"><div><h2>Requieren seguimiento</h2><p>Los 10 de menor cumplimiento, incluidos quienes no registraron nada.</p></div></div>
           <div class="card-body"><div class="tbl-wrap" style="max-height:none">
           <table style="min-width:480px"><thead><tr><th>#</th><th>Mensajero</th><th>Hechos</th><th>Cumplimiento</th></tr></thead><tbody id="lowRows"></tbody></table>
           </div></div>
           </article>
-          </div>
+<article class="card">
+          <div class="card-head"><div><h2>Mejor desempeño</h2><p>Los 10 mensajeros con mayor cumplimiento del periodo.</p></div></div>
+          <div class="card-body"><div class="tbl-wrap" style="max-height:none">
+          <table style="min-width:480px"><thead><tr><th>#</th><th>Mensajero</th><th>Hechos</th><th>Cumplimiento</th></tr></thead><tbody id="topRows"></tbody></table>
+          </div></div>
+          </article>
           <article class="card">
           <div class="card-head"><div><h2>Cumplimiento por días y mensajero</h2><p id="mSub">Todos los activos del filtro</p></div>
           <input id="mSearch" class="search" placeholder="Buscar nombre, cédula o proyecto"></div>
@@ -688,7 +670,7 @@
     $('btnExcel').addEventListener('click', exportarExcel);
     $('btnPdf').addEventListener('click', exportarPdf);
     $('btnClear').addEventListener('click', () => {
-      $('fProject').value = ''; $('fDay').value = ''; $('fForm').value = 'TODOS';
+      $('fProject').value = ''; $('fDay').value = hoyISO(); $('fForm').value = 'TODOS';
       $('fJefe').value = ''; $('fLider').value = ''; $('fCoord').value = '';
       $('fYear').value = String(new Date().getFullYear());
       $('fMonth').value = String(new Date().getMonth() + 1);
@@ -766,6 +748,13 @@
       for (let n = y; n >= y - 5; n--) $('fYear').add(new Option(n, n));
       MESES.forEach((m, i) => $('fMonth').add(new Option(m, i + 1)));
       $('fMonth').value = String(new Date().getMonth() + 1);
+      $('fDay').value = hoyISO();
+    }
+
+    // Fecha de hoy en la zona horaria del navegador, sin pasar por UTC.
+    function hoyISO() {
+      const d = new Date();
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     }
 
     async function arrancar() {
@@ -883,7 +872,7 @@
       pintarTendencias(r);
       pintarAlertas();
       pintarGraficas(); pintarFormularios(); pintarProyectos(); pintarEncargados();
-      pintarSeguimiento(); pintarSeguimientoCompleto(); pintarCriticos(); pintarCriticosCompleto();
+      pintarSeguimiento(); pintarSeguimientoCompleto(); pintarCriticosCompleto();
       pintarRankings(); pintarMensajeros(); pintarInactividad(); pintarNovedades(); pintarDocs(); pintarFallas();
       cargarMantenimiento();
     }
@@ -980,6 +969,13 @@
            <b>${fmt(a.n)}</b><span>${esc(a.txt)}</span>
          </button>`).join('');
     }
+
+    // Quitar el filtro de dia para ver el mes completo.
+    document.addEventListener('click', (ev) => {
+      if (!ev.target.closest('[data-vermes]')) return;
+      $('fDay').value = '';
+      cargar();
+    });
 
     // Cualquier elemento con data-goto lleva a su sección.
     document.addEventListener('click', (ev) => {
@@ -1083,19 +1079,7 @@
       return (data.inactividad || []).slice();
     }
 
-    function pintarCriticos() {
-      const filas = criticos().slice(0, 6);
-      $('critEmpty').classList.toggle('hidden', filas.length > 0);
-      $('critRows').innerHTML = filas.map((m) => `
-        <tr>
-          <td><b>${esc(m.nombre)}</b><div class="t-sub">CC ${esc(m.cedula)}</div></td>
-          <td class="t-sub">${esc(m.proyecto)}</td>
-          <td class="tnum">${esc(m.ultimo || 'Nunca')}</td>
-          <td><span class="state ${Number(m.dias_sin) >= 7 || m.dias_sin === null ? 'bad' : 'warn'}">${m.dias_sin === null ? 'Sin registros' : fmt(m.dias_sin) + ' días'}</span></td>
-        </tr>`).join('');
-    }
-
-    function pintarCriticosCompleto() {
+function pintarCriticosCompleto() {
       const q = ($('critSearch').value || '').toLowerCase();
       const filas = criticos().filter((m) =>
         ((m.nombre || '') + ' ' + (m.cedula || '') + ' ' + (m.proyecto || '')).toLowerCase().includes(q));
@@ -1327,6 +1311,14 @@
       const dias = Number(($('trendDays') || {}).value || 7);
       // La serie de cumplimiento incluye los días exigibles en los que nadie
       // registró; la de registros solo trae los días con actividad.
+      // Con un dia especifico no hay serie que mostrar: se dice y se ofrece salida.
+      if ($('fDay').value) {
+        $('trendNote').innerHTML = 'Est\u00e1s viendo un d\u00eda espec\u00edfico. '
+          + '<button type="button" class="linkmore" data-vermes="1" style="margin:0">Ver el mes completo \u2192</button>';
+        const b = base('cTrend');
+        if (b) sinDatos(b.x, b.w, b.h);
+        return;
+      }
       const conCumplimiento = (data.por_dia_cumplimiento || []).length > 0;
       const serie = (conCumplimiento ? data.por_dia_cumplimiento : (data.por_dia || [])).slice(-dias);
       const hayEsperadas = conCumplimiento
@@ -1515,6 +1507,8 @@
     }
 
     function pintarInactividad() {
+      // Su tarjeta se retiro por duplicada; la funcion queda inofensiva.
+      if (!$('inacRows')) return;
       const arr = data.inactividad || [];
       $('inacEmpty').classList.toggle('hidden', arr.length > 0);
       $('inacRows').innerHTML = arr.map((m) => {
