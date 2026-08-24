@@ -71,10 +71,16 @@ create index if not exists idx_colab_ced_norm  on colaboradores ((regexp_replace
 -- ------------------------------------------------------------
 create or replace function codigo_proyecto(nombre text)
 returns text language sql stable set search_path = public as $fn$
-  select proyecto_id
-    from colaboradores
-   where btrim(coalesce(proyecto,'')) = btrim(coalesce(nombre,''))
-     and coalesce(proyecto_id,'') <> ''
+  select c.proyecto_id
+    from colaboradores c
+   where btrim(coalesce(nombre,'')) <> ''
+     and coalesce(c.proyecto_id,'') <> ''
+     and sin_tildes(regexp_replace(btrim(coalesce(c.proyecto,'')), '\s+', ' ', 'g'))
+       = sin_tildes(regexp_replace(btrim(coalesce(nombre,'')),      '\s+', ' ', 'g'))
+   -- Ante varios CECOs con el mismo nombre, manda el que tiene encargados.
+   order by (exists (select 1 from responsables_proyecto r
+                      where r.proyecto_id = c.proyecto_id and r.frente = '')) desc,
+            c.proyecto_id
    limit 1;
 $fn$;
 
