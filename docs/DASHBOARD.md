@@ -8,7 +8,7 @@ Todo lo demás sigue disponible, pero en su sección.
 
 | Sección | Para qué sirve |
 |---|---|
-| **Resumen** | El estado en menos de diez segundos: KPI, alertas, cumplimiento por proyecto, tendencia, seguimiento y pendientes críticos. |
+| **Resumen** | El estado en menos de diez segundos: KPI, alertas, cumplimiento por proyecto, tendencia y seguimiento. |
 | **Seguimiento** | Quién responde por el cumplimiento, los pendientes críticos y el espacio reservado para la gestión. |
 | **HSEQ** | Cumplimiento por colaborador, registros con novedad, top de fallas, actividad por día de la semana y franja horaria. |
 | **Documentos** | SOAT, tecnomecánica y licencia: vencidos, sin fecha o por vencer. |
