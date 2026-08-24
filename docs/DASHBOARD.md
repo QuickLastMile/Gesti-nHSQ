@@ -1,0 +1,86 @@
+# Dashboard HSEQ — centro de control
+
+La pantalla inicial responde cuatro preguntas y nada más: **cómo estamos**,
+**dónde está el problema**, **quién necesita seguimiento** y **qué hay que hacer**.
+Todo lo demás sigue disponible, pero en su sección.
+
+## Secciones
+
+| Sección | Para qué sirve |
+|---|---|
+| **Resumen** | El estado en menos de diez segundos: KPI, alertas, cumplimiento por proyecto, tendencia, seguimiento y pendientes críticos. |
+| **Seguimiento** | Quién responde por el cumplimiento, la lista completa de pendientes críticos y el espacio reservado para la gestión. |
+| **HSEQ** | Cumplimiento por colaborador, registros con novedad, top de fallas, actividad por día de la semana y franja horaria. |
+| **Documentos** | SOAT, tecnomecánica y licencia: vencidos, sin fecha o por vencer. |
+| **Preventivo** | Puntos reportados como *No cumple* tres veces o más en 30 días. |
+| **Detalle** | Las tablas completas: proyectos, encargados, mejores y peores desempeños, cumplimiento por días y mensajero, y las gráficas históricas. |
+
+Ninguna tarjeta desapareció en el rediseño: las veinte que existían siguen ahí,
+reubicadas.
+
+## Los KPI
+
+El **cumplimiento** ocupa la tarjeta grande porque es el número que manda. A su
+lado, cuatro cifras de apoyo:
+
+- **Activos** — colaboradores habilitados para registrar en el filtro actual.
+- **Obligados a diligenciar** — de esos, cuántos tenían días exigibles en el
+  periodo. La diferencia son los que el calendario o una justificación dejó por
+  fuera.
+- **Diligenciados** — registros hechos, y cuántos mensajeros quedaron al día.
+- **Pendientes** — **personas** que debían diligenciar y no lo hicieron, con los
+  registros que faltaron como dato de apoyo.
+
+## Semáforo
+
+Un solo criterio en toda la pantalla, contra la meta configurada por proyecto
+(90% por defecto):
+
+- **Verde** — cumple la meta.
+- **Amarillo** — está por encima del 80% de la meta, pero no la alcanza.
+- **Rojo** — por debajo de eso.
+
+## Lo que se puede tocar
+
+- Una **barra** de *Cumplimiento por proyecto* filtra el dashboard por ese proyecto.
+- Una **fila** de *Seguimiento de operación* filtra por esa jefatura, líder,
+  coordinador o proyecto. *Sin asignar* no es una persona, así que no filtra.
+- Una **alerta** lleva a la sección donde se resuelve.
+
+## Seguimiento de operación
+
+Una sola tabla que cambia de nivel — jefatura, líder, coordinador, proyecto o
+mensajero — en vez de cuatro gráficas sueltas. Siempre ordena **de peor a mejor**:
+lo que hay que atender queda arriba.
+
+## Gestión de pendientes
+
+La plataforma **no registra todavía las acciones de seguimiento** (llamadas,
+mensajes, compromisos sobre un pendiente), así que el % de gestión no se puede
+calcular. El espacio está reservado y marcado como tal: un porcentaje de
+cumplimiento alto no prueba que el coordinador esté gestionando.
+
+Para habilitarlo hace falta que el coordinador pueda marcar un pendiente como
+gestionado desde la pantalla de Cumplimiento.
+
+## Tendencia de cumplimiento
+
+Muestra el porcentaje diario contra la meta, con selector de 7, 15 o 30 días.
+
+Necesita saber cuántos registros se esperaban cada día, que es lo que agrega
+`db/por_dia_esperadas.sql`. **Mientras no se ejecute**, la gráfica muestra
+registros por día y lo dice en pantalla — nunca inventa un porcentaje.
+
+## Exportaciones
+
+Excel y PDF siguen funcionando igual. El PDF dibuja las gráficas de las secciones
+ocultas antes de capturarlas, así que no salen en blanco.
+
+## Script
+
+```
+db/por_dia_esperadas.sql   -- opcional: habilita el % diario de la tendencia
+```
+
+Es aditivo: agrega la clave `por_dia_cumplimiento` y no cambia ningún cálculo
+existente.

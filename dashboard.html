@@ -237,6 +237,73 @@
       .card.focused .canvas-wrap{height:calc(100vh - 125px);min-height:300px}
       .card.focused .tbl-wrap{max-height:calc(100vh - 125px)}
     }
+
+    /* ---------- Cabecera de estado: el cumplimiento manda ---------- */
+    .hero{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:16px;margin-bottom:16px}
+    .hero-rate{background:linear-gradient(158deg,#07382b,#0b4e3b 62%,#062f24);color:#fff;border-radius:var(--r);
+      padding:20px 22px;box-shadow:var(--sh);display:flex;flex-direction:column;justify-content:center;
+      position:relative;overflow:hidden}
+    .hero-rate:after{content:'';position:absolute;right:-38px;top:-38px;width:150px;height:150px;border-radius:50%;
+      background:rgba(184,212,63,.10)}
+    .hero-rate .cap{align-self:flex-start;background:rgba(255,255,255,.13);color:#dcece5}
+    .hero-num{font-size:64px;font-weight:850;letter-spacing:-3px;line-height:1;margin:12px 0 4px}
+    .hero-rate .sub{color:#a9c4ba;font-size:11.5px;line-height:1.5;position:relative}
+    .hero-rate .trend{background:rgba(255,255,255,.12);color:#dcece5;align-self:flex-start}
+    .hero-rate.is-ok .hero-num{color:#c9ef6a}
+    .hero-rate.is-warn .hero-num{color:#ffd27a}
+    .hero-rate.is-bad .hero-num{color:#ff9d94}
+    .hero-state{align-self:flex-start;font-size:11px;font-weight:850;letter-spacing:1.1px;text-transform:uppercase;
+      padding:5px 11px;border-radius:999px;margin-bottom:9px;background:rgba(255,255,255,.14);position:relative}
+    .hero-rate.is-ok .hero-state{background:rgba(184,212,63,.24);color:#d7f28c}
+    .hero-rate.is-warn .hero-state{background:rgba(255,196,102,.20);color:#ffd9a0}
+    .hero-rate.is-bad .hero-state{background:rgba(255,120,110,.22);color:#ffc0b9}
+    .hero-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+    .kpi.is-good:before{background:var(--ok)}
+    @media (max-width:1100px){
+      .hero{grid-template-columns:1fr}
+      .hero-kpis{grid-template-columns:repeat(2,1fr)}
+      .hero-num{font-size:52px}
+    }
+
+    /* ---------- Alertas ---------- */
+    .alerts{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:11px}
+    .alert{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:11px;
+      padding:12px 13px;background:var(--surface-2);text-align:left;cursor:pointer;transition:.15s;width:100%}
+    .alert:hover{border-color:var(--line-2);box-shadow:var(--sh-sm);transform:translateY(-1px)}
+    .alert b{font-size:23px;font-weight:850;letter-spacing:-1px;line-height:1}
+    .alert span{color:var(--muted);font-size:11.5px;line-height:1.4}
+    .alert.ok{background:var(--ok-bg);border-color:#c4e5d5}.alert.ok b{color:var(--ok)}
+    .alert.warn{background:var(--warn-bg);border-color:#f0dcb5}.alert.warn b{color:var(--warn)}
+    .alert.bad{background:var(--bad-bg);border-color:#f1cfcb}.alert.bad b{color:var(--bad)}
+    .alerts-none{color:var(--muted);font-size:12.5px}
+
+    /* ---------- Estados y filas accionables ---------- */
+    .state{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+      padding:3px 9px;border-radius:999px;white-space:nowrap}
+    .state.ok{background:var(--ok-bg);color:var(--ok)}
+    .state.warn{background:var(--warn-bg);color:var(--warn)}
+    .state.bad{background:var(--bad-bg);color:var(--bad)}
+    .state.none{background:#eaefec;color:var(--muted)}
+    tr.rowlink{cursor:pointer}
+    tr.rowlink:hover{background:var(--surface-2)}
+    tr.rowlink.on{background:#e7f2ec}
+    .minibar{height:7px;min-width:78px;border-radius:999px;background:#e5eeea;overflow:hidden;flex:1}
+    .minibar i{display:block;height:100%;border-radius:999px}
+    .cellbar{display:flex;align-items:center;gap:9px;min-width:150px}
+    .linkmore{margin-top:12px;border:0;background:transparent;color:var(--green-2);font-weight:750;
+      font-size:12.5px;cursor:pointer;padding:4px 0}
+    .linkmore:hover{text-decoration:underline}
+
+    /* ---------- Espacio reservado para la gestión ---------- */
+    .card-muted{background:var(--surface-2)}
+    .note-soft{color:var(--muted);font-size:12.5px;line-height:1.6;margin:0 0 14px;max-width:78ch}
+    .note-soft+.note-soft{margin:14px 0 0}
+    .seg-preview{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:11px}
+    .seg-slot{border:1px dashed var(--line-2);border-radius:11px;padding:12px 13px;background:var(--surface)}
+    .seg-slot b{display:block;font-size:24px;font-weight:800;color:var(--faint);margin-top:9px;line-height:1}
+    .seg-slot .cap{display:inline-block;background:#eaefec;color:var(--muted);font-size:10px;font-weight:800;
+      letter-spacing:.8px;text-transform:uppercase;padding:4px 9px;border-radius:6px}
+
   </style>
 </head>
 <body>
@@ -266,9 +333,11 @@
       </div>
       <nav class="nav">
         <button class="active" data-s="resumen" data-label="Resumen" aria-label="Resumen"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="label">Resumen</span></button>
-        <button data-s="cumplimiento" data-label="Cumplimiento" aria-label="Cumplimiento"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/><path d="m15.5 7.5 2 2 4-4"/></svg></span><span class="label">Cumplimiento</span></button>
-        <button data-s="operacion" data-label="Operación" aria-label="Operación"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M7 3.8 5.5 2.5M17 3.8l1.5-1.3"/></svg></span><span class="label">Operación</span></button>
+        <button data-s="seguimiento" data-label="Seguimiento" aria-label="Seguimiento"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 11h5M16 15h5M16 19h5"/></svg></span><span class="label">Seguimiento</span></button>
+        <button data-s="hseq" data-label="HSEQ" aria-label="HSEQ"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span><span class="label">HSEQ</span></button>
         <button data-s="documentos" data-label="Documentos" aria-label="Documentos"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h6"/></svg></span><span class="label">Documentos</span></button>
+        <button data-s="preventivo" data-label="Preventivo" aria-label="Preventivo"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0 5 5l-8.4 8.4a2.8 2.8 0 0 1-4-4z"/><path d="m3.5 3.5 3 3"/></svg></span><span class="label">Preventivo</span></button>
+        <button data-s="detalle" data-label="Detalle" aria-label="Detalle"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="7" cy="6" r="1.4"/><circle cx="13" cy="12" r="1.4"/><circle cx="17" cy="18" r="1.4"/></svg></span><span class="label">Detalle</span></button>
       </nav>
       <div class="side-foot">Gestión preventiva<br>Alertas desde 15 días antes</div>
     </aside>
@@ -276,7 +345,7 @@
     <main class="main">
       <div class="stickytop">
         <header class="topbar">
-          <div><h1 id="pgTitle">Resumen ejecutivo</h1><p id="pgSub">Control de preoperacionales y documentación</p></div>
+          <div><h1 id="pgTitle">Resumen ejecutivo</h1><p id="pgSub">¿Cómo estamos y dónde está el problema?</p></div>
           <div class="top-actions">
             <a class="export-btn back-link" href="coordinador.html" aria-label="Volver a coordinadores">← Volver a coordinadores</a>
             <button id="btnExcel" class="export-btn" type="button" disabled>Excel</button>
@@ -304,183 +373,294 @@
 
       <div class="content">
         <div id="ctx" class="ctxbar"></div>
+
         <!-- ============ RESUMEN ============ -->
         <section id="resumen" class="section active">
-          <div class="kpis">
-            <div class="kpi"><span class="cap">Mensajeros activos</span><div id="kActive" class="num tnum">—</div><div class="sub">Habilitados para registrar en el filtro actual</div><span id="tActive" class="trend">—</span></div>
-            <div class="kpi"><span class="cap">Registros hechos</span><div id="kDone" class="num tnum">—</div><div class="sub">Formularios diligenciados en el periodo</div><span id="tDone" class="trend">—</span></div>
-            <div class="kpi"><span class="cap">Cumplimiento</span><div id="kRate" class="num tnum">—</div><div class="sub" id="kRateSub">Hechos frente a los esperados</div><span id="tRate" class="trend">—</span></div>
-            <div class="kpi is-warn"><span class="cap">Sin registrar</span><div id="kMiss" class="num tnum">—</div><div class="sub">Registros que se esperaban y no llegaron</div><span id="tMiss" class="trend">—</span></div>
-            <div class="kpi is-bad"><span class="cap">Con novedad</span><div id="kAlert" class="num tnum">—</div><div class="sub">Registros con alerta que requieren gestión</div><span id="tAlert" class="trend">—</span></div>
+          <div class="hero">
+            <div class="hero-rate" id="heroRate">
+              <span class="cap">Cumplimiento</span>
+              <div id="kRate" class="hero-num tnum">—</div>
+              <div id="heroState" class="hero-state">—</div>
+              <div class="sub" id="kRateSub">—</div>
+              <span id="tRate" class="trend">—</span>
+            </div>
+            <div class="hero-kpis">
+              <div class="kpi"><span class="cap">Activos</span><div id="kActive" class="num tnum">—</div>
+                <div class="sub">Habilitados para registrar</div><span id="tActive" class="trend">—</span></div>
+              <div class="kpi"><span class="cap">Obligados a diligenciar</span><div id="kDuty" class="num tnum">—</div>
+                <div class="sub" id="kDutySub">Con días exigibles en el periodo</div></div>
+              <div class="kpi is-good"><span class="cap">Al día</span><div id="kDone" class="num tnum">—</div>
+                <div class="sub" id="kDoneSub">Cumplieron todo lo exigible</div><span id="tDone" class="trend">—</span></div>
+              <div class="kpi is-warn"><span class="cap">Pendientes</span><div id="kMiss" class="num tnum">—</div>
+                <div class="sub" id="kMissSub">Debían diligenciar y no lo han hecho</div><span id="tMiss" class="trend">—</span></div>
+            </div>
+          </div>
+
+          <article class="card">
+            <div class="card-head"><div><h2>Alertas que requieren gestión</h2>
+              <p>Lo que hay que atender. Toca una alerta para ir a su detalle.</p></div></div>
+            <div class="card-body"><div id="alertChips" class="alerts"></div></div>
+          </article>
+
+          <div class="grid">
+            <article class="card">
+              <div class="card-head"><div><h2>Cumplimiento por proyecto</h2>
+                <p>De menor a mayor. La línea punteada es la meta. Toca una barra para filtrar por ese proyecto.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap" style="height:330px"><canvas id="cProjBars"></canvas></div>
+                <div id="projBarsEmpty" class="empty hidden">Sin proyectos para este filtro.</div></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><h2>Tendencia de cumplimiento</h2><p id="trendNote">—</p></div>
+                <select id="trendDays" class="search" style="min-width:118px">
+                  <option value="7">7 días</option><option value="15">15 días</option><option value="30">30 días</option>
+                </select></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cTrend"></canvas></div></div>
+            </article>
           </div>
 
           <div class="grid">
             <article class="card">
-              <div class="card-head"><div><h2>Registros por día</h2><p>Solo aparecen los días que tuvieron actividad. Pasa el cursor para ver el detalle.</p></div></div>
-              <div class="card-body"><div class="canvas-wrap"><canvas id="cDaily"></canvas></div>
-                <div class="legend"><span><i style="background:#12875f"></i>Registros del día</span></div></div>
+              <div class="card-head"><div><h2>Seguimiento de operación</h2>
+                <p>Quién responde por el cumplimiento. Toca una fila para filtrar por esa persona.</p></div>
+                <select id="segNivel" class="search" style="min-width:150px">
+                  <option value="jefatura">Por jefatura</option>
+                  <option value="lider">Por líder</option>
+                  <option value="coordinador">Por coordinador</option>
+                  <option value="proyecto">Por proyecto</option>
+                </select></div>
+              <div class="card-body"><div class="tbl-wrap" style="max-height:none">
+                <table style="min-width:560px"><thead><tr><th>Responsable</th><th>Activos</th><th>Hechos</th><th>Pendientes</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
+                <tbody id="segRows"></tbody></table>
+                <div id="segEmpty" class="empty hidden">Nadie tiene ese nivel asignado todavía.</div></div>
+                <button class="linkmore" type="button" data-goto="seguimiento">Ver todo el seguimiento →</button>
+              </div>
             </article>
-            <article class="card">
-              <div class="card-head"><div><h2>Tendencia por mes</h2><p>Meses con actividad del año seleccionado.</p></div></div>
-              <div class="card-body"><div class="canvas-wrap"><canvas id="cMonthly"></canvas></div>
-                <div class="legend"><span><i style="background:#07382b"></i>Registros del mes</span></div></div>
-            </article>
-            <article class="card">
-              <div class="card-head"><div><h2>Cumplimiento por formulario</h2><p>Qué tan completo está cada tipo de registro frente a lo esperado.</p></div></div>
-              <div class="card-body"><div id="formRows"></div></div>
-            </article>
-            <article class="card">
-              <div class="card-head"><div><h2>Volumen por proyecto</h2><p>Los 8 proyectos con más registros en el periodo.</p></div></div>
-              <div class="card-body"><div class="canvas-wrap"><canvas id="cProjects"></canvas></div></div>
-            </article>
-            <article class="card">
-              <div class="card-head"><div><h2>Cumplimiento por colaboradores</h2><p>Cuenta mensajeros únicos, no formularios. Separa quién está al día, parcial o sin diligenciar.</p></div></div>
-              <div class="card-body"><div class="canvas-wrap" style="height:220px"><canvas id="cPeople"></canvas></div><div id="peopleLegend" class="people-legend"></div><div id="peopleNote" class="people-note"></div></div>
-            </article>
+          <article class="card">
+          <div class="card-head"><div><h2>Cumplimiento por formulario</h2><p>Qué tan completo está cada tipo de registro frente a lo esperado.</p></div></div>
+          <div class="card-body"><div id="formRows"></div></div>
+          </article>
           </div>
-          <article class="card" style="margin-top:16px">
-            <div class="card-head"><div><h2>Top de fallas reportadas</h2><p>Componentes con mayor recurrencia en el periodo seleccionado. Sirve para priorizar mantenimiento preventivo.</p></div></div>
-            <div class="card-body"><div class="tbl-wrap">
-              <table><thead><tr><th>#</th><th>Componente o falla</th><th>Sección</th><th>Proyecto</th><th>Reportes</th><th>Mensajeros</th><th>Incidencia</th><th>Último reporte</th></tr></thead>
-              <tbody id="failureRows"></tbody></table><div id="failureEmpty" class="empty hidden">No se reportaron fallas para este filtro.</div>
+
+          <article class="card">
+            <div class="card-head"><div><h2>Pendientes críticos</h2>
+              <p>Los casos más urgentes, ordenados por días sin diligenciar.</p></div>
+              <button class="linkmore" type="button" data-goto="seguimiento">Ver todos →</button></div>
+            <div class="card-body"><div class="tbl-wrap" style="max-height:none">
+              <table style="min-width:620px"><thead><tr><th>Mensajero</th><th>Proyecto</th><th>Último registro</th><th>Días sin registrar</th></tr></thead>
+              <tbody id="critRows"></tbody></table>
+              <div id="critEmpty" class="empty hidden">Ningún mensajero lleva 3 días o más sin diligenciar.</div>
             </div></div>
           </article>
         </section>
 
-        <!-- ============ CUMPLIMIENTO ============ -->
-        <section id="cumplimiento" class="section">
+        <!-- ============ SEGUIMIENTO ============ -->
+        <section id="seguimiento" class="section">
           <article class="card">
-            <div class="card-head"><div><h2>Cumplimiento por proyecto</h2>
-              <p><b>Esperados</b> = solo los días que cada proyecto realmente labora (según su calendario), sin festivos si no opera en ellos, y descontando las ausencias ya justificadas.</p></div></div>
-            <div class="card-body"><div class="tbl-wrap">
-              <table><thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th><th>Meta</th><th>Estado</th></tr></thead>
-              <tbody id="projRows"></tbody></table>
-              <div id="projEmpty" class="empty hidden">Sin proyectos para este filtro.</div>
-            </div></div>
-          </article>
-
-          <div class="grid">
-            <article class="card">
-              <div class="card-head"><div><h2>Mejor desempeño</h2><p>Los 10 mensajeros con mayor cumplimiento del periodo.</p></div></div>
-              <div class="card-body"><div class="tbl-wrap" style="max-height:none">
-                <table style="min-width:480px"><thead><tr><th>#</th><th>Mensajero</th><th>Hechos</th><th>Cumplimiento</th></tr></thead><tbody id="topRows"></tbody></table>
-              </div></div>
-            </article>
-            <article class="card">
-              <div class="card-head"><div><h2>Requieren seguimiento</h2><p>Los 10 de menor cumplimiento, incluidos quienes no registraron nada.</p></div></div>
-              <div class="card-body"><div class="tbl-wrap" style="max-height:none">
-                <table style="min-width:480px"><thead><tr><th>#</th><th>Mensajero</th><th>Hechos</th><th>Cumplimiento</th></tr></thead><tbody id="lowRows"></tbody></table>
-              </div></div>
-            </article>
-          </div>
-
-          <div class="grid">
-            <article class="card">
-              <div class="card-head"><div><h2>Cumplimiento por jefatura</h2>
-                <p>Porcentaje del periodo. <b>Sin asignar</b> es la gente que aún no tiene jefe cargado.</p></div></div>
-              <div class="card-body"><div class="canvas-wrap"><canvas id="cJefe"></canvas></div></div>
-            </article>
-            <article class="card">
-              <div class="card-head"><div><h2>Cumplimiento por líder</h2>
-                <p>Mismo cálculo de la tabla de proyectos, agrupado por quién responde.</p></div></div>
-              <div class="card-body"><div class="canvas-wrap"><canvas id="cLider"></canvas></div></div>
-            </article>
-          </div>
-
-          <article id="cardCoord" class="card hidden">
-            <div class="card-head"><div><h2>Cumplimiento por coordinador</h2>
-              <p>Aparece cuando ya hay coordinadores asignados. Una persona con coordinador propio cuenta para ese, no para el del proyecto.</p></div></div>
-            <div class="card-body"><div class="canvas-wrap"><canvas id="cCoord"></canvas></div></div>
-          </article>
-
-          <article class="card">
-            <div class="card-head">
-              <div><h2>Detalle por encargado</h2>
-                <p>Los mismos números de arriba, con esperados y faltantes.</p></div>
-              <select id="encNivel" class="search" style="min-width:170px">
+            <div class="card-head"><div><h2>Seguimiento de operación</h2>
+              <p>Jefatura → líder → coordinador → proyecto → mensajero. Toca una fila para filtrar el dashboard por ella.</p></div>
+              <select id="segFullNivel" class="search" style="min-width:150px">
                 <option value="jefatura">Por jefatura</option>
                 <option value="lider">Por líder</option>
                 <option value="coordinador">Por coordinador</option>
-              </select>
-            </div>
+                <option value="proyecto">Por proyecto</option>
+                <option value="mensajero">Por mensajero</option>
+              </select></div>
             <div class="card-body"><div class="tbl-wrap">
-              <table><thead><tr><th>#</th><th>Encargado</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
-              <tbody id="encRows"></tbody></table>
-              <div id="encEmpty" class="empty hidden">Nadie tiene ese nivel asignado todavía.</div>
+              <table style="min-width:640px"><thead><tr><th>#</th><th>Responsable</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Pendientes</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
+              <tbody id="segFullRows"></tbody></table>
+              <div id="segFullEmpty" class="empty hidden">Nadie tiene ese nivel asignado todavía.</div>
             </div></div>
           </article>
 
           <article class="card">
-            <div class="card-head"><div><h2>Cumplimiento por días y mensajero</h2><p id="mSub">Todos los activos del filtro</p></div>
-              <input id="mSearch" class="search" placeholder="Buscar nombre, cédula o proyecto"></div>
+            <div class="card-head"><div><h2>Pendientes críticos</h2>
+              <p>Activos que llevan 3 días o más sin diligenciar, priorizados por antigüedad de la falta.</p></div>
+              <input id="critSearch" class="search" placeholder="Buscar mensajero o proyecto"></div>
             <div class="card-body"><div class="tbl-wrap">
-              <table><thead><tr><th>Nombre</th><th>CC</th><th>Proyecto</th><th>Días diligenciados</th><th>Días exigibles</th><th>Justificados</th><th>Cumplimiento</th></tr></thead>
-              <tbody id="mRows"></tbody></table>
-              <div id="mEmpty" class="empty hidden">Sin resultados para esta búsqueda.</div>
+              <table style="min-width:680px"><thead><tr><th>#</th><th>Mensajero</th><th>Cédula</th><th>Proyecto</th><th>Último registro</th><th>Días sin registrar</th></tr></thead>
+              <tbody id="critFullRows"></tbody></table>
+              <div id="critFullEmpty" class="empty hidden">Todos los mensajeros activos registraron en los últimos 3 días.</div>
             </div></div>
+          </article>
+
+          <article class="card card-muted">
+            <div class="card-head"><div><h2>Gestión de pendientes</h2>
+              <p>Cuántos pendientes se están gestionando de verdad, no solo cuántos hay.</p></div></div>
+            <div class="card-body">
+              <p class="note-soft">Hoy la plataforma <b>no registra las acciones de seguimiento</b> — llamadas,
+              mensajes o compromisos sobre un pendiente — así que este indicador no se puede calcular todavía
+              y prefiero dejarlo vacío antes que mostrar un número inventado.</p>
+              <div class="seg-preview">
+                <div class="seg-slot"><span class="cap">Pendientes</span><b id="gPend">—</b></div>
+                <div class="seg-slot"><span class="cap">Gestionados</span><b>—</b></div>
+                <div class="seg-slot"><span class="cap">Sin gestionar</span><b>—</b></div>
+                <div class="seg-slot"><span class="cap">% de gestión</span><b>—</b></div>
+              </div>
+              <p class="note-soft">Para habilitarlo hace falta que el coordinador pueda marcar un pendiente
+              como gestionado desde la pantalla de Cumplimiento. El espacio ya queda listo.</p>
+            </div>
+          </article>
+
+          <article class="card">
+          <div class="card-head"><div><h2>Mensajeros sin registrar</h2><p>Activos que llevan 3 días o más sin diligenciar. Priorizados por antigüedad de la falta.</p></div></div>
+          <div class="card-body"><div class="tbl-wrap">
+          <table style="min-width:640px"><thead><tr><th>Mensajero</th><th>Cédula</th><th>Proyecto</th><th>Último registro</th><th>Días sin registrar</th></tr></thead>
+          <tbody id="inacRows"></tbody></table>
+          <div id="inacEmpty" class="empty hidden">Todos los mensajeros activos registraron en los últimos 3 días.</div>
+          </div></div>
           </article>
         </section>
 
-        <!-- ============ OPERACIÓN ============ -->
-        <section id="operacion" class="section">
+        <!-- ============ HSEQ ============ -->
+        <section id="hseq" class="section">
           <div class="grid">
-            <article class="card">
-              <div class="card-head"><div><h2>Actividad por día de la semana</h2><p>Identifica en qué días baja el cumplimiento.</p></div></div>
-              <div class="card-body"><div class="canvas-wrap"><canvas id="cDow"></canvas></div></div>
-            </article>
-            <article class="card">
-              <div class="card-head"><div><h2>Franja horaria de registro</h2><p>A qué hora diligencian. Útil para verificar que el preoperacional se haga antes de operar.</p></div></div>
-              <div class="card-body"><div class="canvas-wrap"><canvas id="cHour"></canvas></div></div>
-            </article>
+          <article class="card">
+          <div class="card-head"><div><h2>Cumplimiento por colaboradores</h2><p>Cuenta mensajeros únicos, no formularios. Separa quién está al día, parcial o sin diligenciar.</p></div></div>
+          <div class="card-body"><div class="canvas-wrap" style="height:220px"><canvas id="cPeople"></canvas></div><div id="peopleLegend" class="people-legend"></div><div id="peopleNote" class="people-note"></div></div>
+          </article>
+          <article class="card">
+          <div class="card-head"><div><h2>Registros con novedad</h2><p>Registros del periodo que quedaron marcados con alerta (documentos o fallas reportadas).</p></div>
+          <input id="opSearch" class="search" placeholder="Buscar mensajero o novedad"></div>
+          <div class="card-body"><div class="tbl-wrap">
+          <table style="min-width:760px"><thead><tr><th>Fecha</th><th>Mensajero</th><th>Proyecto</th><th>Placa</th><th>Novedad</th></tr></thead>
+          <tbody id="opRows"></tbody></table>
+          <div id="opEmpty" class="empty hidden">Sin novedades registradas en el periodo.</div>
+          </div></div>
+          </article>
           </div>
-
-          <article class="card">
-            <div class="card-head"><div><h2>Mensajeros sin registrar</h2><p>Activos que llevan 3 días o más sin diligenciar. Priorizados por antigüedad de la falta.</p></div></div>
-            <div class="card-body"><div class="tbl-wrap">
-              <table style="min-width:640px"><thead><tr><th>Mensajero</th><th>Cédula</th><th>Proyecto</th><th>Último registro</th><th>Días sin registrar</th></tr></thead>
-              <tbody id="inacRows"></tbody></table>
-              <div id="inacEmpty" class="empty hidden">Todos los mensajeros activos registraron en los últimos 3 días.</div>
-            </div></div>
+          <article class="card" style="margin-top:16px">
+          <div class="card-head"><div><h2>Top de fallas reportadas</h2><p>Componentes con mayor recurrencia en el periodo seleccionado. Sirve para priorizar mantenimiento preventivo.</p></div></div>
+          <div class="card-body"><div class="tbl-wrap">
+          <table><thead><tr><th>#</th><th>Componente o falla</th><th>Sección</th><th>Proyecto</th><th>Reportes</th><th>Mensajeros</th><th>Incidencia</th><th>Último reporte</th></tr></thead>
+          <tbody id="failureRows"></tbody></table><div id="failureEmpty" class="empty hidden">No se reportaron fallas para este filtro.</div>
+          </div></div>
           </article>
-
+          <div class="grid">
           <article class="card">
-            <div class="card-head"><div><h2>Registros con novedad</h2><p>Registros del periodo que quedaron marcados con alerta (documentos o fallas reportadas).</p></div>
-              <input id="opSearch" class="search" placeholder="Buscar mensajero o novedad"></div>
-            <div class="card-body"><div class="tbl-wrap">
-              <table style="min-width:760px"><thead><tr><th>Fecha</th><th>Mensajero</th><th>Proyecto</th><th>Placa</th><th>Novedad</th></tr></thead>
-              <tbody id="opRows"></tbody></table>
-              <div id="opEmpty" class="empty hidden">Sin novedades registradas en el periodo.</div>
-            </div></div>
+          <div class="card-head"><div><h2>Actividad por día de la semana</h2><p>Identifica en qué días baja el cumplimiento.</p></div></div>
+          <div class="card-body"><div class="canvas-wrap"><canvas id="cDow"></canvas></div></div>
           </article>
-
           <article class="card">
-            <div class="card-head"><div><h2>Requieren mantenimiento</h2><p>El mismo punto reportado como <b>No cumple</b> tres veces o más en los últimos 30 días. Un día puede ser un descuido; repetido es un daño sin atender.</p></div>
-              <input id="mtoSearch" class="search" placeholder="Buscar mensajero, placa o punto"></div>
-            <div class="card-body"><div class="tbl-wrap">
-              <table style="min-width:820px"><thead><tr><th>Mensajero</th><th>Placa</th><th>Proyecto</th><th>Punto reportado</th><th>Veces</th><th>Primera</th><th>Última</th></tr></thead>
-              <tbody id="mtoRows"></tbody></table>
-              <div id="mtoEmpty" class="empty hidden">Ningún punto se ha reportado en mal estado de forma repetida. </div>
-            </div></div>
+          <div class="card-head"><div><h2>Franja horaria de registro</h2><p>A qué hora diligencian. Útil para verificar que el preoperacional se haga antes de operar.</p></div></div>
+          <div class="card-body"><div class="canvas-wrap"><canvas id="cHour"></canvas></div></div>
           </article>
+          </div>
         </section>
 
         <!-- ============ DOCUMENTOS ============ -->
         <section id="documentos" class="section">
           <article class="card">
-            <div class="card-head"><div><h2>Alertas documentales</h2><p>SOAT, tecnomecánica y licencia vencidos, sin fecha o que vencen en los próximos 15 días.</p></div>
-              <input id="docSearch" class="search" placeholder="Buscar nombre, cédula, proyecto o placa"></div>
-            <div class="card-body">
-              <div id="docChips" class="chips" style="margin-bottom:14px"></div>
-              <div class="tbl-wrap">
-                <table style="min-width:860px"><thead><tr><th>Estado</th><th>Documento</th><th>Vence</th><th>Días</th><th>Colaborador</th><th>Cédula</th><th>Placa</th><th>Proyecto</th></tr></thead>
-                <tbody id="docRows"></tbody></table>
-                <div id="docEmpty" class="empty hidden">No se encontraron alertas para este filtro.</div>
-              </div>
-            </div>
+          <div class="card-head"><div><h2>Alertas documentales</h2><p>SOAT, tecnomecánica y licencia vencidos, sin fecha o que vencen en los próximos 15 días.</p></div>
+          <input id="docSearch" class="search" placeholder="Buscar nombre, cédula, proyecto o placa"></div>
+          <div class="card-body">
+          <div id="docChips" class="chips" style="margin-bottom:14px"></div>
+          <div class="tbl-wrap">
+          <table style="min-width:860px"><thead><tr><th>Estado</th><th>Documento</th><th>Vence</th><th>Días</th><th>Colaborador</th><th>Cédula</th><th>Placa</th><th>Proyecto</th></tr></thead>
+          <tbody id="docRows"></tbody></table>
+          <div id="docEmpty" class="empty hidden">No se encontraron alertas para este filtro.</div>
+          </div>
+          </div>
           </article>
         </section>
-      </div>
-    </main>
+
+        <!-- ============ PREVENTIVO ============ -->
+        <section id="preventivo" class="section">
+          <article class="card">
+          <div class="card-head"><div><h2>Requieren mantenimiento</h2><p>El mismo punto reportado como <b>No cumple</b> tres veces o más en los últimos 30 días. Un día puede ser un descuido; repetido es un daño sin atender.</p></div>
+          <input id="mtoSearch" class="search" placeholder="Buscar mensajero, placa o punto"></div>
+          <div class="card-body"><div class="tbl-wrap">
+          <table style="min-width:820px"><thead><tr><th>Mensajero</th><th>Placa</th><th>Proyecto</th><th>Punto reportado</th><th>Veces</th><th>Primera</th><th>Última</th></tr></thead>
+          <tbody id="mtoRows"></tbody></table>
+          <div id="mtoEmpty" class="empty hidden">Ningún punto se ha reportado en mal estado de forma repetida. </div>
+          </div></div>
+          </article>
+        </section>
+
+        <!-- ============ DETALLE ============ -->
+        <section id="detalle" class="section">
+          <article class="card">
+          <div class="card-head"><div><h2>Cumplimiento por proyecto</h2>
+          <p><b>Esperados</b> = solo los días que cada proyecto realmente labora (según su calendario), sin festivos si no opera en ellos, y descontando las ausencias ya justificadas.</p></div></div>
+          <div class="card-body"><div class="tbl-wrap">
+          <table><thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th><th>Meta</th><th>Estado</th></tr></thead>
+          <tbody id="projRows"></tbody></table>
+          <div id="projEmpty" class="empty hidden">Sin proyectos para este filtro.</div>
+          </div></div>
+          </article>
+          <article class="card">
+          <div class="card-head">
+          <div><h2>Detalle por encargado</h2>
+          <p>Los mismos números de arriba, con esperados y faltantes.</p></div>
+          <select id="encNivel" class="search" style="min-width:170px">
+          <option value="jefatura">Por jefatura</option>
+          <option value="lider">Por líder</option>
+          <option value="coordinador">Por coordinador</option>
+          </select>
+          </div>
+          <div class="card-body"><div class="tbl-wrap">
+          <table><thead><tr><th>#</th><th>Encargado</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
+          <tbody id="encRows"></tbody></table>
+          <div id="encEmpty" class="empty hidden">Nadie tiene ese nivel asignado todavía.</div>
+          </div></div>
+          </article>
+          <div class="grid">
+          <article class="card">
+          <div class="card-head"><div><h2>Cumplimiento por jefatura</h2>
+          <p>Porcentaje del periodo. <b>Sin asignar</b> es la gente que aún no tiene jefe cargado.</p></div></div>
+          <div class="card-body"><div class="canvas-wrap"><canvas id="cJefe"></canvas></div></div>
+          </article>
+          <article class="card">
+          <div class="card-head"><div><h2>Cumplimiento por líder</h2>
+          <p>Mismo cálculo de la tabla de proyectos, agrupado por quién responde.</p></div></div>
+          <div class="card-body"><div class="canvas-wrap"><canvas id="cLider"></canvas></div></div>
+          </article>
+          </div>
+          <article id="cardCoord" class="card hidden">
+          <div class="card-head"><div><h2>Cumplimiento por coordinador</h2>
+          <p>Aparece cuando ya hay coordinadores asignados. Una persona con coordinador propio cuenta para ese, no para el del proyecto.</p></div></div>
+          <div class="card-body"><div class="canvas-wrap"><canvas id="cCoord"></canvas></div></div>
+          </article>
+          <div class="grid">
+          <article class="card">
+          <div class="card-head"><div><h2>Mejor desempeño</h2><p>Los 10 mensajeros con mayor cumplimiento del periodo.</p></div></div>
+          <div class="card-body"><div class="tbl-wrap" style="max-height:none">
+          <table style="min-width:480px"><thead><tr><th>#</th><th>Mensajero</th><th>Hechos</th><th>Cumplimiento</th></tr></thead><tbody id="topRows"></tbody></table>
+          </div></div>
+          </article>
+          <article class="card">
+          <div class="card-head"><div><h2>Requieren seguimiento</h2><p>Los 10 de menor cumplimiento, incluidos quienes no registraron nada.</p></div></div>
+          <div class="card-body"><div class="tbl-wrap" style="max-height:none">
+          <table style="min-width:480px"><thead><tr><th>#</th><th>Mensajero</th><th>Hechos</th><th>Cumplimiento</th></tr></thead><tbody id="lowRows"></tbody></table>
+          </div></div>
+          </article>
+          </div>
+          <article class="card">
+          <div class="card-head"><div><h2>Cumplimiento por días y mensajero</h2><p id="mSub">Todos los activos del filtro</p></div>
+          <input id="mSearch" class="search" placeholder="Buscar nombre, cédula o proyecto"></div>
+          <div class="card-body"><div class="tbl-wrap">
+          <table><thead><tr><th>Nombre</th><th>CC</th><th>Proyecto</th><th>Días diligenciados</th><th>Días exigibles</th><th>Justificados</th><th>Cumplimiento</th></tr></thead>
+          <tbody id="mRows"></tbody></table>
+          <div id="mEmpty" class="empty hidden">Sin resultados para esta búsqueda.</div>
+          </div></div>
+          </article>
+          <div class="grid">
+          <article class="card">
+          <div class="card-head"><div><h2>Registros por día</h2><p>Solo aparecen los días que tuvieron actividad. Pasa el cursor para ver el detalle.</p></div></div>
+          <div class="card-body"><div class="canvas-wrap"><canvas id="cDaily"></canvas></div>
+          <div class="legend"><span><i style="background:#12875f"></i>Registros del día</span></div></div>
+          </article>
+          <article class="card">
+          <div class="card-head"><div><h2>Tendencia por mes</h2><p>Meses con actividad del año seleccionado.</p></div></div>
+          <div class="card-body"><div class="canvas-wrap"><canvas id="cMonthly"></canvas></div>
+          <div class="legend"><span><i style="background:#07382b"></i>Registros del mes</span></div></div>
+          </article>
+          </div>
+          <article class="card">
+          <div class="card-head"><div><h2>Volumen por proyecto</h2><p>Los 8 proyectos con más registros en el periodo.</p></div></div>
+          <div class="card-body"><div class="canvas-wrap"><canvas id="cProjects"></canvas></div></div>
+          </article>
+        </section>
+      </main>
   </div>
 
   <script src="assets/config.js?v=20"></script>
@@ -516,6 +696,10 @@
     });
     $('fDay').addEventListener('change', cargar);
     $('docSearch').addEventListener('input', pintarDocs);
+    $('trendDays').addEventListener('change', pintarTendenciaDiaria);
+    $('segNivel').addEventListener('change', pintarSeguimiento);
+    $('segFullNivel').addEventListener('change', pintarSeguimientoCompleto);
+    $('critSearch').addEventListener('input', pintarCriticosCompleto);
     $('mSearch').addEventListener('input', pintarMensajeros);
     $('opSearch').addEventListener('input', pintarNovedades);
     $('mtoSearch').addEventListener('input', pintarMantenimiento);
@@ -682,34 +866,250 @@
       document.querySelectorAll('.section').forEach((s) => s.classList.remove('active'));
       $(btn.dataset.s).classList.add('active');
       const t = {
-        resumen: ['Resumen ejecutivo', 'Control de preoperacionales y documentación'],
-        cumplimiento: ['Cumplimiento', 'Desempeño por proyecto y por mensajero'],
-        operacion: ['Operación', 'Hábitos de registro, inactividad y novedades'],
+        resumen: ['Resumen ejecutivo', '¿Cómo estamos y dónde está el problema?'],
+        seguimiento: ['Seguimiento de operación', 'Quién responde y a quién hay que contactar hoy'],
+        hseq: ['HSEQ', 'Novedades, fallas reportadas y hábitos de registro'],
         documentos: ['Documentos', 'Vigencia de SOAT, tecnomecánica y licencia'],
-      }[btn.dataset.s];
+        preventivo: ['Preventivo', 'Puntos reportados de forma repetida'],
+        detalle: ['Detalle', 'Tablas completas y desglose por encargado'],
+      }[btn.dataset.s] || ['Dashboard HSEQ', ''];
       $('pgTitle').textContent = t[0]; $('pgSub').textContent = t[1];
       if (data) pintarGraficas();
     }
 
     function pintar() {
       const r = data.resumen || {};
-      $('kActive').textContent = fmt(r.activos);
-      $('kDone').textContent = fmt(r.realizadas);
-      $('kRate').textContent = pct(r.porcentaje);
-      // Semáforo contra la meta configurada, no contra un umbral fijo.
-      const meta = Number(r.meta ?? 90);
-      $('kRate').style.color = r.porcentaje >= meta ? C.ok : (r.porcentaje >= meta * 0.8 ? C.warn : C.bad);
-      const cumplenMeta = (data.por_proyecto || []).filter((p) => p.estado === 'cumple').length;
-      const totalProy = (data.por_proyecto || []).length;
-      $('kRateSub').innerHTML = `${fmt(r.realizadas)} de ${fmt(r.esperadas)} esperados · meta ${meta}%`
-        + (totalProy ? `<br><b style="color:${cumplenMeta === totalProy ? C.ok : C.warn}">${cumplenMeta} de ${totalProy} proyectos en meta</b>` : '')
-        + (r.justificados ? ` · ${fmt(r.justificados)} justificación(es) descontadas` : '');
-      $('kMiss').textContent = fmt(r.no_realizadas);
-      $('kAlert').textContent = fmt(r.con_alerta);
+      pintarKpis(r);
       pintarTendencias(r);
+      pintarAlertas();
       pintarGraficas(); pintarFormularios(); pintarProyectos(); pintarEncargados();
+      pintarSeguimiento(); pintarSeguimientoCompleto(); pintarCriticos(); pintarCriticosCompleto();
       pintarRankings(); pintarMensajeros(); pintarInactividad(); pintarNovedades(); pintarDocs(); pintarFallas();
       cargarMantenimiento();
+    }
+
+    /* ============ ESTADO: verde, amarillo o rojo ============ */
+    // Un solo criterio para toda la pantalla: se cumple la meta, se está cerca, o no.
+    const TXT_ESTADO = { ok:'Cumple', warn:'En riesgo', bad:'No cumple', none:'Sin datos' };
+    const COL_ESTADO = { ok:C.ok, warn:C.warn, bad:C.bad, none:'#93a8a0' };
+    function metaActual() { return Number((data && data.resumen && data.resumen.meta) ?? 90); }
+    function estadoDe(porcentaje, esperadas) {
+      if (esperadas !== undefined && !Number(esperadas)) return 'none';
+      const m = metaActual(), v = Number(porcentaje || 0);
+      return v >= m ? 'ok' : (v >= m * 0.8 ? 'warn' : 'bad');
+    }
+    // Los estados que ya vienen calculados desde la base hablan el mismo idioma.
+    const MAPA_ESTADO = { cumple:'ok', cerca:'warn', no_cumple:'bad', sin_datos:'none' };
+
+    function chipEstado(est) {
+      return `<span class="state ${est}">${TXT_ESTADO[est]}</span>`;
+    }
+    function celdaPct(porcentaje, est) {
+      const v = Math.max(0, Math.min(100, Number(porcentaje || 0)));
+      return `<div class="cellbar"><div class="minibar"><i style="width:${v}%;background:${COL_ESTADO[est]}"></i></div><b>${pct(porcentaje)}</b></div>`;
+    }
+
+    /* ============ KPI ============ */
+    // Cuánta gente debía diligenciar y cuánta quedó debiendo, contando PERSONAS.
+    function personasResumen() {
+      const ms = data.mensajeros || [];
+      let obligados = 0, alDia = 0, pendientes = 0, sinNada = 0;
+      ms.forEach((m) => {
+        const exigibles = Number(m.dias_exigibles || 0), hechos = Number(m.dias_diligenciados || 0);
+        if (exigibles <= 0) return;          // el calendario no le exigía nada en el periodo
+        obligados++;
+        if (hechos >= exigibles) alDia++;
+        else { pendientes++; if (!hechos) sinNada++; }
+      });
+      return { obligados, alDia, pendientes, sinNada, hayDetalle: ms.length > 0 };
+    }
+
+    function pintarKpis(r) {
+      const p = personasResumen(), meta = metaActual();
+      const est = estadoDe(r.porcentaje, r.esperadas);
+      $('kRate').textContent = pct(r.porcentaje);
+      $('heroRate').className = 'hero-rate is-' + est;
+      $('heroState').textContent = TXT_ESTADO[est] + ' · meta ' + meta + '%';
+      const proys = data.por_proyecto || [];
+      const enMeta = proys.filter((x) => x.estado === 'cumple').length;
+      $('kRateSub').innerHTML = `${fmt(r.realizadas)} de ${fmt(r.esperadas)} registros esperados`
+        + (proys.length ? `<br>${enMeta} de ${proys.length} proyectos en meta` : '')
+        + (r.justificados ? `<br>${fmt(r.justificados)} justificación(es) descontadas` : '');
+
+      $('kActive').textContent = fmt(r.activos);
+      $('kDuty').textContent = p.hayDetalle ? fmt(p.obligados) : fmt(r.activos);
+      $('kDutySub').textContent = p.hayDetalle
+        ? (r.activos - p.obligados > 0
+            ? `${fmt(r.activos - p.obligados)} sin días exigibles en el periodo`
+            : 'Todos los activos tenían días exigibles')
+        : 'Con días exigibles en el periodo';
+      $('kDone').textContent = fmt(r.realizadas);
+      $('kDoneSub').innerHTML = p.hayDetalle
+        ? `Registros hechos · <b>${fmt(p.alDia)}</b> mensajero(s) al día`
+        : 'Registros hechos en el periodo';
+      $('kMiss').textContent = p.hayDetalle ? fmt(p.pendientes) : fmt(r.no_realizadas);
+      $('kMissSub').innerHTML = p.hayDetalle
+        ? `Personas · <b>${fmt(r.no_realizadas)}</b> registros sin llegar`
+          + (p.sinNada ? ` · ${fmt(p.sinNada)} no registró ningún día` : '')
+        : 'Registros que se esperaban y no llegaron';
+    }
+
+    /* ============ ALERTAS ============ */
+    function pintarAlertas() {
+      const r = data.resumen || {}, meta = metaActual(), p = personasResumen();
+      const proys = data.por_proyecto || [];
+      const bajoMeta = proys.filter((x) => Number(x.esperadas || 0) > 0 && Number(x.porcentaje || 0) < meta).length;
+      const inactivos = (data.inactividad || []).length;
+      const docs = data.alertas || [];
+      const vencidos = docs.filter((d) => d.estado === 'VENCIDO').length;
+      const porVencer = docs.length - vencidos;
+      const novedades = Number(r.con_alerta || 0);
+      const puntos = ((mantenimiento && mantenimiento.alertas) || []).length;
+
+      const items = [
+        { n: bajoMeta, txt: `proyecto(s) por debajo del ${meta}%`, sec: 'detalle', tono: bajoMeta ? 'bad' : 'ok' },
+        { n: p.pendientes, txt: 'mensajero(s) pendientes', sec: 'seguimiento', tono: p.pendientes ? 'warn' : 'ok' },
+        { n: inactivos, txt: 'llevan 3 días o más sin registrar', sec: 'seguimiento', tono: inactivos ? 'bad' : 'ok' },
+        { n: novedades, txt: 'registro(s) con novedad HSEQ', sec: 'hseq', tono: novedades ? 'warn' : 'ok' },
+        { n: docs.length, txt: vencidos ? `documento(s) en alerta · ${vencidos} vencido(s)` : 'documento(s) por vencer',
+          sec: 'documentos', tono: vencidos ? 'bad' : (porVencer ? 'warn' : 'ok') },
+        { n: puntos, txt: 'punto(s) que requieren mantenimiento', sec: 'preventivo', tono: puntos ? 'warn' : 'ok' },
+      ];
+      $('alertChips').innerHTML = items.map((a) =>
+        `<button type="button" class="alert ${a.tono}" data-goto="${a.sec}">
+           <b>${fmt(a.n)}</b><span>${esc(a.txt)}</span>
+         </button>`).join('');
+    }
+
+    // Cualquier elemento con data-goto lleva a su sección.
+    document.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-goto]');
+      if (!b) return;
+      const btn = document.querySelector(`.nav button[data-s="${b.dataset.goto}"]`);
+      if (btn) { irA(btn); document.querySelector('.content').scrollIntoView({ behavior:'smooth', block:'start' }); }
+    });
+
+    /* ============ SEGUIMIENTO DE OPERACIÓN ============ */
+    // Una sola tabla que cambia de nivel, en vez de cuatro gráficas sueltas.
+    function filasSeguimiento(nivel) {
+      if (nivel === 'proyecto') {
+        return (data.por_proyecto || []).map((x) => ({
+          nombre: x.proyecto || 'Sin proyecto', activos: x.activos, realizadas: x.realizadas,
+          esperadas: x.esperadas, pendientes: x.no_realizadas, porcentaje: x.porcentaje,
+          estado: MAPA_ESTADO[x.estado] || estadoDe(x.porcentaje, x.esperadas),
+          filtro: { campo: 'fProject', valor: x.proyecto },
+        }));
+      }
+      if (nivel === 'mensajero') {
+        return (data.mensajeros || []).map((m) => ({
+          nombre: m.nombre || '(sin nombre)', sub: m.proyecto, activos: 1,
+          realizadas: m.realizadas, esperadas: m.esperadas,
+          pendientes: Math.max(Number(m.esperadas || 0) - Number(m.realizadas || 0), 0),
+          porcentaje: m.porcentaje, estado: estadoDe(m.porcentaje, m.esperadas), filtro: null,
+        }));
+      }
+      const campo = { jefatura: 'fJefe', lider: 'fLider', coordinador: 'fCoord' }[nivel];
+      return (((data.por_encargado || {})[nivel]) || []).map((e) => ({
+        nombre: e.nombre || 'Sin asignar', activos: e.activos, realizadas: e.realizadas,
+        esperadas: e.esperadas, pendientes: e.no_realizadas, porcentaje: e.porcentaje,
+        estado: MAPA_ESTADO[e.estado] || estadoDe(e.porcentaje, e.esperadas),
+        // "Sin asignar" no es una persona: no sirve como filtro.
+        filtro: e.nombre ? { campo, valor: e.nombre } : null,
+      }));
+    }
+
+    // Lo urgente primero: el que peor va, arriba.
+    function ordenarPorRiesgo(filas) {
+      return filas.slice().sort((a, b) => {
+        const sa = Number(a.esperadas || 0) > 0, sb = Number(b.esperadas || 0) > 0;
+        if (sa !== sb) return sa ? -1 : 1;
+        return Number(a.porcentaje || 0) - Number(b.porcentaje || 0);
+      });
+    }
+
+    function pintarSeguimiento() {
+      const filas = ordenarPorRiesgo(filasSeguimiento($('segNivel').value)).slice(0, 6);
+      $('segEmpty').classList.toggle('hidden', filas.length > 0);
+      $('segRows').innerHTML = filas.map((f) => `
+        <tr class="${f.filtro ? 'rowlink' : ''}" ${f.filtro ? `data-fcampo="${esc(f.filtro.campo)}" data-fvalor="${esc(f.filtro.valor)}"` : ''}>
+          <td><b>${esc(f.nombre)}</b>${f.sub ? `<div class="t-sub">${esc(f.sub)}</div>` : ''}</td>
+          <td class="tnum">${fmt(f.activos)}</td>
+          <td class="tnum">${fmt(f.realizadas)}</td>
+          <td class="tnum">${fmt(f.pendientes)}</td>
+          <td>${celdaPct(f.porcentaje, f.estado)}</td>
+          <td>${chipEstado(f.estado)}</td>
+        </tr>`).join('');
+      activarFiltroFilas('segRows');
+    }
+
+    function pintarSeguimientoCompleto() {
+      const filas = ordenarPorRiesgo(filasSeguimiento($('segFullNivel').value));
+      $('segFullEmpty').classList.toggle('hidden', filas.length > 0);
+      $('segFullRows').innerHTML = filas.map((f, i) => `
+        <tr class="${f.filtro ? 'rowlink' : ''}" ${f.filtro ? `data-fcampo="${esc(f.filtro.campo)}" data-fvalor="${esc(f.filtro.valor)}"` : ''}>
+          <td><span class="rank ${f.estado === 'bad' ? 'low' : ''}">${i + 1}</span></td>
+          <td><b>${esc(f.nombre)}</b>${f.sub ? `<div class="t-sub">${esc(f.sub)}</div>` : ''}</td>
+          <td class="tnum">${fmt(f.activos)}</td>
+          <td class="tnum">${fmt(f.realizadas)}</td>
+          <td class="tnum">${fmt(f.esperadas)}</td>
+          <td class="tnum">${fmt(f.pendientes)}</td>
+          <td>${celdaPct(f.porcentaje, f.estado)}</td>
+          <td>${chipEstado(f.estado)}</td>
+        </tr>`).join('');
+      activarFiltroFilas('segFullRows');
+    }
+
+    // Tocar una fila aplica ese responsable como filtro del dashboard.
+    function activarFiltroFilas(id) {
+      $(id).querySelectorAll('tr.rowlink').forEach((tr) => {
+        tr.addEventListener('click', () => aplicarFiltroDesdeFila(tr.dataset.fcampo, tr.dataset.fvalor));
+      });
+    }
+
+    function aplicarFiltroDesdeFila(campo, valor) {
+      const sel = $(campo);
+      if (!sel) return;
+      // El selector de proyecto guarda el código, no el nombre: hay que buscarlo.
+      const opcion = [...sel.options].find((o) => o.value === valor || o.text === valor
+        || o.text.split(' (')[0] === valor);
+      if (!opcion) { ctx('Ese responsable ya no está en la lista de filtros. Recarga la página.', true); return; }
+      sel.value = opcion.value;
+      cargar();
+    }
+
+    /* ============ PENDIENTES CRÍTICOS ============ */
+    function criticos() {
+      // Ya viene ordenado por antigüedad de la falta desde la base.
+      return (data.inactividad || []).slice();
+    }
+
+    function pintarCriticos() {
+      const filas = criticos().slice(0, 6);
+      $('critEmpty').classList.toggle('hidden', filas.length > 0);
+      $('critRows').innerHTML = filas.map((m) => `
+        <tr>
+          <td><b>${esc(m.nombre)}</b><div class="t-sub">CC ${esc(m.cedula)}</div></td>
+          <td class="t-sub">${esc(m.proyecto)}</td>
+          <td class="tnum">${esc(m.ultimo || 'Nunca')}</td>
+          <td><span class="state ${Number(m.dias_sin) >= 7 || m.dias_sin === null ? 'bad' : 'warn'}">${m.dias_sin === null ? 'Sin registros' : fmt(m.dias_sin) + ' días'}</span></td>
+        </tr>`).join('');
+    }
+
+    function pintarCriticosCompleto() {
+      const q = ($('critSearch').value || '').toLowerCase();
+      const filas = criticos().filter((m) =>
+        ((m.nombre || '') + ' ' + (m.cedula || '') + ' ' + (m.proyecto || '')).toLowerCase().includes(q));
+      $('critFullEmpty').classList.toggle('hidden', filas.length > 0);
+      $('critFullRows').innerHTML = filas.map((m, i) => `
+        <tr>
+          <td><span class="rank ${i < 3 ? 'low' : ''}">${i + 1}</span></td>
+          <td><b>${esc(m.nombre)}</b></td>
+          <td class="tnum">${esc(m.cedula)}</td>
+          <td class="t-sub">${esc(m.proyecto)}</td>
+          <td class="tnum">${esc(m.ultimo || 'Nunca')}</td>
+          <td><span class="state ${Number(m.dias_sin) >= 7 || m.dias_sin === null ? 'bad' : 'warn'}">${m.dias_sin === null ? 'Sin registros' : fmt(m.dias_sin) + ' días'}</span></td>
+        </tr>`).join('');
+      $('gPend').textContent = fmt(personasResumen().pendientes);
     }
 
     function pintarTendencias(r) {
@@ -719,11 +1119,14 @@
       tendencia('tDone', r.realizadas, a.realizadas, false, false);
       tendencia('tRate', r.porcentaje, a.porcentaje, false, true);
       tendencia('tMiss', r.no_realizadas, a.no_realizadas, true, false);
-      tendencia('tAlert', r.con_alerta, a.con_alerta, true, false);
+      // El KPI de pendientes cuenta personas, pero la comparación es de registros:
+      // se aclara para que nadie lea dos cosas distintas como si fueran una.
+      $('tMiss').title = 'Compara los registros que faltaron, no la cantidad de personas.';
     }
 
     function tendencia(id, actual, anterior, inverso, puntos) {
-      const el = $(id), ac = Number(actual || 0), an = Number(anterior || 0);
+      const el = $(id); if (!el) return;
+      const ac = Number(actual || 0), an = Number(anterior || 0);
       let delta = puntos ? ac - an : (an ? (ac - an) * 100 / an : (ac ? 100 : 0));
       const sube = delta > 0.049, baja = delta < -0.049;
       const favorable = inverso ? baja : sube;
@@ -751,6 +1154,8 @@
     /* ============ GRÁFICAS (canvas con tooltip) ============ */
     const hits = {};
     function pintarGraficas() {
+      pintarProyBarras();
+      pintarTendenciaDiaria();
       linea('cDaily', data.por_dia || [], (d) => String(d.fecha).slice(5), (d) => d.realizadas, C.verde,
         (d) => [fmt(d.realizadas) + ' registros'].concat(d.con_alerta ? [fmt(d.con_alerta) + ' con novedad'] : []));
       barras('cMonthly', (data.por_mes || []), (d) => MESES[+String(d.mes).split('-')[1] - 1].slice(0, 3), (d) => d.realizadas, C.oscuro,
@@ -876,6 +1281,109 @@
       x.textAlign = 'left';
     }
 
+    // Barras horizontales de cumplimiento, de menor a mayor, con la línea de meta.
+    function pintarProyBarras() {
+      const arr = (data.por_proyecto || []).slice()
+        .filter((p) => Number(p.esperadas || 0) > 0)
+        .sort((a, b) => Number(a.porcentaje || 0) - Number(b.porcentaje || 0))
+        .slice(0, 12);
+      $('projBarsEmpty').classList.toggle('hidden', arr.length > 0);
+      const b = base('cProjBars'); if (!b) return; const { x, w, h } = b;
+      if (!arr.length) return sinDatos(x, w, h);
+      const meta = metaActual();
+      const lw = Math.min(150, w * .36), rw = 50, plot = Math.max(w - lw - rw, 40);
+      const pieDeGrafica = 18, alto = h - pieDeGrafica;
+      const gap = alto / arr.length, bh = Math.min(gap - 8, 22);
+      const escala = (v) => plot * Math.max(0, Math.min(100, Number(v || 0))) / 100;
+
+      arr.forEach((d, i) => {
+        const y = i * gap + (gap - bh) / 2;
+        const est = MAPA_ESTADO[d.estado] || estadoDe(d.porcentaje, d.esperadas);
+        x.fillStyle = '#e2ebe7'; redondo(x, lw, y, plot, bh, 5); x.fill();
+        const bw = Math.max(escala(d.porcentaje), 3);
+        x.fillStyle = COL_ESTADO[est]; redondo(x, lw, y, bw, bh, 5); x.fill();
+        x.fillStyle = '#2f4139'; x.font = '600 10.5px "Segoe UI"'; x.textAlign = 'right';
+        x.fillText(String(d.proyecto || '').slice(0, 20), lw - 8, y + bh / 2 + 3.5);
+        x.textAlign = 'left'; x.font = '800 11px "Segoe UI"'; x.fillStyle = COL_ESTADO[est];
+        x.fillText(pct(d.porcentaje), lw + plot + 8, y + bh / 2 + 3.5);
+        hits.cProjBars.push({ x: lw, y: y, w: plot, h: bh, t: String(d.proyecto || ''),
+          l: [fmt(d.realizadas) + ' de ' + fmt(d.esperadas) + ' esperados',
+              fmt(d.no_realizadas) + ' pendientes · ' + fmt(d.activos) + ' activos',
+              TXT_ESTADO[est] + ' frente a la meta de ' + meta + '%'],
+          proyecto: d.proyecto });
+      });
+
+      // La meta, encima de las barras para que se lea de un vistazo.
+      const mx = Math.round(lw + escala(meta)) + .5;
+      x.save(); x.setLineDash([4, 4]); x.strokeStyle = '#33453e'; x.lineWidth = 1.4;
+      x.beginPath(); x.moveTo(mx, 0); x.lineTo(mx, alto); x.stroke(); x.restore();
+      x.fillStyle = '#33453e'; x.font = '800 10px "Segoe UI"'; x.textAlign = 'center';
+      x.fillText('Meta ' + meta + '%', mx, h - 5); x.textAlign = 'left';
+    }
+
+    // Cumplimiento diario. Si la base todavía no envía lo esperado por día,
+    // se muestran los registros para no inventar un porcentaje.
+    function pintarTendenciaDiaria() {
+      const dias = Number(($('trendDays') || {}).value || 7);
+      // La serie de cumplimiento incluye los días exigibles en los que nadie
+      // registró; la de registros solo trae los días con actividad.
+      const conCumplimiento = (data.por_dia_cumplimiento || []).length > 0;
+      const serie = (conCumplimiento ? data.por_dia_cumplimiento : (data.por_dia || [])).slice(-dias);
+      const hayEsperadas = conCumplimiento
+        && serie.some((d) => d.esperadas !== undefined && d.esperadas !== null);
+      const meta = metaActual();
+      if (hayEsperadas) {
+        $('trendNote').textContent = `Porcentaje de cumplimiento de los últimos ${dias} días laborales. La línea punteada es la meta.`;
+        lineaMeta('cTrend', serie, (d) => String(d.fecha).slice(5),
+          (d) => Number(d.esperadas) > 0 ? Math.round(Number(d.realizadas) * 1000 / Number(d.esperadas)) / 10 : 0,
+          meta, (d) => [fmt(d.realizadas) + ' de ' + fmt(d.esperadas) + ' esperados']);
+      } else {
+        $('trendNote').innerHTML = `Registros por día de los últimos ${dias} días con actividad. `
+          + `<b>Para ver el porcentaje diario falta ejecutar <code>db/por_dia_esperadas.sql</code>.</b>`;
+        linea('cTrend', serie, (d) => String(d.fecha).slice(5), (d) => d.realizadas, C.verde,
+          (d) => [fmt(d.realizadas) + ' registros'].concat(d.con_alerta ? [fmt(d.con_alerta) + ' con novedad'] : []));
+      }
+    }
+
+    // Línea en escala 0-100 con la meta marcada.
+    function lineaMeta(id, arr, etq, val, meta, det) {
+      const b = base(id); if (!b) return; const { x, w, h } = b;
+      if (!arr.length) return sinDatos(x, w, h);
+      const p = { l: 42, r: 14, t: 14, b: 32 };
+      const iw = w - p.l - p.r, ih = h - p.t - p.b;
+      x.fillStyle = '#e9f0ed'; x.fillRect(p.l, p.t, iw, ih);
+      x.strokeStyle = '#d3e2db'; x.lineWidth = 1; x.fillStyle = '#5c7269';
+      x.font = '600 10.5px "Segoe UI"'; x.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const y = Math.round(p.t + ih * i / 4) + .5;
+        x.beginPath(); x.moveTo(p.l, y); x.lineTo(w - p.r, y); x.stroke();
+        x.fillText((100 - i * 25) + '%', p.l - 7, y + 3.5);
+      }
+      x.textAlign = 'left';
+      const px = (i) => p.l + (arr.length > 1 ? i * iw / (arr.length - 1) : iw / 2);
+      const py = (v) => p.t + ih * (1 - Math.max(0, Math.min(100, Number(v || 0))) / 100);
+      // Meta
+      const my = Math.round(py(meta)) + .5;
+      x.save(); x.setLineDash([5, 4]); x.strokeStyle = '#33453e'; x.lineWidth = 1.4;
+      x.beginPath(); x.moveTo(p.l, my); x.lineTo(w - p.r, my); x.stroke(); x.restore();
+      x.fillStyle = '#33453e'; x.font = '800 10px "Segoe UI"';
+      x.fillText('Meta ' + meta + '%', p.l + 6, my - 5);
+      // Serie
+      x.beginPath(); x.strokeStyle = C.verde; x.lineWidth = 2.4; x.lineJoin = 'round';
+      arr.forEach((d, i) => { const a = px(i), c2 = py(val(d)); i ? x.lineTo(a, c2) : x.moveTo(a, c2); });
+      x.stroke();
+      arr.forEach((d, i) => {
+        const a = px(i), c2 = py(val(d)), est = estadoDe(val(d), 1);
+        x.fillStyle = '#fff'; x.beginPath(); x.arc(a, c2, 3.8, 0, 7); x.fill();
+        x.strokeStyle = COL_ESTADO[est]; x.lineWidth = 2; x.stroke();
+        hits[id].push({ cx: a, cy: c2, r: 14, t: etq(d), l: [pct(val(d)) + ' de cumplimiento'].concat(det ? det(d) : []) });
+      });
+      x.fillStyle = '#5c7269'; x.font = '10.5px "Segoe UI"'; x.textAlign = 'center';
+      const salto = Math.max(1, Math.ceil(arr.length / 9));
+      arr.forEach((d, i) => { if (i % salto === 0) x.fillText(etq(d), px(i), h - 11); });
+      x.textAlign = 'left';
+    }
+
     function barrasH(id, arr, etq, val, color, det) {
       const b = base(id); if (!b) return; const { x, w, h } = b;
       if (!arr.length) return sinDatos(x, w, h);
@@ -894,7 +1402,7 @@
       });
     }
 
-    ['cDaily','cMonthly','cProjects','cDow','cHour','cJefe','cLider','cCoord'].forEach((id) => {
+    ['cDaily','cMonthly','cProjects','cDow','cHour','cJefe','cLider','cCoord','cProjBars','cTrend'].forEach((id) => {
       const c = $(id); if (!c) return;
       c.addEventListener('mousemove', (ev) => {
         const rc = c.getBoundingClientRect(), mx = ev.clientX - rc.left, my = ev.clientY - rc.top;
@@ -912,6 +1420,17 @@
       });
       c.addEventListener('mouseleave', () => $('tip').classList.remove('show'));
     });
+
+    // Tocar una barra de cumplimiento filtra el dashboard por ese proyecto.
+    (function clicEnProyectos() {
+      const c = $('cProjBars'); if (!c) return;
+      c.addEventListener('click', (ev) => {
+        const rc = c.getBoundingClientRect(), mx = ev.clientX - rc.left, my = ev.clientY - rc.top;
+        const it = (hits.cProjBars || []).find((o) =>
+          mx >= o.x && mx <= o.x + o.w && my >= o.y - 8 && my <= o.y + o.h + 8);
+        if (it && it.proyecto) aplicarFiltroDesdeFila('fProject', it.proyecto);
+      });
+    })();
 
     /* ============ TABLAS ============ */
     function pintarFormularios() {
@@ -1169,10 +1688,19 @@
       const vencidos = alertas.filter((a) => a.estado === 'VENCIDO').length;
       const proximos = alertas.filter((a) => a.estado === 'PRÓXIMO A VENCER').length;
       const sinFecha = alertas.filter((a) => a.estado === 'SIN FECHA').length;
+      // Un canvas dentro de una sección oculta mide cero y sale en blanco:
+      // se muestran todas un instante, se dibujan y se deja como estaba.
+      const secciones = [...document.querySelectorAll('.section')];
+      const visible = secciones.find((x) => x.classList.contains('active'));
+      secciones.forEach((x) => x.classList.add('active'));
+      pintarGraficas();
+      secciones.forEach((x) => x.classList.remove('active'));
+      if (visible) visible.classList.add('active');
+
       const graficas = [
+        ['Cumplimiento por proyecto', imagenCanvas('cProjBars')],
+        ['Tendencia de cumplimiento', imagenCanvas('cTrend')],
         ['Comportamiento por día', imagenCanvas('cDaily')],
-        ['Tendencia mensual', imagenCanvas('cMonthly')],
-        ['Cumplimiento por proyecto', imagenCanvas('cProjects')],
         ['Cumplimiento de colaboradores', imagenCanvas('cPeople')],
       ].filter((g) => g[1]);
       const proyectos = (data.por_proyecto || []).slice(0, 12);
