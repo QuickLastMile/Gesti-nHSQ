@@ -69,14 +69,15 @@ create index if not exists idx_colab_ced_norm  on colaboradores ((regexp_replace
 -- 3) Código del proyecto a partir del nombre
 --    (el inverso de nombre_proyecto, que ya existe)
 -- ------------------------------------------------------------
-create or replace function codigo_proyecto(nombre text)
+drop function if exists codigo_proyecto(text);
+create function codigo_proyecto(p_nombre text)
 returns text language sql stable set search_path = public as $fn$
   select c.proyecto_id
     from colaboradores c
-   where btrim(coalesce(nombre,'')) <> ''
+   where btrim(coalesce(p_nombre,'')) <> ''
      and coalesce(c.proyecto_id,'') <> ''
      and sin_tildes(regexp_replace(btrim(coalesce(c.proyecto,'')), '\s+', ' ', 'g'))
-       = sin_tildes(regexp_replace(btrim(coalesce(nombre,'')),      '\s+', ' ', 'g'))
+       = sin_tildes(regexp_replace(btrim(coalesce(p_nombre,'')),      '\s+', ' ', 'g'))
    -- Ante varios CECOs con el mismo nombre, manda el que tiene encargados.
    order by (exists (select 1 from responsables_proyecto r
                       where r.proyecto_id = c.proyecto_id and r.frente = '')) desc,
@@ -159,19 +160,20 @@ $fn$;
 -- 5) ¿Esta persona está a cargo del encargado seleccionado?
 --    Se usa en cumplimiento, dashboard y exportable.
 -- ------------------------------------------------------------
-create or replace function en_alcance(tipo text, nombre text, ced text)
+drop function if exists en_alcance(text, text, text);
+create function en_alcance(p_tipo text, p_encargado text, p_cedula text)
 returns boolean language sql stable set search_path = public as $fn$
-  select coalesce(btrim(nombre), '') = ''
+  select coalesce(btrim(p_encargado), '') = ''
       or exists (
         select 1 from colaboradores c
-         where regexp_replace(c.cedula, '\D', '', 'g') = regexp_replace(coalesce(ced, ''), '\D', '', 'g')
+         where regexp_replace(c.cedula, '\D', '', 'g') = regexp_replace(coalesce(p_cedula, ''), '\D', '', 'g')
            and sin_tildes(btrim(coalesce(
-                 case upper(btrim(coalesce(tipo, '')))
+                 case upper(btrim(coalesce(p_tipo, '')))
                    when 'LIDER'       then c.enc_lider
                    when 'COORDINADOR' then c.enc_coordinador
                    else c.enc_jefatura
                  end, '')))
-             = sin_tildes(btrim(nombre))
+             = sin_tildes(btrim(p_encargado))
       );
 $fn$;
 
