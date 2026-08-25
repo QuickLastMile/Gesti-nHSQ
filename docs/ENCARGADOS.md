@@ -66,11 +66,38 @@ coordinador propio de la persona
 Jefatura y líder siguen la misma lógica pero sin el nivel de persona: si el
 frente tiene jefe propio manda ese, si no, el del proyecto.
 
+## Proyectos sin CECO
+
+El CECO es la llave de todo: sin él una persona no puede tener jefe, líder ni
+coordinador. Por eso:
+
+- La **carga masiva rechaza** cualquier fila que no traiga CECO y dice cuántas
+  rechazó y por qué. Sin código no hay a qué proyecto engancharla, y aceptarla
+  crearía proyectos duplicados.
+- El **ingreso provisional exige** que el proyecto exista en la matriz, y guarda
+  su CECO. Antes no lo hacía: quien entraba por ahí quedaba sin encargados y
+  aparecía en una fila fantasma sin código.
+- Si aun así queda alguien sin CECO, la lista lo muestra aparte, marcado y sin
+  posibilidad de editar, con la instrucción de corregirlo en la matriz.
+
 ## Traslados
 
 Si alguien está **trasladado** a otra operación, sus encargados son los del
 proyecto **donde está laborando**, no los de su proyecto de nómina. Es la misma
 regla que ya aplica para exigirle y contarle el cumplimiento.
+
+## Quién queda sin coordinador
+
+El contador de la lista (*N sin coordinador*) cuenta personas, no frentes. Un
+proyecto con todos sus frentes completos puede tener gente sin coordinador si
+alguien **no está asignado a ningún frente**.
+
+Para encontrarlos: abre el proyecto y usa el filtro de la lista de personas —
+*Solo las que no tienen frente* o *Solo las que no tienen coordinador*.
+
+Un caso que confunde: alguien **prestado a otro proyecto** responde a los
+encargados del proyecto donde labora, no a los del suyo de nómina. La lista de
+personas lo marca con 🔄 y dice de dónde viene.
 
 ## Actualizaciones de matriz
 

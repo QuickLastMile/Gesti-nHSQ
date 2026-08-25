@@ -296,6 +296,12 @@
               <input id="encPersonaBuscar" autocomplete="off" placeholder="Buscar por nombre, cédula o ciudad…">
               <button id="encPersonaLimpiar" class="btn btn--ghost btn--icon" type="button" title="Limpiar">✕</button>
             </div>
+            <select id="encPersonaFiltro" style="margin-top:10px">
+              <option value="todos">Todas las personas</option>
+              <option value="sin_frente">Solo las que no tienen frente</option>
+              <option value="sin_coord">Solo las que no tienen coordinador</option>
+              <option value="trasladados">Solo las trasladadas de otro proyecto</option>
+            </select>
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
               <button id="encSelTodos" class="btn btn--ghost" type="button" style="min-height:40px">Marcar todos</button>
               <button id="encSelNinguno" class="btn btn--ghost" type="button" style="min-height:40px">Desmarcar</button>
@@ -864,6 +870,7 @@
     $('encGuardarFrente').addEventListener('click', () => guardarFrente());
     $('encAplicar').addEventListener('click', aplicarAsignacion);
     $('encPersonaBuscar').addEventListener('input', pintarPersonas);
+    $('encPersonaFiltro').addEventListener('change', pintarPersonas);
     $('encPersonaLimpiar').addEventListener('click', () => { $('encPersonaBuscar').value = ''; pintarPersonas(); });
     $('encSelTodos').addEventListener('click', () => marcarVisibles(true));
     $('encSelNinguno').addEventListener('click', () => marcarVisibles(false));
@@ -927,18 +934,33 @@
         return;
       }
       $('encLista').innerHTML = resumen + lista.map((p, i) => {
+        // Sin CECO no hay forma de asignarle encargados: se marca aparte.
+        if (p.sin_ceco) {
+          return `
+        <div class="checkitem pending" style="width:100%;text-align:left">
+          <span class="checkitem__body">
+            <span class="checkitem__title">\u26a0\ufe0f ${esc(p.proyecto || '(sin nombre)')}</span>
+            <span class="checkitem__status"><b>Sin CECO</b> \u00b7 ${p.activos} activo(s) \u00b7
+              No se le pueden asignar encargados hasta que esas personas tengan proyecto con c\u00f3digo.
+              Revisa la matriz o vuelve a crear el ingreso provisional eligiendo el proyecto de la lista.</span>
+          </span>
+        </div>`;
+        }
         const completo = p.jefatura && p.lider && !p.sin_coordinador;
         const partes = [];
         partes.push('Jefe: ' + (p.jefatura || '\u2014'));
         partes.push('L\u00edder: ' + (p.lider || '\u2014'));
         if ((p.frentes || []).length) partes.push((p.frentes || []).length + ' frente(s)');
         else partes.push('Coord.: ' + (p.coordinador || '\u2014'));
-        const pend = p.sin_coordinador ? ` \u00b7 \u26a0\ufe0f ${p.sin_coordinador} sin coordinador` : '';
+        const pend = p.sin_coordinador
+          ? ` \u00b7 \u26a0\ufe0f ${p.sin_coordinador} sin coordinador`
+            + (p.sin_frente ? ` (${p.sin_frente} sin frente)` : '')
+          : '';
         return `
         <button type="button" class="checkitem ${completo ? 'done' : 'pending'}" data-p="${i}" style="width:100%;text-align:left">
           <span class="checkitem__body">
             <span class="checkitem__title">${esc(p.proyecto || '(sin nombre)')}</span>
-            <span class="checkitem__status">CECO ${esc(p.proyecto_id || '\u2014')} \u00b7 ${p.activos} activo(s) \u00b7 ${esc(partes.join(' \u00b7 '))}${pend}</span>
+            <span class="checkitem__status">CECO ${esc(p.proyecto_id)} \u00b7 ${p.activos} activo(s) \u00b7 ${esc(partes.join(' \u00b7 '))}${pend}</span>
           </span>
           <span class="checkitem__chev"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </button>`;
@@ -980,20 +1002,27 @@
         return t;
       };
       const acumulado = new Map();   // CECO -> fila
-      let leidas = 0, saltadas = 0;
+      let leidas = 0, saltadas = 0, sinCeco = [];
 
       texto.split(/\r?\n/).forEach((linea) => {
         if (!linea.trim()) return;
         const col = partirLinea(linea).map((c) => c.trim());
         const ceco = (col[0] || '').trim();
-        // Fila de titulos o basura
-        if (!ceco || /^ceco$/i.test(ceco) || /jefatura/i.test(col.join(' ')) && /ceco/i.test(ceco)) { saltadas++; return; }
+        // Fila de titulos
         if (/^(ceco|codigo|c\u00f3digo)$/i.test(ceco)) { saltadas++; return; }
+        // Trae datos pero no trae c\u00f3digo: se rechaza y se dice por qu\u00e9.
+        if (!ceco) {
+          if (col.slice(1).some((c) => c)) sinCeco.push(linea.trim().slice(0, 60));
+          else saltadas++;
+          return;
+        }
         let cliente = '', jefatura = '', lider = '';
         if (col.length >= 4) { cliente = limpiar(col[1]); jefatura = limpiar(col[2]); lider = limpiar(col[3]); }
         else if (col.length === 3) { jefatura = limpiar(col[1]); lider = limpiar(col[2]); }
         else if (col.length === 2) { jefatura = limpiar(col[1]); }
         else { saltadas++; return; }
+        // Sin CECO no hay a qu\u00e9 proyecto enganchar la fila: se rechaza.
+        if (!/^[A-Za-z0-9_\-]+$/.test(ceco)) { sinCeco.push(linea.trim().slice(0, 60)); return; }
         leidas++;
         // Un valor vacio nunca pisa uno que ya venia lleno en una fila anterior.
         const ya = acumulado.get(ceco) || { proyecto_id: ceco, cliente: '', jefatura: '', lider: '' };
@@ -1011,10 +1040,17 @@
       }
       const sinNadie = encFilas.filter((f) => !f.jefatura && !f.lider).length;
       setStatus('encCargaStatus',
-        `${leidas} fila(s) le\u00eddas \u00b7 ${encFilas.length} proyecto(s) distintos` +
-        (sinNadie ? ` \u00b7 ${sinNadie} quedar\u00e1n sin jefe ni l\u00edder` : '') +
-        (saltadas ? ` \u00b7 ${saltadas} l\u00ednea(s) ignoradas` : ''), 'ok');
+        `${leidas} fila(s) le\u00eddas \u00b7 ${encFilas.length} proyecto(s) distintos`
+        + (sinNadie ? ` \u00b7 ${sinNadie} quedar\u00e1n sin jefe ni l\u00edder` : '')
+        + (saltadas ? ` \u00b7 ${saltadas} l\u00ednea(s) ignoradas` : '')
+        + (sinCeco.length ? ` \u00b7 ${sinCeco.length} rechazada(s) por no traer CECO` : ''),
+        sinCeco.length ? 'warn' : 'ok');
       $('encPreview').innerHTML =
+        (sinCeco.length
+          ? `<p class="hint-inline" style="margin:0 0 10px;color:var(--danger,#b3261e)">
+               <b>${sinCeco.length} fila(s) rechazadas por no traer CECO.</b> Sin c\u00f3digo no hay a qu\u00e9 proyecto
+               engancharlas y crear\u00edan proyectos duplicados. Ejemplo: <i>${esc(sinCeco[0])}</i></p>`
+          : '') +
         '<p class="hint-inline" style="margin:0 0 8px">Primeras filas de lo que se va a guardar:</p>' +
         encFilas.slice(0, 8).map((f) => `<div class="checkitem" style="width:100%">
           <span class="checkitem__body">
@@ -1031,8 +1067,9 @@
       try {
         const r = await adminCall('cargarEncargados', { filas: encFilas });
         setStatus('encCargaStatus',
-          `\u2713 ${r.mensaje} ` +
-          `Quedan ${r.proyectos_sin_jefe} proyecto(s) con gente activa sin jefe y ${r.proyectos_sin_lider} sin l\u00edder.`, 'ok');
+          `\u2713 ${r.mensaje} `
+          + (r.ignorados ? `${r.ignorados} fila(s) sin CECO no se guardaron. ` : '')
+          + `Quedan ${r.proyectos_sin_jefe} proyecto(s) con gente activa sin jefe y ${r.proyectos_sin_lider} sin l\u00edder.`, 'ok');
         $('encPreview').innerHTML = '';
         encFilas = [];
         await cargarEncargados();
@@ -1151,7 +1188,10 @@
 
     async function cargarPersonas() {
       try {
-        encPersonas = await adminCall('personasProyecto', { proyecto_id: $('e_pid').value });
+        encPersonas = await adminCall('personasProyecto', {
+          proyecto_id: $('e_pid').value,
+          proyecto: (encProy && encProy.proyecto) || '',
+        });
       } catch (err) {
         encPersonas = [];
         setStatus('encAsigStatus', err.message, 'error');
@@ -1164,22 +1204,34 @@
 
     function pintarPersonas() {
       const q = $('encPersonaBuscar').value.trim().toLowerCase();
-      const lista = encPersonas.filter((x) =>
-        !q || (x.nombre + ' ' + x.cedula + ' ' + x.ciudad + ' ' + x.frente).toLowerCase().includes(q));
+      const modo = $('encPersonaFiltro').value;
+      const lista = encPersonas.filter((x) => {
+        if (modo === 'sin_frente' && (x.frente || '')) return false;
+        if (modo === 'sin_coord' && (x.coordinador || '')) return false;
+        if (modo === 'trasladados' && !x.trasladado) return false;
+        return !q || (x.nombre + ' ' + x.cedula + ' ' + x.ciudad + ' ' + x.frente).toLowerCase().includes(q);
+      });
+      const faltan = encPersonas.filter((x) => !(x.coordinador || '')).length;
+      const aviso = faltan
+        ? `<p class="hint-inline" style="margin:0 0 8px"><b>\u26a0\ufe0f ${faltan} persona(s) sin coordinador.</b>
+             Usa el filtro de arriba para verlas y asignarles un frente.</p>`
+        : '';
       if (!lista.length) {
-        $('encPersonas').innerHTML = '<p class="hint-inline">Sin personas activas para mostrar.</p>';
+        $('encPersonas').innerHTML = aviso + '<p class="hint-inline">Nadie cumple ese filtro.</p>';
         return;
       }
-      $('encPersonas').innerHTML =
+      $('encPersonas').innerHTML = aviso +
         `<p class="hint-inline" style="margin:0 0 8px">${lista.length} de ${encPersonas.length} persona(s)</p>` +
         lista.map((x) => {
           const propio = x.coordinador_propio ? ' (propio)' : '';
-          return `<label class="checkitem" style="width:100%;cursor:pointer">
+          // Un trasladado responde aqui, pero su nomina sigue en otro proyecto.
+          const traslado = x.trasladado ? ` \u00b7 \ud83d\udd04 en pr\u00e9stamo desde ${esc(x.proyecto_nomina || '')}` : '';
+          return `<label class="checkitem ${x.coordinador ? '' : 'pending'}" style="width:100%;cursor:pointer">
             <input type="checkbox" data-ced="${esc(x.cedula)}" data-ciudad="${esc(x.ciudad)}"
                    style="width:20px;height:20px;margin-right:10px">
             <span class="checkitem__body">
               <span class="checkitem__title">${esc(x.nombre)}</span>
-              <span class="checkitem__status">CC ${esc(x.cedula)} \u00b7 ${esc(x.ciudad || 'sin ciudad')} \u00b7 Frente: ${esc(x.frente || '\u2014')} \u00b7 Coord.: ${esc(x.coordinador || '\u2014')}${propio}</span>
+              <span class="checkitem__status">CC ${esc(x.cedula)} \u00b7 ${esc(x.ciudad || 'sin ciudad')} \u00b7 Frente: ${esc(x.frente || '\u2014')} \u00b7 Coord.: ${esc(x.coordinador || '\u2014')}${propio}${traslado}</span>
             </span>
           </label>`;
         }).join('');
