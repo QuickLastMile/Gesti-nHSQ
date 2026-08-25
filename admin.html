@@ -259,34 +259,28 @@
                 <input id="e_jefatura" list="encJefes" autocomplete="off" style="text-transform:uppercase"></div>
               <div class="field"><span class="label">Líder</span>
                 <input id="e_lider" list="encLideres" autocomplete="off" style="text-transform:uppercase"></div>
-              <div class="field" style="grid-column:1/-1"><span class="label">Coordinador (si el proyecto tiene uno solo)</span>
-                <input id="e_coordinador" list="encCoords" autocomplete="off" style="text-transform:uppercase"
-                  placeholder="Déjalo vacío si el proyecto se divide en frentes"></div>
             </div>
             <datalist id="encJefes"></datalist>
             <datalist id="encLideres"></datalist>
             <datalist id="encCoords"></datalist>
             <button id="encGuardarProyecto" class="btn btn--primary btn--block" type="button" style="margin-top:12px">
-              Guardar encargados del proyecto
+              Guardar jefe y líder
             </button>
             <div id="encProyStatus" class="status" aria-live="polite"></div>
 
             <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
-            <p class="label" style="margin-top:0">Frentes (cuando hay varios coordinadores)</p>
+            <p class="label" style="margin-top:0">Coordinación</p>
             <p class="hint-inline" style="margin:4px 0 10px">
-              Un frente es una parte del proyecto: por ciudad, por ruta o por turno. Cada frente tiene su
-              coordinador y cada persona pertenece a uno. <b>No crea proyectos nuevos ni toca la nómina.</b>
-              Un proyecto sin frentes sigue funcionando igual que hoy.
+              Si el proyecto tiene <b>un solo coordinador</b>, escríbelo y listo. Si tiene varios,
+              usa <b>Agregar otro coordinador</b> y dale un nombre a cada parte — por ciudad, por ruta
+              o por turno. Cada persona pertenece a una. <b>No crea proyectos nuevos ni toca la nómina.</b>
             </p>
-            <div id="encFrentes"></div>
-            <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr;margin-top:10px">
-              <div class="field"><span class="label">Nombre del frente</span>
-                <input id="e_frente" autocomplete="off" placeholder="Ej: BOGOTÁ" style="text-transform:uppercase"></div>
-              <div class="field"><span class="label">Coordinador del frente</span>
-                <input id="e_frente_coord" list="encCoords" autocomplete="off" style="text-transform:uppercase"></div>
-            </div>
-            <button id="encGuardarFrente" class="btn btn--dark btn--block" type="button" style="margin-top:10px">
-              Guardar frente
+            <div id="encCoordLista"></div>
+            <button id="encAgregarCoord" class="btn btn--ghost btn--block" type="button" style="margin-top:10px">
+              + Agregar otro coordinador
+            </button>
+            <button id="encGuardarCoords" class="btn btn--dark btn--block" type="button" style="margin-top:10px">
+              Guardar coordinación
             </button>
             <div id="encFrenteStatus" class="status" aria-live="polite"></div>
 
@@ -867,7 +861,8 @@
     $('encVerHuerfanos').addEventListener('click', verHuerfanos);
     $('encGuardarProyecto').addEventListener('click', guardarEncargadoProyecto);
     // Sin el envoltorio, el clic le llega a la funcion como si fueran los datos del frente.
-    $('encGuardarFrente').addEventListener('click', () => guardarFrente());
+    $('encAgregarCoord').addEventListener('click', agregarCoordinacion);
+    $('encGuardarCoords').addEventListener('click', guardarCoordinacion);
     $('encAplicar').addEventListener('click', aplicarAsignacion);
     $('encPersonaBuscar').addEventListener('input', pintarPersonas);
     $('encPersonaFiltro').addEventListener('change', pintarPersonas);
@@ -946,16 +941,22 @@
           </span>
         </div>`;
         }
-        const completo = p.jefatura && p.lider && !p.sin_coordinador;
+        // Configurado = tiene jefe, l\u00edder y al menos un coordinador definido.
+        // Que falte asignarle gente a un frente es tarea del d\u00eda a d\u00eda, no un
+        // problema de configuraci\u00f3n: no merece el mismo aviso.
+        const coords = (p.frentes || []).filter((f) => f.coordinador);
+        const hayCoordinacion = !!p.coordinador || coords.length > 0;
+        const completo = p.jefatura && p.lider && hayCoordinacion;
         const partes = [];
         partes.push('Jefe: ' + (p.jefatura || '\u2014'));
         partes.push('L\u00edder: ' + (p.lider || '\u2014'));
-        if ((p.frentes || []).length) partes.push((p.frentes || []).length + ' frente(s)');
-        else partes.push('Coord.: ' + (p.coordinador || '\u2014'));
-        const pend = p.sin_coordinador
-          ? ` \u00b7 \u26a0\ufe0f ${p.sin_coordinador} sin coordinador`
-            + (p.sin_frente ? ` (${p.sin_frente} sin frente)` : '')
-          : '';
+        if (coords.length > 1) partes.push(coords.length + ' coordinadores');
+        else partes.push('Coord.: ' + (p.coordinador || (coords[0] && coords[0].coordinador) || '\u2014'));
+        // El aviso solo cuando de verdad hay algo que revisar.
+        const revisar = !p.jefatura ? 'sin jefe' : (!p.lider ? 'sin l\u00edder' : (!hayCoordinacion ? 'sin coordinador' : ''));
+        const pend = revisar
+          ? ` \u00b7 \u26a0\ufe0f ${revisar}`
+          : (p.sin_coordinador ? ` \u00b7 ${p.sin_coordinador} por asignar` : '');
         return `
         <button type="button" class="checkitem ${completo ? 'done' : 'pending'}" data-p="${i}" style="width:100%;text-align:left">
           <span class="checkitem__body">
@@ -1086,48 +1087,137 @@
       $('encEditorTitulo').textContent = (p.proyecto || '(sin nombre)') + '  \u00b7  CECO ' + (p.proyecto_id || '\u2014');
       $('e_jefatura').value = p.jefatura || '';
       $('e_lider').value = p.lider || '';
-      $('e_coordinador').value = p.coordinador || '';
-      $('e_frente').value = '';
-      $('e_frente_coord').value = '';
       ['encProyStatus', 'encFrenteStatus', 'encAsigStatus'].forEach(clearStatus);
-      pintarFrentes();
+      pintarCoordinacion();
       $('encEditor').classList.remove('hidden');
       $('encEditor').scrollIntoView({ behavior: 'smooth', block: 'start' });
       await cargarPersonas();
     }
 
-    function pintarFrentes() {
-      const fr = (encProy && encProy.frentes) || [];
-      $('encFrentes').innerHTML = !fr.length
-        ? '<p class="hint-inline" style="margin:0">Este proyecto no tiene frentes: el coordinador de arriba cubre a todos.</p>'
-        : fr.map((f, i) => `<div class="checkitem" style="width:100%">
-            <span class="checkitem__body">
-              <span class="checkitem__title">${esc(f.frente)}</span>
-              <span class="checkitem__status">Coord.: ${esc(f.coordinador || '\u2014')} \u00b7 ${f.personas} persona(s)</span>
-            </span>
-            <span style="display:flex;gap:6px">
-              <button type="button" class="btn btn--ghost" style="min-height:36px;padding:0 10px" data-fedit="${i}">Editar</button>
-              <button type="button" class="btn btn--ghost" style="min-height:36px;padding:0 10px" data-fdel="${i}">Quitar</button>
-            </span>
-          </div>`).join('');
-      $('encFrentes').querySelectorAll('[data-fedit]').forEach((b) => b.addEventListener('click', () => {
-        const f = fr[b.dataset.fedit];
-        $('e_frente').value = f.frente;
-        $('e_frente_coord').value = f.coordinador || '';
-        $('e_frente').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }));
-      $('encFrentes').querySelectorAll('[data-fdel]').forEach((b) => b.addEventListener('click', () => {
-        const f = fr[b.dataset.fdel];
-        if (!confirm(`\u00bfQuitar el frente ${f.frente}? Sus ${f.personas} persona(s) vuelven al coordinador del proyecto.`)) return;
-        guardarFrente({ frente: f.frente, borrar: 'true' });
-      }));
-      // Selector de destino en la asignacion masiva
-      $('e_asig_frente').innerHTML = '<option value="__na__">\u2014 no cambiar \u2014</option>' +
-        '<option value="">Sin frente (todo el proyecto)</option>' +
-        fr.map((f) => `<option value="${esc(f.frente)}">${esc(f.frente)}</option>`).join('');
+    // Filas de coordinacion en pantalla: {frente, coordinador, personas, nueva}
+    let encCoordFilas = [];
+
+    function pintarCoordinacion() {
+      const p = encProy || {};
+      encCoordFilas = [];
+      // La fila del proyecto completo va siempre: es donde se pone el
+      // coordinador de quienes no quedaron en ninguna parte.
+      encCoordFilas.push({ frente: '', coordinador: p.coordinador || '', personas: p.sin_frente || 0, nueva: false });
+      (p.frentes || []).forEach((f) => encCoordFilas.push({
+        frente: f.frente, coordinador: f.coordinador || '', personas: f.personas || 0, nueva: false }));
+      dibujarCoordinacion();
     }
 
-    async function guardarEncargadoProyecto() {
+    function dibujarCoordinacion() {
+      const varios = encCoordFilas.length > 1;
+      $('encCoordLista').innerHTML = encCoordFilas.map((f, i) => {
+        const general = !f.frente && !f.nueva;
+        const etiqueta = general
+          ? (varios ? 'Los dem\u00e1s (sin parte asignada)' : 'Todo el proyecto')
+          : (f.nueva ? '' : f.frente);
+        return `<div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">
+          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr">
+            <div class="field"><span class="label">Parte del proyecto</span>
+              ${f.nueva
+                ? `<input data-cf="${i}" autocomplete="off" placeholder="Ej: BOGOT\u00c1" value="${esc(f.frente)}" style="text-transform:uppercase">`
+                : `<input value="${esc(etiqueta)}" disabled style="text-transform:uppercase">`}
+            </div>
+            <div class="field"><span class="label">Coordinador</span>
+              <input data-cc="${i}" list="encCoords" autocomplete="off" value="${esc(f.coordinador)}" style="text-transform:uppercase"></div>
+          </div>
+          <p class="hint-inline" style="margin:8px 0 0">
+            ${f.nueva ? 'Nueva. Ponle nombre a la parte y su coordinador.' : `${f.personas} persona(s) aqu\u00ed.`}
+            ${general ? '' : `<button type="button" class="btn btn--ghost" style="min-height:34px;padding:0 10px;margin-left:8px" data-cdel="${i}">Quitar</button>`}
+          </p>
+        </div>`;
+      }).join('');
+
+      $('encCoordLista').querySelectorAll('[data-cf]').forEach((el) =>
+        el.addEventListener('input', () => { encCoordFilas[el.dataset.cf].frente = el.value; }));
+      $('encCoordLista').querySelectorAll('[data-cc]').forEach((el) =>
+        el.addEventListener('input', () => { encCoordFilas[el.dataset.cc].coordinador = el.value; }));
+      $('encCoordLista').querySelectorAll('[data-cdel]').forEach((el) =>
+        el.addEventListener('click', () => quitarCoordinacion(Number(el.dataset.cdel))));
+
+      // El selector de asignaci\u00f3n masiva ofrece las partes ya guardadas.
+      const guardadas = encCoordFilas.filter((f) => !f.nueva && f.frente);
+      $('e_asig_frente').innerHTML = '<option value="__na__">\u2014 no cambiar \u2014</option>'
+        + '<option value="">Sin parte (todo el proyecto)</option>'
+        + guardadas.map((f) => `<option value="${esc(f.frente)}">${esc(f.frente)}</option>`).join('');
+    }
+
+    function quitarCoordinacion(i) {
+      const f = encCoordFilas[i];
+      if (f.nueva) { encCoordFilas.splice(i, 1); dibujarCoordinacion(); return; }
+      if (!confirm(`\u00bfQuitar "${f.frente}"? Sus ${f.personas} persona(s) quedan sin parte asignada `
+        + 'y pasan al coordinador de todo el proyecto.')) return;
+      guardarUnaCoordinacion({ frente: f.frente, borrar: 'true' });
+    }
+
+    function agregarCoordinacion() {
+      encCoordFilas.push({ frente: '', coordinador: '', personas: 0, nueva: true });
+      dibujarCoordinacion();
+      const ultimos = $('encCoordLista').querySelectorAll('[data-cf]');
+      if (ultimos.length) ultimos[ultimos.length - 1].focus();
+    }
+
+    async function guardarCoordinacion() {
+      if (!encProy) return;
+      const filas = encCoordFilas.map((f) => ({ ...f, frente: (f.frente || '').trim(), coordinador: (f.coordinador || '').trim() }));
+      // Con varias partes, cada una necesita nombre; y no pueden repetirse.
+      const conNombre = filas.filter((f) => f.frente);
+      const sinNombre = filas.filter((f) => !f.frente);
+      if (sinNombre.length > 1) {
+        return setStatus('encFrenteStatus', 'Solo una fila puede quedar sin nombre de parte. Ponle nombre a las dem\u00e1s.', 'error');
+      }
+      if (filas.length > 1 && filas.some((f) => f.nueva && !f.frente)) {
+        return setStatus('encFrenteStatus', 'Escribe el nombre de la parte nueva (ej: BOGOT\u00c1).', 'error');
+      }
+      const nombres = conNombre.map((f) => f.frente.toUpperCase());
+      if (new Set(nombres).size !== nombres.length) {
+        return setStatus('encFrenteStatus', 'Hay dos partes con el mismo nombre.', 'error');
+      }
+
+      $('encGuardarCoords').disabled = true;
+      setStatus('encFrenteStatus', 'Guardando\u2026', 'info');
+      try {
+        for (const f of filas) {
+          if (!f.frente) {
+            // El coordinador de todo el proyecto viaja junto al jefe y al l\u00edder.
+            await adminCall('guardarEncargado', {
+              proyecto_id: $('e_pid').value, frente: '',
+              cliente: encProy.cliente || '',
+              jefatura: $('e_jefatura').value.trim(),
+              lider: $('e_lider').value.trim(),
+              coordinador: f.coordinador,
+            });
+          } else {
+            await adminCall('guardarEncargado', {
+              proyecto_id: $('e_pid').value, frente: f.frente, coordinador: f.coordinador,
+            });
+          }
+        }
+        setStatus('encFrenteStatus', '\u2713 Coordinaci\u00f3n guardada.', 'ok');
+        await refrescarProyecto();
+      } catch (err) {
+        setStatus('encFrenteStatus', err.message, 'error');
+      } finally {
+        $('encGuardarCoords').disabled = false;
+      }
+    }
+
+    async function guardarUnaCoordinacion(datos) {
+      setStatus('encFrenteStatus', 'Guardando\u2026', 'info');
+      try {
+        const r = await adminCall('guardarEncargado', Object.assign({ proyecto_id: $('e_pid').value }, datos));
+        setStatus('encFrenteStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        await refrescarProyecto();
+      } catch (err) {
+        setStatus('encFrenteStatus', err.message, 'error');
+      }
+    }
+
+async function guardarEncargadoProyecto() {
       if (!encProy) return;
       $('encGuardarProyecto').disabled = true;
       setStatus('encProyStatus', 'Guardando\u2026', 'info');
@@ -1138,7 +1228,7 @@
           cliente: encProy.cliente || '',
           jefatura: $('e_jefatura').value.trim(),
           lider: $('e_lider').value.trim(),
-          coordinador: $('e_coordinador').value.trim(),
+          coordinador: (encCoordFilas.find((f) => !f.frente && !f.nueva) || {}).coordinador || '',
         });
         setStatus('encProyStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
         await refrescarProyecto();
@@ -1149,40 +1239,14 @@
       }
     }
 
-    async function guardarFrente(extra) {
-      if (!encProy) return;
-      const datos = extra || {
-        frente: $('e_frente').value.trim(),
-        coordinador: $('e_frente_coord').value.trim(),
-      };
-      if (!datos.frente) return setStatus('encFrenteStatus', 'Escribe el nombre del frente.', 'error');
-      $('encGuardarFrente').disabled = true;
-      setStatus('encFrenteStatus', 'Guardando\u2026', 'info');
-      try {
-        // El frente solo lleva su coordinador: el jefe y el lider los hereda
-        // del proyecto, para que al cambiarlos arriba cambien tambien aqui.
-        const r = await adminCall('guardarEncargado', Object.assign({
-          proyecto_id: $('e_pid').value,
-        }, datos));
-        setStatus('encFrenteStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
-        $('e_frente').value = '';
-        $('e_frente_coord').value = '';
-        await refrescarProyecto();
-      } catch (err) {
-        setStatus('encFrenteStatus', err.message, 'error');
-      } finally {
-        $('encGuardarFrente').disabled = false;
-      }
-    }
-
-    // Vuelve a leer todo y deja abierto el mismo proyecto.
+// Vuelve a leer todo y deja abierto el mismo proyecto.
     async function refrescarProyecto() {
       const pid = $('e_pid').value;
       encData = await adminCall('encargados', {});
       llenarSugerencias();
       pintarEncargados();
       encProy = (encData.proyectos || []).find((x) => x.proyecto_id === pid) || encProy;
-      pintarFrentes();
+      pintarCoordinacion();
       await cargarPersonas();
     }
 

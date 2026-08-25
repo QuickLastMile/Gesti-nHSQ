@@ -86,6 +86,31 @@ Si alguien está **trasladado** a otra operación, sus encargados son los del
 proyecto **donde está laborando**, no los de su proyecto de nómina. Es la misma
 regla que ya aplica para exigirle y contarle el cumplimiento.
 
+## Cómo se asignan los coordinadores
+
+En el editor del proyecto, **Coordinación** es un solo bloque:
+
+- Si el proyecto tiene **un solo coordinador**, lo escribes en la fila
+  *Todo el proyecto* y listo.
+- Si tiene **varios**, usa **+ Agregar otro coordinador** y ponle nombre a cada
+  parte — por ciudad, por ruta o por turno.
+- Con varias partes, la primera fila pasa a llamarse **Los demás (sin parte
+  asignada)**: es el coordinador de respaldo para quien todavía no esté en
+  ninguna. Llenarla es la forma rápida de dejar el proyecto sin pendientes.
+
+El nombre de una parte ya guardada **no se puede editar**: renombrarla dejaría
+huérfana a su gente. Si te equivocaste, quítala y créala de nuevo — su gente
+vuelve al coordinador de todo el proyecto.
+
+## Qué significa cada color
+
+- **Verde** — el proyecto está configurado: tiene jefe, líder y al menos un
+  coordinador.
+- **Ámbar con ⚠️** — falta configuración: no tiene jefe, o no tiene líder, o no
+  tiene ningún coordinador. Eso sí hay que revisarlo.
+- **N por asignar** (sin ⚠️) — el proyecto está bien configurado, solo falta
+  meter a N personas en una parte. Es trabajo del día a día, no un error.
+
 ## Quién queda sin coordinador
 
 El contador de la lista (*N sin coordinador*) cuenta personas, no frentes. Un
