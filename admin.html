@@ -148,6 +148,7 @@
           <div class="adm-group">
             <p class="adm-group__title">Colaboradores</p>
           <button class="adm-link on" type="button" data-v="colaboradores" aria-label="Buscar y editar"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="8" r="3.4"/><path d="M4 20a7 7 0 0 1 14 0"/><path d="m17 4 2 2 3-3"/></svg></span><span>Buscar y editar</span></button>
+          <button class="adm-link" type="button" data-v="matriz" aria-label="Actualizar matriz"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg></span><span>Actualizar matriz</span></button>
           <button class="adm-link" type="button" data-v="provisional" aria-label="Ingreso provisional"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3.4"/><path d="M3 20a7 7 0 0 1 12.2-4.7"/><path d="M18 14v6M15 17h6"/></svg></span><span>Ingreso provisional</span></button>
           </div>
           <div class="adm-group">
@@ -271,6 +272,35 @@
       </div>
 
       <!-- ============ CALENDARIO Y METAS ============ -->
+      <!-- ============ ACTUALIZAR MATRIZ ============ -->
+      <div id="v-matriz" class="view hidden">
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <p class="card__title">Actualizar matriz de activos</p>
+              <p class="card__sub">Se pega el export de nómina completo desde Excel</p>
+            </div>
+          </div>
+          <div class="card__body">
+            <p id="matrizInfo" class="hint-inline" style="margin-top:0"><b>Última actualización:</b> —</p>
+            <p class="hint-inline">
+              Pega el <b>export de nómina completo</b> (con su fila de títulos: <i>ClientId, ClientName, State…</i>).
+              La app <b>conserva las placas</b>, las observaciones, el frente y el coordinador propio;
+              <b>inactiva</b> a quien ya no aparezca (con nota y fecha) y <b>agrega</b> los nuevos.
+            </p>
+            <div class="field" style="margin-top:12px">
+              <span class="label">Datos de la matriz</span>
+              <textarea id="matrizData" placeholder="Copia el rango desde Excel (incluye la fila de títulos) y pégalo aquí…" style="min-height:150px"></textarea>
+            </div>
+            <button id="btnMatriz" class="btn btn--dark btn--block" type="button" style="margin-top:10px">
+              Actualizar matriz
+            </button>
+            <div id="matrizResult" class="hidden" style="margin-top:12px"></div>
+            <div id="matrizStatus" class="status" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+
       <div id="v-provisional" class="view hidden">
       <section class="card">
         <div class="card__head">
@@ -539,6 +569,7 @@
     /* ---------- Navegación lateral ---------- */
     const SECCIONES = {
       colaboradores: ['Colaboradores', 'Buscar, editar y trasladar'],
+      matriz: ['Actualizar matriz de activos', 'La nómina manda: quién entra, quién sale'],
       provisional: ['Ingreso provisional', 'Para quien todavía no aparece en la nómina'],
       encargados: ['Proyectos y encargados', 'Quién responde por cada operación'],
       'encargados-carga': ['Cargar tabla de encargados', 'Se pega tal cual desde Excel; la llave es el CECO'],
@@ -560,6 +591,7 @@
       $('vSub').textContent = t[1];
       window.scrollTo({ top: 0, behavior: 'smooth' });
       // Cada sección carga sus datos la primera vez que se abre.
+      if (clave === 'matriz') cargarMatrizInfo();
       if (clave === 'calendario' && !calData) cargarCalendario();
       if (clave === 'formularios' && !frmData) cargarFormulariosProyecto();
       if ((clave === 'encargados' || clave === 'encargados-carga') && !encData) cargarEncargados();
@@ -1458,7 +1490,7 @@
       }
     }
 
-async function guardarEncargadoProyecto() {
+    async function guardarEncargadoProyecto() {
       if (!encProy) return;
       $('encGuardarProyecto').disabled = true;
       setStatus('encProyStatus', 'Guardando\u2026', 'info');
@@ -1568,6 +1600,52 @@ async function guardarEncargadoProyecto() {
         setStatus('encAsigStatus', err.message, 'error');
       } finally {
         $('encAplicar').disabled = false;
+      }
+    }
+
+    /* ================= ACTUALIZAR MATRIZ ================= */
+    // Vive aquí y no en Coordinador: cambiar la nómina es tarea de HSQ.
+    $('btnMatriz').addEventListener('click', actualizarMatriz);
+
+    async function cargarMatrizInfo() {
+      try {
+        const info = await adminCall('getMatrizInfo', {});
+        $('matrizInfo').innerHTML = '<b>\u00daltima actualizaci\u00f3n:</b> '
+          + (info.ultimaActualizacion ? esc(info.ultimaActualizacion) : 'sin registro');
+      } catch (e) { /* si falla, queda el guion */ }
+    }
+
+    async function actualizarMatriz() {
+      const data = $('matrizData').value;
+      if (!data.trim()) return setStatus('matrizStatus', 'Pega los datos de la matriz primero.', 'error');
+      if (!confirm('Se actualizar\u00e1 la matriz: se inactivar\u00e1 a quien NO aparezca en estos datos y se '
+        + 'agregar\u00e1n los nuevos. Las placas, el frente y el coordinador propio se conservan.\n\n\u00bfContinuar?')) return;
+
+      $('btnMatriz').disabled = true;
+      $('matrizResult').classList.add('hidden');
+      setStatus('matrizStatus', 'Actualizando matriz\u2026 puede tardar unos segundos.', 'info');
+      try {
+        const r = await adminCall('actualizarMatriz', { data });
+        $('matrizResult').classList.remove('hidden');
+        $('matrizResult').innerHTML = `
+          <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
+            ${[['Actualizados', r.actualizados], ['Nuevos', r.nuevos], ['Inactivados', r.inactivados],
+               ['En los datos', r.totalEnData]].map(([t, v]) =>
+              `<div style="border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:#fff">
+                 <span class="label" style="font-size:10.5px">${t}</span>
+                 <b style="display:block;font-size:20px;margin-top:5px">${v}</b>
+               </div>`).join('')}
+          </div>`;
+        setStatus('matrizStatus', '\u2713 Matriz actualizada el ' + r.fecha + '.', 'ok');
+        $('matrizData').value = '';
+        cargarMatrizInfo();
+        // Los encargados se recalculan solos, pero el resumen hay que releerlo.
+        cargarEncargados();
+        cargarProyectos();
+      } catch (err) {
+        setStatus('matrizStatus', err.message, 'error');
+      } finally {
+        $('btnMatriz').disabled = false;
       }
     }
 

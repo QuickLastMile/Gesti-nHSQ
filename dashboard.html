@@ -1079,7 +1079,7 @@
       return (data.inactividad || []).slice();
     }
 
-function pintarCriticosCompleto() {
+    function pintarCriticosCompleto() {
       const q = ($('critSearch').value || '').toLowerCase();
       const filas = criticos().filter((m) =>
         ((m.nombre || '') + ' ' + (m.cedula || '') + ' ' + (m.proyecto || '')).toLowerCase().includes(q));
