@@ -175,27 +175,40 @@ coordinador ya no alcanza para actualizar la matriz.
 
 ## Scripts
 
-Ejecutar en Supabase → SQL Editor, **en este orden**. Todos se pueden volver a
-ejecutar sin problema.
+Todos se pueden volver a ejecutar sin problema, **pero el orden importa**: varios
+redefinen las mismas funciones, y correrlos al revés deshace lo corregido sin
+avisar — el script dice "Success" igual.
 
 | # | Script | Para qué |
 |---|---|---|
-| 1 | `db/URGENTE_permisos_routers.sql` | Devuelve el control de acceso de `hseq_api` y `hseq_admin`, y habilita la actualización de matriz desde Administración. |
-| 2 | `db/encargados_por_proyecto.sql` | Tablas, columnas, resolución de encargados y funciones del panel. |
-| 3 | `db/HOTFIX_recalcular_encargados.sql` | El `UPDATE` sin `WHERE` que Supabase bloquea. |
-| 4 | `db/filtro_encargado_v2.sql` | Cumplimiento, dashboard y exportable aceptan los filtros por encargado. |
+| 1 | `db/encargados_por_proyecto.sql` | Base: tablas, columnas, resolución de encargados y funciones del panel. |
+| 2 | `db/HOTFIX_recalcular_encargados.sql` | El `UPDATE` sin `WHERE` que Supabase bloquea. |
+| 3 | `db/filtro_encargado_v2.sql` | Cumplimiento, dashboard y exportable aceptan los filtros por encargado. |
+| 4 | `db/por_dia_esperadas.sql` | *Opcional.* Habilita el % diario en la tendencia del dashboard. |
 | 5 | `db/FIX_parametro_nombre.sql` | El parámetro `nombre` chocaba con la columna `nombre` y ningún traslado enlazaba. |
 | 6 | `db/FIX_encargados_ceco.sql` | Ingresos provisionales sin CECO y conteo por el proyecto donde se labora. |
-| 7 | `db/por_dia_esperadas.sql` | *Opcional.* Habilita el % diario en la tendencia del dashboard. |
+| 7 | `db/URGENTE_permisos_routers.sql` | Control de acceso de los routers, matriz desde Administración y asignación masiva de coordinador. |
 
 `db/DIAGNOSTICO_hoya.sql` no modifica nada: sirve para ver quién quedó sin CECO
 o sin coordinador y por qué.
 
-### El primero es de seguridad
+### Por qué ese orden
+
+Cada script pisa lo que define. Los choques reales:
+
+- **El 1 redefine los dos routers**, además de `codigo_proyecto`, `en_alcance`,
+  `calc_encargados`, `admin_encargados`, `admin_personas_proyecto` y
+  `admin_cargar_encargados`. Correrlo después del 5, 6 o 7 deshace esas
+  correcciones. Va siempre de primero.
+- **El 7 es la autoridad de los routers** y de `admin_cargar_encargados`. Va
+  siempre de último.
+- El 4 redefine `api_dashboard`, así que va después del 3.
+
+### El 7 es de seguridad
 
 Al reescribir los routers para agregarles las acciones de encargados se perdió la
 validación de rol que ambos traían. `hseq_api` está concedido a `anon` — la llave
 pública que va en `assets/config.js` —, así que sin esa validación cualquiera con
 la llave podía llamar `generarExportable`, `getDashboard`, `anularRegistro` o
-`actualizarMatriz`. El script 1 lo cierra y verifica el resultado: al final debe
+`actualizarMatriz`. El script 7 lo cierra y verifica el resultado: al final debe
 imprimir **`protegido`** en las dos filas.
