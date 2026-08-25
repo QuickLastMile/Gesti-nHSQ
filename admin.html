@@ -9,20 +9,34 @@
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
-    .adm-side{position:sticky;top:16px;background:#fff;border:1px solid var(--line);border-radius:16px;
-      padding:14px 12px;box-shadow:0 1px 2px rgba(9,44,33,.05)}
-    .adm-group+.adm-group{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
-    .adm-group__title{margin:0 0 8px;padding:0 8px;font-size:10.5px;font-weight:800;letter-spacing:.9px;
-      text-transform:uppercase;color:var(--muted,#688077)}
+    /* La barra lleva el color de la marca: ancla la pantalla y no la deja tan blanca. */
+    .adm-side{position:sticky;top:16px;border-radius:16px;padding:16px 12px;color:#dfeee7;
+      background:linear-gradient(168deg,#0d3b2a,#12563c 60%,#0b3324);
+      box-shadow:0 10px 26px -18px rgba(9,44,33,.75);display:flex;flex-direction:column}
+    .adm-group+.adm-group{margin-top:14px;padding-top:13px;border-top:1px solid rgba(255,255,255,.13)}
+    .adm-group__title{margin:0 0 7px;padding:0 8px;font-size:10px;font-weight:800;letter-spacing:1px;
+      text-transform:uppercase;color:#93b8a7}
     .adm-link{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;
-      color:var(--brand,#0f6a4f);border-radius:10px;padding:10px 10px;text-align:left;font:inherit;
-      font-weight:650;font-size:13.5px;cursor:pointer;transition:.15s}
-    .adm-link:hover{background:#eef4f1}
-    .adm-link.on{background:#e3f0ea;color:#07382b;box-shadow:inset 3px 0 0 #b8d43f}
-    .adm-link .ic{width:18px;height:18px;flex:0 0 18px;display:grid;place-items:center}
-    .adm-link .ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;
+      color:#cfe3da;border-radius:9px;padding:9px 10px;text-align:left;font:inherit;
+      font-weight:650;font-size:13px;cursor:pointer;transition:.15s}
+    .adm-link:hover{background:rgba(255,255,255,.09);color:#fff}
+    .adm-link.on{background:rgba(184,212,63,.17);color:#fff;box-shadow:inset 3px 0 0 #b8d43f}
+    .adm-link .ic{width:17px;height:17px;flex:0 0 17px;display:grid;place-items:center;opacity:.9}
+    .adm-link .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;
       stroke-linecap:round;stroke-linejoin:round}
-    .adm-link .cuenta{margin-left:auto;font-size:11px;font-weight:800;color:#b57611}
+    .adm-link .cuenta{margin-left:auto;font-size:11px;font-weight:800;color:#ffd27a}
+    .adm-side .btn--ghost{background:rgba(255,255,255,.09);color:#dfeee7;border-color:rgba(255,255,255,.2)}
+    .adm-side .btn--ghost:hover{background:rgba(255,255,255,.16)}
+
+    /* El espacio que sobraba abajo ahora dice como va la operacion. */
+    .adm-resumen{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,.13);display:grid;gap:7px}
+    .adm-stat{display:flex;align-items:center;justify-content:space-between;gap:10px;
+      background:rgba(255,255,255,.07);border-radius:10px;padding:8px 11px}
+    .adm-stat span{font-size:11px;line-height:1.3;color:#a9c9ba}
+    .adm-stat b{font-size:16px;font-weight:800;color:#fff;line-height:1}
+    .adm-stat.warn b{color:#ffd27a}
+    .adm-stat.bad b{color:#ff9d94}
+    .adm-stat.ok b{color:#c9ef6a}
     .adm-main{min-width:0}
     .adm-head{margin:0 0 14px}
     .adm-head h2{margin:0;font-size:21px;letter-spacing:-.4px}
@@ -42,11 +56,51 @@
     .adm-subtab:hover{color:#07382b}
     .adm-subtab.on{background:#fff;color:#07382b;box-shadow:0 1px 2px rgba(9,44,33,.08)}
 
+
+    /* Administracion se usa en escritorio: los controles no necesitan
+       la altura pensada para el celular del mensajero. */
+    .adm{--tap:42px}
+    .adm .card__body{padding:14px}
+    .adm .card__head{padding:13px 14px}
+    .adm .card__title{font-size:14.5px}
+    .adm .card__sub{font-size:11.5px}
+    .adm .field > .label{font-size:11px}
+    .adm .field + .field{margin-top:12px}
+    .adm input,.adm select,.adm textarea{padding:9px 12px;font-size:13.5px;border-width:1px}
+    .adm textarea{min-height:80px}
+    .adm .btn{font-size:13.5px}
+    .adm .hint-inline{font-size:12px;line-height:1.5}
+
+    /* Filas de proyecto: una linea de titulo y una de datos, sin desperdicio. */
+    .adm .checkitem{position:relative;overflow:hidden;padding:8px 12px 8px 15px;gap:10px;
+      min-height:0;border-width:1px;margin-bottom:8px}
+    .adm .checkitem:before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent}
+    .adm .checkitem.done:before{background:#13905c}
+    .adm .checkitem.pending:before{background:#c98a12}
+    .adm .checkitem__body{min-width:0}
+    /* Titulo y datos en una linea cada uno: la fila mide siempre lo mismo y
+       no se dispara a tres renglones con los nombres largos de proyecto. */
+    .adm .checkitem__title{font-size:13.5px;line-height:1.25;white-space:nowrap;
+      overflow:hidden;text-overflow:ellipsis}
+    .adm .checkitem__status{font-size:12px;line-height:1.45}
+    .adm .checkitem__chev svg{width:17px;height:17px}
+    .adm .rowchip{flex:0 0 auto;font-size:10.5px;font-weight:800;border-radius:999px;
+      padding:4px 9px;white-space:nowrap;background:#eef2f0;color:#5c7367}
+    .adm .rowchip.aviso{background:#fdf2df;color:#a8710e}
+    .adm .meta{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      margin-top:1px;font-size:11.5px;line-height:1.35;color:var(--muted)}
+    .adm .meta > span{margin-right:9px}
+    .adm .meta i{font-style:normal;color:#7d9488}
+    .adm .meta b{color:var(--brand);font-weight:700}
+    .adm .meta .aviso{color:#a8710e;font-weight:800}
+    .adm .meta .suave{color:#7d9488}
+
     @media (max-width:880px){
       .adm{grid-template-columns:1fr}
       .adm-side{position:static}
       .adm-side .adm-group{display:flex;flex-wrap:wrap;gap:6px}
       .adm-side .adm-group__title{width:100%}
+      .adm-resumen{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
     }
   </style>
 </head>
@@ -109,6 +163,7 @@
           <div class="adm-group">
             <button id="btnSalir" class="btn btn--ghost btn--block" type="button">Salir</button>
           </div>
+          <div class="adm-resumen" id="admResumen"></div>
         </aside>
 
         <div class="adm-main">
@@ -579,6 +634,8 @@
       $('loginCard').classList.add('hidden');
       $('panel').classList.remove('hidden');
       cargarProyectos();
+      // El resumen de la barra se alimenta de aquí, así que se pide de entrada.
+      if (!encData) cargarEncargados();
     }
 
     // ---------- Ingreso provisional ----------
@@ -1037,6 +1094,27 @@
       $('encCoords').innerHTML = opts(coords);
     }
 
+    // Resumen de la barra: lo que hay, lo que falta y lo que sobra.
+    function pintarResumenLateral() {
+      const proys = (encData.proyectos || []).filter((p) => p.activos);
+      const porConfigurar = proys.filter((p) => {
+        if (p.sin_ceco) return true;
+        const hayCoord = !!p.coordinador || (p.frentes || []).some((f) => f.coordinador);
+        return !p.jefatura || !p.lider || !hayCoord;
+      }).length;
+      const sinCoord = proys.reduce((a, p) => a + Number(p.sin_coordinador || 0), 0);
+      const huerfanos = (encData.huerfanos || []).length;
+      const filas = [
+        { n: proys.length, txt: 'proyectos con gente activa', tono: '' },
+        { n: proys.length - porConfigurar, txt: 'ya configurados', tono: 'ok' },
+        { n: porConfigurar, txt: 'por configurar', tono: porConfigurar ? 'bad' : 'ok' },
+        { n: sinCoord, txt: 'personas por asignar a un coordinador', tono: sinCoord ? 'warn' : 'ok' },
+      ];
+      if (huerfanos) filas.push({ n: huerfanos, txt: 'CECOs cargados sin gente hoy', tono: '' });
+      $('admResumen').innerHTML = filas.map((f) =>
+        `<div class="adm-stat ${f.tono}"><span>${esc(f.txt)}</span><b>${f.n}</b></div>`).join('');
+    }
+
     // Solo cuenta lo que de verdad falta configurar, no la gente por asignar.
     function pintarPendientesMenu() {
       const faltan = (encData.proyectos || []).filter((p) => {
@@ -1066,6 +1144,7 @@
     function pintarEncargados() {
       if (!encData) return;
       pintarPendientesMenu();
+      pintarResumenLateral();
       const lista = proyectosFiltrados();
       const totalSinJefe = (encData.proyectos || []).filter((p) => p.activos && !p.jefatura).length;
       const resumen = `<p class="hint-inline" style="margin:0 0 10px">${lista.length} proyecto(s)` +
@@ -1100,15 +1179,27 @@
         else partes.push('Coord.: ' + (p.coordinador || (coords[0] && coords[0].coordinador) || '\u2014'));
         // El aviso solo cuando de verdad hay algo que revisar.
         const revisar = !p.jefatura ? 'sin jefe' : (!p.lider ? 'sin l\u00edder' : (!hayCoordinacion ? 'sin coordinador' : ''));
-        const pend = revisar
-          ? ` \u00b7 \u26a0\ufe0f ${revisar}`
-          : (p.sin_coordinador ? ` \u00b7 ${p.sin_coordinador} por asignar` : '');
+        // Los datos van como piezas sueltas: caben en una linea y bajan bien.
+        const meta = [
+          `<i>CECO</i> <b>${esc(p.proyecto_id)}</b>`,
+          `<b>${p.activos}</b> <i>activo(s)</i>`,
+        ].concat(partes.map((t) => {
+          const c = t.indexOf(': ');
+          return c < 0 ? `<span class="suave">${esc(t)}</span>`
+                       : `<i>${esc(t.slice(0, c))}:</i> <b>${esc(t.slice(c + 2))}</b>`;
+        }));
+        // El aviso sale del flujo de datos y se ancla a la derecha.
+        const chip = revisar
+          ? `<span class="rowchip aviso">\u26a0\ufe0f ${esc(revisar)}</span>`
+          : (p.sin_coordinador ? `<span class="rowchip">${p.sin_coordinador} por asignar</span>` : '');
+        const nombre = p.proyecto || '(sin nombre)';
         return `
         <button type="button" class="checkitem ${completo ? 'done' : 'pending'}" data-p="${i}" style="width:100%;text-align:left">
           <span class="checkitem__body">
-            <span class="checkitem__title">${esc(p.proyecto || '(sin nombre)')}</span>
-            <span class="checkitem__status">CECO ${esc(p.proyecto_id)} \u00b7 ${p.activos} activo(s) \u00b7 ${esc(partes.join(' \u00b7 '))}${pend}</span>
+            <span class="checkitem__title" title="${esc(nombre)}">${esc(nombre)}</span>
+            <span class="meta">${meta.map((m) => `<span>${m}</span>`).join('')}</span>
           </span>
+          ${chip}
           <span class="checkitem__chev"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </button>`;
       }).join('');
