@@ -184,6 +184,85 @@ end;
 $fn$;
 
 -- ------------------------------------------------------------
+-- 1.d) Quitar la configuracion de encargados de un proyecto
+--      El proyecto en si no se borra: sale de la matriz de nomina.
+--      Lo que se borra es lo que se configuro aqui.
+-- ------------------------------------------------------------
+create or replace function admin_guardar_encargado(payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $fn$
+declare
+  pid  text := btrim(coalesce(payload->>'proyecto_id',''));
+  fr   text := btrim(coalesce(payload->>'frente',''));
+  n    int;
+begin
+  if pid = '' then raise exception 'Falta el codigo del proyecto (CECO).'; end if;
+
+  -- Borra TODA la configuracion del proyecto: la general y sus partes.
+  if coalesce(payload->>'borrar_proyecto','') = 'true' then
+    delete from responsables_proyecto where proyecto_id = pid;
+    update colaboradores set frente = null, actualizado_en = now()
+      where ceco_efectivo(proyecto_id, proyecto_operativo) = pid
+        and coalesce(btrim(frente),'') <> '';
+    perform recalcular_encargados();
+    insert into historial (tipo, cedula, detalle)
+    values ('ENCARGADOS', null, 'Se quito la configuracion de encargados del CECO ' || pid || '.');
+    return jsonb_build_object('mensaje',
+      'Listo. El proyecto queda sin jefe, sin lider y sin coordinador. Puedes volver a configurarlo cuando quieras.');
+  end if;
+
+  if coalesce(payload->>'borrar','') = 'true' then
+    if fr = '' then raise exception 'Para quitar todo el proyecto usa la opcion de eliminar configuracion.'; end if;
+    delete from responsables_proyecto where proyecto_id = pid and frente = fr;
+    update colaboradores set frente = null
+      where ceco_efectivo(proyecto_id, proyecto_operativo) = pid and btrim(coalesce(frente,'')) = fr;
+    perform recalcular_encargados();
+    return jsonb_build_object('mensaje', 'Parte eliminada. Su gente vuelve al coordinador del proyecto.');
+  end if;
+
+  insert into responsables_proyecto (proyecto_id, frente, cliente, jefatura, lider, coordinador, actualizado_en)
+  values (pid, fr,
+          nullif(btrim(coalesce(payload->>'cliente','')),''),
+          nullif(upper(btrim(coalesce(payload->>'jefatura',''))),''),
+          nullif(upper(btrim(coalesce(payload->>'lider',''))),''),
+          nullif(upper(btrim(coalesce(payload->>'coordinador',''))),''),
+          now())
+  on conflict (proyecto_id, frente) do update set
+    cliente     = coalesce(excluded.cliente, responsables_proyecto.cliente),
+    jefatura    = excluded.jefatura,
+    lider       = excluded.lider,
+    coordinador = excluded.coordinador,
+    actualizado_en = now();
+
+  perform recalcular_encargados();
+  select count(*) into n from colaboradores c
+    where c.activo and ceco_efectivo(c.proyecto_id, c.proyecto_operativo) = pid;
+
+  return jsonb_build_object('mensaje',
+    'Guardado. Cubre ' || n || ' persona(s) de este proyecto'
+    || case when fr <> '' then ' en la parte ' || fr else '' end || '.');
+end;
+$fn$;
+
+-- Los CECOs cargados que nunca tuvieron gente tambien se pueden quitar.
+create or replace function admin_borrar_huerfano(payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $fn$
+declare pid text := btrim(coalesce(payload->>'proyecto_id',''));
+begin
+  if pid = '' then raise exception 'Falta el codigo del proyecto (CECO).'; end if;
+  if exists (select 1 from colaboradores where ceco_efectivo(proyecto_id, proyecto_operativo) = pid) then
+    raise exception 'Ese CECO si tiene gente en la matriz. Usa la opcion del proyecto, no esta.';
+  end if;
+  delete from responsables_proyecto where proyecto_id = pid;
+  insert into historial (tipo, cedula, detalle)
+  values ('ENCARGADOS', null, 'Se elimino el CECO cargado ' || pid || ', que no tenia gente.');
+  return jsonb_build_object('mensaje', 'CECO ' || pid || ' eliminado de la tabla de encargados.');
+end;
+$fn$;
+
+revoke all on function admin_borrar_huerfano(jsonb) from public, anon;
+grant execute on function admin_borrar_huerfano(jsonb) to authenticated;
+
+-- ------------------------------------------------------------
 -- 2) Router de administración: solo HSQ
 --    Incluye la actualización de matriz, que se muda aquí desde
 --    la pantalla de coordinadores.
@@ -219,6 +298,7 @@ begin
     when 'personasProyecto'          then result := admin_personas_proyecto(payload);
     when 'asignarFrente'             then result := admin_asignar_frente(payload);
     when 'coordinadorMasivo'         then result := admin_coordinador_masivo(payload);
+    when 'borrarHuerfano'            then result := admin_borrar_huerfano(payload);
     when 'listaEncargados'           then result := api_lista_encargados();
     -- Nuevas: la matriz se actualiza desde Administración.
     when 'actualizarMatriz'          then result := api_actualizar_matriz(payload);

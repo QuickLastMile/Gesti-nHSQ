@@ -402,6 +402,7 @@
                 <option value="todos">Todos los proyectos</option>
                 <option value="sin_jefe">Sin jefe o sin líder</option>
                 <option value="sin_coord">Sin coordinador</option>
+                <option value="sin_gente">Sin gente activa (hist\u00f3ricos)</option>
               </select>
               <button id="encVerHuerfanos" class="btn btn--ghost" type="button">Ver CECOs sin proyecto</button>
             </div>
@@ -512,6 +513,17 @@
             </button>
             <div id="encAsigStatus" class="status" aria-live="polite"></div>
             </div><!-- /sub-gente -->
+
+            <div style="border-top:1px solid var(--line);margin:18px 0 12px"></div>
+            <p class="hint-inline" style="margin:0 0 10px">
+              <b>El proyecto no se puede borrar:</b> existe porque hay gente suya en la matriz de n\u00f3mina.
+              Lo que s\u00ed puedes quitar es lo que configuraste aqu\u00ed \u2014 jefe, l\u00edder, coordinadores y partes \u2014
+              si lo cargaste por error. Se puede volver a configurar cuando quieras.
+            </p>
+            <button id="encBorrarConfig" class="btn btn--ghost btn--block" type="button">
+              Quitar los encargados de este proyecto
+            </button>
+            <div id="encBorrarStatus" class="status" aria-live="polite"></div>
           </div>
         </section>
         </div>
@@ -1115,6 +1127,7 @@
     $('encVerHuerfanos').addEventListener('click', verHuerfanos);
     $('encGuardarProyecto').addEventListener('click', guardarEncargadoProyecto);
     // Sin el envoltorio, el clic le llega a la funcion como si fueran los datos del frente.
+    $('encBorrarConfig').addEventListener('click', quitarConfiguracionProyecto);
     $('encAgregarCoord').addEventListener('click', agregarCoordinacion);
     $('encGuardarCoords').addEventListener('click', guardarCoordinacion);
     $('encAplicar').addEventListener('click', aplicarAsignacion);
@@ -1251,8 +1264,11 @@
       const modo = $('encFiltro').value;
       return (encData.proyectos || []).filter((p) => {
         if (modo === 'con_gente' && !p.activos) return false;
-        if (modo === 'sin_jefe' && p.jefatura && p.lider) return false;
-        if (modo === 'sin_coord' && !p.sin_coordinador) return false;
+        if (modo === 'sin_gente' && p.activos) return false;
+        // "Sin jefe" y "sin coordinador" son listas de trabajo: un proyecto sin
+        // gente activa no es un pendiente, es historia.
+        if (modo === 'sin_jefe' && (!p.activos || (p.jefatura && p.lider))) return false;
+        if (modo === 'sin_coord' && (!p.activos || !p.sin_coordinador)) return false;
         if (!q) return true;
         return [p.proyecto, p.proyecto_id, p.cliente, p.jefatura, p.lider, p.coordinador]
           .join(' ').toLowerCase().includes(q);
@@ -1265,8 +1281,10 @@
       pintarResumenLateral();
       const lista = proyectosFiltrados();
       const totalSinJefe = (encData.proyectos || []).filter((p) => p.activos && !p.jefatura).length;
+      const historicos = (encData.proyectos || []).filter((p) => !p.activos).length;
       const resumen = `<p class="hint-inline" style="margin:0 0 10px">${lista.length} proyecto(s)` +
-        (totalSinJefe ? ` \u00b7 <b>${totalSinJefe}</b> con gente activa y sin jefe asignado` : '') + '</p>';
+        (totalSinJefe ? ` \u00b7 <b>${totalSinJefe}</b> con gente activa y sin jefe asignado` : '') +
+        (historicos ? ` \u00b7 ${historicos} sin gente activa` : '') + '</p>';
       if (!lista.length) {
         $('encLista').innerHTML = resumen + '<p class="hint-inline">Nada que mostrar con este filtro.</p>';
         return;
@@ -1297,11 +1315,13 @@
         if (coords.length > 1) partes.push(coords.length + ' coordinadores');
         else partes.push('Coord.: ' + (p.coordinador || (coords[0] && coords[0].coordinador) || '\u2014'));
         // El aviso solo cuando de verdad hay algo que revisar.
-        const revisar = !p.jefatura ? 'sin jefe' : (!p.lider ? 'sin l\u00edder' : (!hayCoordinacion ? 'sin coordinador' : ''));
+        const revisar = !p.activos ? ''
+          : (!p.jefatura ? 'sin jefe' : (!p.lider ? 'sin l\u00edder' : (!hayCoordinacion ? 'sin coordinador' : '')));
         // Los datos van como piezas sueltas: caben en una linea y bajan bien.
         const meta = [
           `<i>CECO</i> <b>${esc(p.proyecto_id)}</b>`,
-          `<b>${p.activos}</b> <i>activo(s)</i>`,
+          p.activos ? `<b>${p.activos}</b> <i>activo(s)</i>`
+                    : `<span class="suave">sin gente activa</span>`,
         ].concat(partes.map((t) => {
           const c = t.indexOf(': ');
           return c < 0 ? `<span class="suave">${esc(t)}</span>`
@@ -1357,7 +1377,27 @@
           <span class="checkitem__body">
             <span class="checkitem__title">CECO ${esc(x.proyecto_id)}</span>
             <span class="checkitem__status">${esc(x.cliente || '\u2014')} \u00b7 ${esc(x.jefatura || 'sin jefe')} / ${esc(x.lider || 'sin l\u00edder')}</span>
-          </span></div>`).join('');
+          </span>
+          <button type="button" class="btn btn--ghost" style="min-height:34px;padding:0 10px"
+                  data-huerfano="${esc(x.proyecto_id)}">Eliminar</button>
+        </div>`).join('');
+      $('encLista').querySelectorAll('[data-huerfano]').forEach((b) => {
+        b.addEventListener('click', () => borrarHuerfano(b.dataset.huerfano));
+      });
+    }
+
+    async function borrarHuerfano(pid) {
+      if (!confirm(`\u00bfEliminar el CECO ${pid} de la tabla de encargados?\n\n`
+        + 'Solo se puede porque no tiene a nadie en la matriz.')) return;
+      setStatus('encStatus', 'Eliminando\u2026', 'info');
+      try {
+        const r = await adminCall('borrarHuerfano', { proyecto_id: pid });
+        await cargarEncargados();
+        verHuerfanos();
+        setStatus('encStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+      } catch (err) {
+        setStatus('encStatus', err.message, 'error');
+      }
     }
 
     /* ---------- Carga masiva ---------- */
@@ -1583,6 +1623,26 @@
         setStatus('encFrenteStatus', err.message, 'error');
       } finally {
         $('encGuardarCoords').disabled = false;
+      }
+    }
+
+    async function quitarConfiguracionProyecto() {
+      if (!encProy) return;
+      if (!confirm(`\u00bfQuitar jefe, l\u00edder y coordinadores de "${encProy.proyecto}"?\n\n`
+        + 'El proyecto y su gente NO se borran: solo se limpia lo que configuraste aqu\u00ed.')) return;
+      $('encBorrarConfig').disabled = true;
+      setStatus('encBorrarStatus', 'Quitando\u2026', 'info');
+      try {
+        const r = await adminCall('guardarEncargado', {
+          proyecto_id: $('e_pid').value, borrar_proyecto: 'true',
+        });
+        mostrarListaProyectos();
+        await cargarEncargados();
+        setStatus('encStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+      } catch (err) {
+        setStatus('encBorrarStatus', err.message, 'error');
+      } finally {
+        $('encBorrarConfig').disabled = false;
       }
     }
 

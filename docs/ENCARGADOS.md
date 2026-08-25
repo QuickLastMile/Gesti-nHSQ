@@ -136,6 +136,30 @@ confirmación previa.
 - **N por asignar** (sin ⚠️) — el proyecto está bien configurado, solo falta
   meter a N personas en una parte. Es trabajo del día a día, no un error.
 
+## Proyectos sin gente activa
+
+Un proyecto con **0 activos** sigue existiendo porque tiene colaboradores en la
+matriz, todos inactivos: es una operación cerrada. No es un pendiente, así que
+**no aparece** en los filtros de trabajo *Sin jefe o sin líder* ni *Sin
+coordinador*, y tampoco lleva el aviso ⚠️. Para verlos está el filtro
+*Sin gente activa (históricos)*.
+
+## Qué se puede borrar y qué no
+
+**El proyecto no se puede borrar.** No existe como registro propio: aparece
+porque hay gente suya en la matriz de nómina. Borrarlo sería borrar
+colaboradores, y eso no se toca desde aquí.
+
+Lo que sí se puede quitar:
+
+- **La configuración de encargados de un proyecto** — jefe, líder, coordinadores
+  y partes. Está al final del editor, en *Quién responde*. Útil si lo cargaste
+  por error. La gente y el proyecto quedan intactos, y se puede volver a
+  configurar cuando quieras.
+- **Un CECO cargado que nunca tuvo gente** — botón *Eliminar* en la lista de
+  *Ver CECOs sin proyecto*. La base rechaza el borrado si resulta que sí tiene
+  gente, para que no se vaya por delante algo que sí se usa.
+
 ## Quién queda sin coordinador
 
 El contador de la lista (*N sin coordinador*) cuenta personas, no frentes. Un
