@@ -102,6 +102,31 @@ El nombre de una parte ya guardada **no se puede editar**: renombrarla dejaría
 huérfana a su gente. Si te equivocaste, quítala y créala de nuevo — su gente
 vuelve al coordinador de todo el proyecto.
 
+## Un coordinador con muchos proyectos
+
+Dos caminos, según el momento:
+
+**Carga inicial — quinta columna.** En *Encargados → Cargar tabla*, agrega una
+columna `COORDINADOR` a la derecha de `LÍDER`. Se carga junto con el jefe y el
+líder, así que un solo pegado deja todo listo. Es lo más rápido cuando vas a
+armar el mapa completo desde Excel.
+
+**Día a día — asignación múltiple.** En *Encargados → Proyectos*, botón
+**Asignar un coordinador a varios proyectos**. Busca o filtra, pulsa *Marcar los
+visibles*, escribe el nombre una vez y aplica.
+
+El atajo real está en combinar el buscador con *Marcar los visibles*: buscar
+`cafam` deja solo esos proyectos, y un clic los marca todos. Veinte proyectos en
+un movimiento.
+
+Solo cambia el coordinador: el jefe y el líder de cada proyecto se conservan. En
+los proyectos divididos en partes, el coordinador que asignas así queda como
+**respaldo** — cubre a quien no esté en ninguna parte, sin reemplazar a los
+coordinadores de cada una. El mensaje de confirmación te dice en cuántos pasó eso.
+
+Dejar el nombre vacío **quita** el coordinador de los proyectos marcados, con
+confirmación previa.
+
 ## Qué significa cada color
 
 - **Verde** — el proyecto está configurado: tiene jefe, líder y al menos un

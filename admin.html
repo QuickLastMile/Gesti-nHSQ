@@ -48,6 +48,13 @@
       font-weight:700;font-size:13px;cursor:pointer;margin-bottom:12px}
     .adm-back:hover{background:#eef4f1}
 
+    /* Barra de asignacion masiva */
+    .barra-sel{display:grid;gap:10px;margin-top:10px;padding:12px 13px;border-radius:12px;
+      background:#e8f1ec;border:1px solid #c6ddd1}
+    .barra-sel > b{font-size:13px;color:#0d3b2a}
+    .barra-sel__acciones{display:flex;gap:8px;flex-wrap:wrap}
+    .barra-sel__acciones .btn{flex:1;min-width:120px}
+
     /* Subpestanas dentro de una ficha */
     .adm-subtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;padding:4px;
       background:#eef4f1;border-radius:12px}
@@ -352,6 +359,8 @@
               Copia de tu archivo las columnas <b>CECO · CLIENTE · JEFATURA · LÍDER</b> (con o sin la fila
               de títulos) y pégalas aquí. Un campo que llegue vacío <b>no borra</b> lo que ya esté guardado,
               así que puedes cargar la tabla completa cada vez que cambie.
+              Si agregas una <b>quinta columna con el COORDINADOR</b>, también se carga: es lo más
+              rápido cuando un coordinador maneja muchos proyectos.
             </p>
             <div class="field" style="margin-top:12px">
               <span class="label">Pega aquí la tabla</span>
@@ -396,6 +405,28 @@
               </select>
               <button id="encVerHuerfanos" class="btn btn--ghost" type="button">Ver CECOs sin proyecto</button>
             </div>
+            <button id="encModoSel" class="btn btn--ghost btn--block" type="button" style="margin-top:10px">
+              Asignar un coordinador a varios proyectos
+            </button>
+
+            <div id="encBarraSel" class="hidden barra-sel">
+              <b id="encSelCuenta">0 proyecto(s) marcados</b>
+              <div class="barra-sel__acciones">
+                <button id="encSelTodosVis" class="btn btn--ghost" type="button">Marcar los visibles</button>
+                <button id="encSelNada" class="btn btn--ghost" type="button">Desmarcar</button>
+              </div>
+              <input id="encSelCoord" list="encCoords" autocomplete="off" style="text-transform:uppercase"
+                     placeholder="Nombre del coordinador">
+              <div class="barra-sel__acciones">
+                <button id="encSelAplicar" class="btn btn--primary" type="button">Asignar</button>
+                <button id="encSelCancelar" class="btn btn--ghost" type="button">Cancelar</button>
+              </div>
+              <p class="hint-inline" style="margin:0;grid-column:1/-1">
+                Marca los proyectos y escribe el coordinador una sola vez. Solo cambia el coordinador:
+                el jefe y el l\u00edder de cada proyecto se conservan.
+              </p>
+            </div>
+
             <div id="encStatus" class="status" aria-live="polite"></div>
             <div id="encLista" style="margin-top:12px"></div>
           </div>
@@ -1128,6 +1159,59 @@
       $('encCoords').innerHTML = opts(coords);
     }
 
+    /* ---------- Asignar un coordinador a varios proyectos ---------- */
+    let encModoSeleccion = false;
+    let encSeleccion = new Set();
+
+    $('encModoSel').addEventListener('click', () => alternarSeleccion(true));
+    $('encSelCancelar').addEventListener('click', () => alternarSeleccion(false));
+    $('encSelNada').addEventListener('click', () => { encSeleccion.clear(); pintarEncargados(); });
+    $('encSelTodosVis').addEventListener('click', marcarVisiblesProyectos);
+    $('encSelAplicar').addEventListener('click', aplicarCoordinadorMasivo);
+
+    function alternarSeleccion(activar) {
+      encModoSeleccion = activar;
+      if (!activar) encSeleccion.clear();
+      $('encBarraSel').classList.toggle('hidden', !activar);
+      $('encModoSel').classList.toggle('hidden', activar);
+      clearStatus('encStatus');
+      pintarEncargados();
+    }
+
+    // "Los visibles" son los que dej\u00f3 el buscador y el filtro de arriba:
+    // buscar "cafam" y marcar todos es la forma r\u00e1pida de cubrir un grupo.
+    function marcarVisiblesProyectos() {
+      proyectosFiltrados().forEach((p) => { if (!p.sin_ceco) encSeleccion.add(p.proyecto_id); });
+      pintarEncargados();
+    }
+
+    function pintarCuentaSeleccion() {
+      if (!encModoSeleccion) return;
+      const n = encSeleccion.size;
+      $('encSelCuenta').textContent = n + ' proyecto(s) marcados';
+      $('encSelAplicar').disabled = n === 0;
+    }
+
+    async function aplicarCoordinadorMasivo() {
+      const coord = $('encSelCoord').value.trim();
+      if (!encSeleccion.size) return setStatus('encStatus', 'Marca al menos un proyecto.', 'error');
+      if (!coord && !confirm('Sin nombre se QUITA el coordinador de los proyectos marcados. \u00bfContinuar?')) return;
+      $('encSelAplicar').disabled = true;
+      setStatus('encStatus', 'Asignando\u2026', 'info');
+      try {
+        const r = await adminCall('coordinadorMasivo', {
+          proyectos: [...encSeleccion], coordinador: coord,
+        });
+        alternarSeleccion(false);
+        $('encSelCoord').value = '';
+        await cargarEncargados();
+        setStatus('encStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+      } catch (err) {
+        setStatus('encStatus', err.message, 'error');
+        $('encSelAplicar').disabled = false;
+      }
+    }
+
     // Resumen de la barra: lo que hay, lo que falta y lo que sobra.
     function pintarResumenLateral() {
       const proys = (encData.proyectos || []).filter((p) => p.activos);
@@ -1190,6 +1274,7 @@
       $('encLista').innerHTML = resumen + lista.map((p, i) => {
         // Sin CECO no hay forma de asignarle encargados: se marca aparte.
         if (p.sin_ceco) {
+          if (encModoSeleccion) return '';
           return `
         <div class="checkitem pending" style="width:100%;text-align:left">
           <span class="checkitem__body">
@@ -1227,6 +1312,19 @@
           ? `<span class="rowchip aviso">\u26a0\ufe0f ${esc(revisar)}</span>`
           : (p.sin_coordinador ? `<span class="rowchip">${p.sin_coordinador} por asignar</span>` : '');
         const nombre = p.proyecto || '(sin nombre)';
+        // En modo seleccion la fila deja de abrir el editor y pasa a marcarse.
+        if (encModoSeleccion) {
+          return `
+        <label class="checkitem ${completo ? 'done' : 'pending'}" style="width:100%;cursor:pointer">
+          <input type="checkbox" data-sel="${esc(p.proyecto_id)}" ${encSeleccion.has(p.proyecto_id) ? 'checked' : ''}
+                 style="width:20px;height:20px;margin-right:4px">
+          <span class="checkitem__body">
+            <span class="checkitem__title" title="${esc(nombre)}">${esc(nombre)}</span>
+            <span class="meta">${meta.map((m) => `<span>${m}</span>`).join('')}</span>
+          </span>
+          ${chip}
+        </label>`;
+        }
         return `
         <button type="button" class="checkitem ${completo ? 'done' : 'pending'}" data-p="${i}" style="width:100%;text-align:left">
           <span class="checkitem__body">
@@ -1240,6 +1338,13 @@
       $('encLista').querySelectorAll('[data-p]').forEach((b) => {
         b.addEventListener('click', () => abrirProyecto(lista[b.dataset.p]));
       });
+      $('encLista').querySelectorAll('[data-sel]').forEach((c) => {
+        c.addEventListener('change', () => {
+          if (c.checked) encSeleccion.add(c.dataset.sel); else encSeleccion.delete(c.dataset.sel);
+          pintarCuentaSeleccion();
+        });
+      });
+      pintarCuentaSeleccion();
     }
 
     function verHuerfanos() {
@@ -1288,7 +1393,8 @@
           else saltadas++;
           return;
         }
-        let cliente = '', jefatura = '', lider = '';
+        let cliente = '', jefatura = '', lider = '', coordinador = '';
+        if (col.length >= 5) coordinador = limpiar(col[4]);
         if (col.length >= 4) { cliente = limpiar(col[1]); jefatura = limpiar(col[2]); lider = limpiar(col[3]); }
         else if (col.length === 3) { jefatura = limpiar(col[1]); lider = limpiar(col[2]); }
         else if (col.length === 2) { jefatura = limpiar(col[1]); }
@@ -1297,10 +1403,11 @@
         if (!/^[A-Za-z0-9_\-]+$/.test(ceco)) { sinCeco.push(linea.trim().slice(0, 60)); return; }
         leidas++;
         // Un valor vacio nunca pisa uno que ya venia lleno en una fila anterior.
-        const ya = acumulado.get(ceco) || { proyecto_id: ceco, cliente: '', jefatura: '', lider: '' };
+        const ya = acumulado.get(ceco) || { proyecto_id: ceco, cliente: '', jefatura: '', lider: '', coordinador: '' };
         if (cliente) ya.cliente = cliente;
         if (jefatura) ya.jefatura = jefatura;
         if (lider) ya.lider = lider;
+        if (coordinador) ya.coordinador = coordinador;
         acumulado.set(ceco, ya);
       });
 
@@ -1327,7 +1434,7 @@
         encFilas.slice(0, 8).map((f) => `<div class="checkitem" style="width:100%">
           <span class="checkitem__body">
             <span class="checkitem__title">${esc(f.proyecto_id)} \u00b7 ${esc(f.cliente || '')}</span>
-            <span class="checkitem__status">Jefe: ${esc(f.jefatura || '\u2014')} \u00b7 L\u00edder: ${esc(f.lider || '\u2014')}</span>
+            <span class="checkitem__status">Jefe: ${esc(f.jefatura || '\u2014')} \u00b7 L\u00edder: ${esc(f.lider || '\u2014')}${f.coordinador ? ' \u00b7 Coord.: ' + esc(f.coordinador) : ''}</span>
           </span></div>`).join('') +
         (encFilas.length > 8 ? `<p class="hint-inline">\u2026y ${encFilas.length - 8} m\u00e1s.</p>` : '');
     }

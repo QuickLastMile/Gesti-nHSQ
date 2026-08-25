@@ -69,6 +69,121 @@ $fn$;
 grant execute on function hseq_api(text, jsonb) to anon;
 
 -- ------------------------------------------------------------
+-- 1.b) Asignar un coordinador a MUCHOS proyectos de una vez
+--      Un coordinador con 20 proyectos no se puede cargar a mano.
+-- ------------------------------------------------------------
+create or replace function admin_coordinador_masivo(payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $fn$
+declare
+  coord text := nullif(upper(btrim(coalesce(payload->>'coordinador',''))), '');
+  ids text[];
+  n int := 0;
+  con_partes int := 0;
+begin
+  select array_agg(btrim(v))
+    into ids
+    from jsonb_array_elements_text(coalesce(payload->'proyectos', '[]'::jsonb)) v
+   where btrim(v) <> '';
+  if ids is null or array_length(ids, 1) is null then
+    raise exception 'Selecciona al menos un proyecto.';
+  end if;
+
+  -- Solo toca el coordinador: el jefe y el lider de cada proyecto se conservan.
+  insert into responsables_proyecto (proyecto_id, frente, coordinador)
+  select unnest(ids), '', coord
+  on conflict (proyecto_id, frente) do update
+    set coordinador = excluded.coordinador, actualizado_en = now();
+  get diagnostics n = row_count;
+
+  -- Un proyecto dividido en partes ya tiene su propio coordinador por parte:
+  -- ahi este pasa a ser el de respaldo, no reemplaza a los demas.
+  select count(distinct proyecto_id) into con_partes
+    from responsables_proyecto
+   where proyecto_id = any(ids) and frente <> '';
+
+  perform recalcular_encargados();
+
+  insert into historial (tipo, cedula, detalle)
+  values ('ENCARGADOS', null,
+          'Coordinador ' || coalesce(coord, '(sin coordinador)') || ' asignado a ' || n || ' proyecto(s).');
+
+  return jsonb_build_object(
+    'proyectos', n, 'con_partes', con_partes,
+    'mensaje', case when coord is null
+      then 'Se quito el coordinador de ' || n || ' proyecto(s).'
+      else coord || ' queda como coordinador de ' || n || ' proyecto(s).'
+        || case when con_partes > 0
+             then ' En ' || con_partes || ' de ellos hay partes con su propio coordinador: ahi cubre solo a quien no este en ninguna.'
+             else '' end
+    end);
+end;
+$fn$;
+
+revoke all on function admin_coordinador_masivo(jsonb) from public, anon;
+grant execute on function admin_coordinador_masivo(jsonb) to authenticated;
+
+-- ------------------------------------------------------------
+-- 1.c) La carga masiva acepta una quinta columna: COORDINADOR
+--      Asi la tabla de Excel puede traerlo todo de una vez.
+-- ------------------------------------------------------------
+create or replace function admin_cargar_encargados(payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $fn$
+declare
+  fila jsonb;
+  pid text; cli text; jef text; lid text; coo text;
+  creados int := 0; actualizados int := 0; ignorados int := 0;
+  ya boolean;
+begin
+  if jsonb_typeof(payload->'filas') <> 'array' then
+    raise exception 'No llegaron filas para cargar.';
+  end if;
+
+  for fila in select * from jsonb_array_elements(payload->'filas') loop
+    pid := btrim(coalesce(fila->>'proyecto_id',''));
+    cli := nullif(btrim(coalesce(fila->>'cliente','')),'');
+    jef := nullif(upper(btrim(coalesce(fila->>'jefatura',''))),'');
+    lid := nullif(upper(btrim(coalesce(fila->>'lider',''))),'');
+    coo := nullif(upper(btrim(coalesce(fila->>'coordinador',''))),'');
+
+    if pid = '' then ignorados := ignorados + 1; continue; end if;
+
+    select true into ya from responsables_proyecto where proyecto_id = pid and frente = '' limit 1;
+    if found then
+      -- Un campo vacio no borra lo que ya estaba guardado.
+      update responsables_proyecto set
+        cliente     = coalesce(cli, cliente),
+        jefatura    = coalesce(jef, jefatura),
+        lider       = coalesce(lid, lider),
+        coordinador = coalesce(coo, coordinador),
+        actualizado_en = now()
+      where proyecto_id = pid and frente = '';
+      actualizados := actualizados + 1;
+    else
+      insert into responsables_proyecto (proyecto_id, frente, cliente, jefatura, lider, coordinador)
+      values (pid, '', cli, jef, lid, coo);
+      creados := creados + 1;
+    end if;
+    ya := null;
+  end loop;
+
+  perform recalcular_encargados();
+
+  insert into historial (tipo, cedula, detalle)
+  values ('ENCARGADOS', null, 'Carga de encargados: ' || creados || ' nuevos, ' || actualizados || ' actualizados.');
+
+  return jsonb_build_object(
+    'creados', creados, 'actualizados', actualizados, 'ignorados', ignorados,
+    'proyectos_sin_jefe', (
+      select count(distinct coalesce(nullif(btrim(c.proyecto_id),''),''))
+      from colaboradores c where c.activo and cargo_aplica(c.cargo) and coalesce(c.enc_jefatura,'') = ''),
+    'proyectos_sin_lider', (
+      select count(distinct coalesce(nullif(btrim(c.proyecto_id),''),''))
+      from colaboradores c where c.activo and cargo_aplica(c.cargo) and coalesce(c.enc_lider,'') = ''),
+    'mensaje', 'Listo. ' || creados || ' proyecto(s) nuevos y ' || actualizados || ' actualizados.');
+end;
+$fn$;
+
+-- ------------------------------------------------------------
 -- 2) Router de administración: solo HSQ
 --    Incluye la actualización de matriz, que se muda aquí desde
 --    la pantalla de coordinadores.
@@ -103,6 +218,7 @@ begin
     when 'cargarEncargados'          then result := admin_cargar_encargados(payload);
     when 'personasProyecto'          then result := admin_personas_proyecto(payload);
     when 'asignarFrente'             then result := admin_asignar_frente(payload);
+    when 'coordinadorMasivo'         then result := admin_coordinador_masivo(payload);
     when 'listaEncargados'           then result := api_lista_encargados();
     -- Nuevas: la matriz se actualiza desde Administración.
     when 'actualizarMatriz'          then result := api_actualizar_matriz(payload);
