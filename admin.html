@@ -6,6 +6,49 @@
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
   <link rel="stylesheet" href="assets/styles.css?v=12">
+  <style>
+    /* ---------- Armazon de administracion ---------- */
+    .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
+    .adm-side{position:sticky;top:16px;background:#fff;border:1px solid var(--line);border-radius:16px;
+      padding:14px 12px;box-shadow:0 1px 2px rgba(9,44,33,.05)}
+    .adm-group+.adm-group{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+    .adm-group__title{margin:0 0 8px;padding:0 8px;font-size:10.5px;font-weight:800;letter-spacing:.9px;
+      text-transform:uppercase;color:var(--muted,#688077)}
+    .adm-link{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;
+      color:var(--brand,#0f6a4f);border-radius:10px;padding:10px 10px;text-align:left;font:inherit;
+      font-weight:650;font-size:13.5px;cursor:pointer;transition:.15s}
+    .adm-link:hover{background:#eef4f1}
+    .adm-link.on{background:#e3f0ea;color:#07382b;box-shadow:inset 3px 0 0 #b8d43f}
+    .adm-link .ic{width:18px;height:18px;flex:0 0 18px;display:grid;place-items:center}
+    .adm-link .ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;
+      stroke-linecap:round;stroke-linejoin:round}
+    .adm-link .cuenta{margin-left:auto;font-size:11px;font-weight:800;color:#b57611}
+    .adm-main{min-width:0}
+    .adm-head{margin:0 0 14px}
+    .adm-head h2{margin:0;font-size:21px;letter-spacing:-.4px}
+    .adm-head p{margin:3px 0 0;color:var(--muted,#688077);font-size:13px}
+
+    /* Volver: el detalle reemplaza al listado, no se cuelga debajo */
+    .adm-back{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);
+      background:#fff;color:var(--brand,#0f6a4f);border-radius:9px;padding:8px 13px;font:inherit;
+      font-weight:700;font-size:13px;cursor:pointer;margin-bottom:12px}
+    .adm-back:hover{background:#eef4f1}
+
+    /* Subpestanas dentro de una ficha */
+    .adm-subtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;padding:4px;
+      background:#eef4f1;border-radius:12px}
+    .adm-subtab{border:0;background:transparent;border-radius:9px;padding:9px 15px;font:inherit;
+      font-weight:700;font-size:13px;color:var(--muted,#688077);cursor:pointer;transition:.15s}
+    .adm-subtab:hover{color:#07382b}
+    .adm-subtab.on{background:#fff;color:#07382b;box-shadow:0 1px 2px rgba(9,44,33,.08)}
+
+    @media (max-width:880px){
+      .adm{grid-template-columns:1fr}
+      .adm-side{position:static}
+      .adm-side .adm-group{display:flex;flex-wrap:wrap;gap:6px}
+      .adm-side .adm-group__title{width:100%}
+    }
+  </style>
 </head>
 <body>
   <header class="app-header">
@@ -46,16 +89,33 @@
 
     <!-- Panel (tras login) -->
     <section id="panel" class="hidden">
-      <nav class="tabs" role="tablist">
-        <button class="tab active" type="button" data-v="colaboradores">Colaboradores</button>
-        <button class="tab" type="button" data-v="provisional">Ingreso provisional</button>
-        <button class="tab" type="button" data-v="encargados">Encargados</button>
-        <button class="tab" type="button" data-v="calendario">Calendario y metas</button>
-        <button class="tab" type="button" data-v="formularios">Formularios por proyecto</button>
-        <button id="btnSalir" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Salir</button>
-      </nav>
+      <div class="adm">
+        <aside class="adm-side">
+          <div class="adm-group">
+            <p class="adm-group__title">Colaboradores</p>
+          <button class="adm-link on" type="button" data-v="colaboradores" aria-label="Buscar y editar"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="8" r="3.4"/><path d="M4 20a7 7 0 0 1 14 0"/><path d="m17 4 2 2 3-3"/></svg></span><span>Buscar y editar</span></button>
+          <button class="adm-link" type="button" data-v="provisional" aria-label="Ingreso provisional"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3.4"/><path d="M3 20a7 7 0 0 1 12.2-4.7"/><path d="M18 14v6M15 17h6"/></svg></span><span>Ingreso provisional</span></button>
+          </div>
+          <div class="adm-group">
+            <p class="adm-group__title">Encargados</p>
+          <button class="adm-link" type="button" data-v="encargados" aria-label="Proyectos"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="7" r="2.8"/><path d="M3 19a5 5 0 0 1 10 0"/><path d="M15 8h6M15 12h6M15 16h4"/></svg></span><span>Proyectos</span><span class="cuenta" id="encPendientes"></span></button>
+          <button class="adm-link" type="button" data-v="encargados-carga" aria-label="Cargar tabla"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span><span>Cargar tabla</span></button>
+          </div>
+          <div class="adm-group">
+            <p class="adm-group__title">Configuración</p>
+          <button class="adm-link" type="button" data-v="calendario" aria-label="Calendario y metas"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/></svg></span><span>Calendario y metas</span></button>
+          <button class="adm-link" type="button" data-v="formularios" aria-label="Formularios por proyecto"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h4"/></svg></span><span>Formularios por proyecto</span></button>
+          </div>
+          <div class="adm-group">
+            <button id="btnSalir" class="btn btn--ghost btn--block" type="button">Salir</button>
+          </div>
+        </aside>
+
+        <div class="adm-main">
+          <div class="adm-head"><h2 id="vTitulo">Colaboradores</h2><p id="vSub">Buscar, editar y trasladar</p></div>
 
       <div id="v-colaboradores" class="view">
+      <div id="colPanelLista">
       <section class="card">
         <div class="card__head">
           <p class="card__title">Buscar colaborador</p>
@@ -87,9 +147,15 @@
           <div id="resultados" style="margin-top:12px"></div>
         </div>
       </section>
+      </div>
 
-      <!-- Ficha para editar -->
-      <section id="ficha" class="card hidden">
+      <!-- Ficha para editar: reemplaza al listado -->
+      <div id="fichaPanel" class="hidden">
+      <button id="colVolver" class="adm-back" type="button">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Volver a la búsqueda
+      </button>
+      <section id="ficha" class="card">
         <div class="card__head"><p id="fichaTitulo" class="card__title">Editar colaborador</p></div>
         <div class="card__body">
           <input id="f_cedula" type="hidden">
@@ -147,6 +213,7 @@
         </div>
       </section>
       </div>
+      </div>
 
       <!-- ============ CALENDARIO Y METAS ============ -->
       <div id="v-provisional" class="view hidden">
@@ -187,8 +254,7 @@
       </div>
 
       <!-- ============ ENCARGADOS POR PROYECTO ============ -->
-      <div id="v-encargados" class="view hidden">
-
+      <div id="v-encargados-carga" class="view hidden">
         <section class="card">
           <div class="card__head">
             <div>
@@ -219,8 +285,11 @@
             <div id="encPreview" style="margin-top:12px"></div>
           </div>
         </section>
+      </div>
 
-        <section class="card" style="margin-top:14px">
+      <div id="v-encargados" class="view hidden">
+        <div id="encPanelLista">
+        <section class="card">
           <div class="card__head">
             <div>
               <p class="card__title">Proyectos y sus encargados</p>
@@ -246,12 +315,23 @@
             <div id="encLista" style="margin-top:12px"></div>
           </div>
         </section>
+        </div>
 
-        <!-- Editor de un proyecto -->
-        <section id="encEditor" class="card hidden" style="margin-top:14px">
+        <!-- Editor de un proyecto: reemplaza al listado -->
+        <div id="encEditor" class="hidden">
+          <button id="encVolver" class="adm-back" type="button">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Volver a los proyectos
+          </button>
+          <section class="card">
           <div class="card__head"><p id="encEditorTitulo" class="card__title">Proyecto</p></div>
           <div class="card__body">
             <input id="e_pid" type="hidden">
+            <div class="adm-subtabs" role="tablist">
+              <button class="adm-subtab on" type="button" data-sub="quien" role="tab" aria-selected="true">Quién responde</button>
+              <button class="adm-subtab" type="button" data-sub="gente" role="tab" aria-selected="false">Personas del proyecto</button>
+            </div>
+            <div id="sub-quien">
 
             <p class="label" style="margin-top:0">Encargados de todo el proyecto</p>
             <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr">
@@ -284,7 +364,9 @@
             </button>
             <div id="encFrenteStatus" class="status" aria-live="polite"></div>
 
-            <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
+            </div><!-- /sub-quien -->
+
+            <div id="sub-gente" class="hidden">
             <p class="label" style="margin-top:0">Personas activas del proyecto</p>
             <div class="input-row" style="margin-top:8px">
               <input id="encPersonaBuscar" autocomplete="off" placeholder="Buscar por nombre, cédula o ciudad…">
@@ -313,8 +395,10 @@
               Aplicar a los marcados
             </button>
             <div id="encAsigStatus" class="status" aria-live="polite"></div>
+            </div><!-- /sub-gente -->
           </div>
         </section>
+        </div>
       </div>
 
       <div id="v-calendario" class="view hidden">
@@ -368,6 +452,8 @@
           </div>
         </section>
       </div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -395,19 +481,64 @@
     $('frmBuscar').addEventListener('input', pintarFormulariosProyecto);
     $('frmLimpiar').addEventListener('click', () => { $('frmBuscar').value = ''; pintarFormulariosProyecto(); });
 
-    /* ---------- Pestañas del panel ---------- */
-    document.querySelectorAll('.tab[data-v]').forEach((t) => {
-      t.addEventListener('click', () => {
-        document.querySelectorAll('.tab[data-v]').forEach((x) => x.classList.remove('active'));
-        t.classList.add('active');
-        document.querySelectorAll('#panel .view').forEach((v) => v.classList.add('hidden'));
-        $('v-' + t.dataset.v).classList.remove('hidden');
-        // El calendario se carga la primera vez que se abre la pestaña.
-        if (t.dataset.v === 'calendario' && !calData) cargarCalendario();
-        if (t.dataset.v === 'formularios' && !frmData) cargarFormulariosProyecto();
-        if (t.dataset.v === 'encargados' && !encData) cargarEncargados();
-      });
+    /* ---------- Navegación lateral ---------- */
+    const SECCIONES = {
+      colaboradores: ['Colaboradores', 'Buscar, editar y trasladar'],
+      provisional: ['Ingreso provisional', 'Para quien todavía no aparece en la nómina'],
+      encargados: ['Proyectos y encargados', 'Quién responde por cada operación'],
+      'encargados-carga': ['Cargar tabla de encargados', 'Se pega tal cual desde Excel; la llave es el CECO'],
+      calendario: ['Calendario y metas', 'Qué días opera cada proyecto y su meta'],
+      formularios: ['Formularios por proyecto', 'Qué debe diligenciar cada operación'],
+    };
+
+    document.querySelectorAll('.adm-link[data-v]').forEach((t) => {
+      t.addEventListener('click', () => irASeccion(t.dataset.v));
     });
+
+    function irASeccion(clave) {
+      document.querySelectorAll('.adm-link[data-v]').forEach((x) => x.classList.toggle('on', x.dataset.v === clave));
+      document.querySelectorAll('#panel .view').forEach((v) => v.classList.add('hidden'));
+      const vista = $('v-' + clave);
+      if (vista) vista.classList.remove('hidden');
+      const t = SECCIONES[clave] || ['Administración', ''];
+      $('vTitulo').textContent = t[0];
+      $('vSub').textContent = t[1];
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Cada sección carga sus datos la primera vez que se abre.
+      if (clave === 'calendario' && !calData) cargarCalendario();
+      if (clave === 'formularios' && !frmData) cargarFormulariosProyecto();
+      if ((clave === 'encargados' || clave === 'encargados-carga') && !encData) cargarEncargados();
+    }
+
+    /* ---------- El detalle reemplaza al listado ---------- */
+    $('colVolver').addEventListener('click', () => mostrarListaColaboradores());
+    $('encVolver').addEventListener('click', () => mostrarListaProyectos());
+
+    function mostrarListaColaboradores() {
+      $('fichaPanel').classList.add('hidden');
+      $('colPanelLista').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function mostrarListaProyectos() {
+      $('encEditor').classList.add('hidden');
+      $('encPanelLista').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ---------- Subpestañas del editor de proyecto ---------- */
+    document.querySelectorAll('.adm-subtab[data-sub]').forEach((b) => {
+      b.addEventListener('click', () => irASubpestana(b.dataset.sub));
+    });
+
+    function irASubpestana(clave) {
+      document.querySelectorAll('.adm-subtab[data-sub]').forEach((x) => {
+        const activa = x.dataset.sub === clave;
+        x.classList.toggle('on', activa);
+        x.setAttribute('aria-selected', String(activa));
+      });
+      ['quien', 'gente'].forEach((k) => $('sub-' + k).classList.toggle('hidden', k !== clave));
+    }
     $('btnGuardar').addEventListener('click', guardar);
     $('btnProvisional').addEventListener('click', crearProvisional);
     $('btnTraslado').addEventListener('click', guardarTraslado);
@@ -509,7 +640,7 @@
 
     async function listar() {
       setStatus('buscarStatus', 'Cargando listado…', 'info');
-      $('ficha').classList.add('hidden');
+      mostrarListaColaboradores();
       try {
         resultados = await adminCall('listar', {
           proyecto: $('filProyecto').value,
@@ -549,7 +680,7 @@
       const q = $('q').value.trim();
       if (!q) return setStatus('buscarStatus', 'Escribe una cédula o nombre.', 'error');
       setStatus('buscarStatus', 'Buscando…', 'info');
-      $('ficha').classList.add('hidden');
+      mostrarListaColaboradores();
       try {
         resultados = await adminCall('buscarColaborador', { q });
         pintarResultados();
@@ -606,8 +737,9 @@
       clearStatus('fichaStatus');
       pintarEstado();
       renderDocs(c);
-      $('ficha').classList.remove('hidden');
-      $('ficha').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('colPanelLista').classList.add('hidden');
+      $('fichaPanel').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     // Botones para ver cada documento adjunto (si existe).
@@ -905,6 +1037,19 @@
       $('encCoords').innerHTML = opts(coords);
     }
 
+    // Solo cuenta lo que de verdad falta configurar, no la gente por asignar.
+    function pintarPendientesMenu() {
+      const faltan = (encData.proyectos || []).filter((p) => {
+        if (!p.activos) return false;
+        if (p.sin_ceco) return true;
+        const hayCoord = !!p.coordinador || (p.frentes || []).some((f) => f.coordinador);
+        return !p.jefatura || !p.lider || !hayCoord;
+      }).length;
+      const chip = $('encPendientes');
+      chip.textContent = faltan ? String(faltan) : '';
+      chip.title = faltan ? faltan + ' proyecto(s) con gente activa sin configurar' : '';
+    }
+
     function proyectosFiltrados() {
       const q = $('encBuscar').value.trim().toLowerCase();
       const modo = $('encFiltro').value;
@@ -920,6 +1065,7 @@
 
     function pintarEncargados() {
       if (!encData) return;
+      pintarPendientesMenu();
       const lista = proyectosFiltrados();
       const totalSinJefe = (encData.proyectos || []).filter((p) => p.activos && !p.jefatura).length;
       const resumen = `<p class="hint-inline" style="margin:0 0 10px">${lista.length} proyecto(s)` +
@@ -1089,8 +1235,10 @@
       $('e_lider').value = p.lider || '';
       ['encProyStatus', 'encFrenteStatus', 'encAsigStatus'].forEach(clearStatus);
       pintarCoordinacion();
+      irASubpestana('quien');
+      $('encPanelLista').classList.add('hidden');
       $('encEditor').classList.remove('hidden');
-      $('encEditor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       await cargarPersonas();
     }
 
