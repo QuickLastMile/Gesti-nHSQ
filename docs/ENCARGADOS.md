@@ -140,13 +140,37 @@ Para ver dónde falta asignar: **Administración → Encargados**, filtro
 *"Sin jefe o sin líder"* o *"Sin coordinador"*. Arriba de la lista sale contado
 cuántos proyectos con gente activa siguen sin jefe.
 
+## Dónde se actualiza la matriz
+
+En **Administración → Actualizar matriz**, no en Coordinador → Exportar. Se movió
+para separar lo que consulta un coordinador de lo que cambia la nómina.
+
+Va por el router de administración, así que **exige sesión de HSQ**: la cuenta de
+coordinador ya no alcanza para actualizar la matriz.
+
 ## Scripts
 
-Ejecutar en Supabase → SQL Editor, en este orden:
+Ejecutar en Supabase → SQL Editor, **en este orden**. Todos se pueden volver a
+ejecutar sin problema.
 
-1. `db/encargados_por_proyecto.sql` — tablas, columnas, resolución de
-   encargados, funciones del panel y routers.
-2. `db/filtro_encargado_v2.sql` — cumplimiento, dashboard y exportable aceptan
-   los filtros, y el dashboard devuelve el cumplimiento agrupado por nivel.
+| # | Script | Para qué |
+|---|---|---|
+| 1 | `db/URGENTE_permisos_routers.sql` | Devuelve el control de acceso de `hseq_api` y `hseq_admin`, y habilita la actualización de matriz desde Administración. |
+| 2 | `db/encargados_por_proyecto.sql` | Tablas, columnas, resolución de encargados y funciones del panel. |
+| 3 | `db/HOTFIX_recalcular_encargados.sql` | El `UPDATE` sin `WHERE` que Supabase bloquea. |
+| 4 | `db/filtro_encargado_v2.sql` | Cumplimiento, dashboard y exportable aceptan los filtros por encargado. |
+| 5 | `db/FIX_parametro_nombre.sql` | El parámetro `nombre` chocaba con la columna `nombre` y ningún traslado enlazaba. |
+| 6 | `db/FIX_encargados_ceco.sql` | Ingresos provisionales sin CECO y conteo por el proyecto donde se labora. |
+| 7 | `db/por_dia_esperadas.sql` | *Opcional.* Habilita el % diario en la tendencia del dashboard. |
 
-Ambos se pueden volver a ejecutar sin problema.
+`db/DIAGNOSTICO_hoya.sql` no modifica nada: sirve para ver quién quedó sin CECO
+o sin coordinador y por qué.
+
+### El primero es de seguridad
+
+Al reescribir los routers para agregarles las acciones de encargados se perdió la
+validación de rol que ambos traían. `hseq_api` está concedido a `anon` — la llave
+pública que va en `assets/config.js` —, así que sin esa validación cualquiera con
+la llave podía llamar `generarExportable`, `getDashboard`, `anularRegistro` o
+`actualizarMatriz`. El script 1 lo cierra y verifica el resultado: al final debe
+imprimir **`protegido`** en las dos filas.
