@@ -635,7 +635,9 @@
       $('panel').classList.remove('hidden');
       cargarProyectos();
       // El resumen de la barra se alimenta de aquí, así que se pide de entrada.
-      if (!encData) cargarEncargados();
+      // Va diferido a propósito: con sesión abierta esta función corre antes de
+      // que el script declare encData, y tocarla aquí rompía toda la pantalla.
+      setTimeout(() => { if (!encData) cargarEncargados(); }, 0);
     }
 
     // ---------- Ingreso provisional ----------
