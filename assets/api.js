@@ -288,11 +288,58 @@
   // Sesión anónima: Storage necesita un token de usuario (no solo la llave anon)
   // para permitir la subida. Se crea un usuario temporal y se reutiliza su token.
   let _stToken = null;
-  async function tokenStorage() {
-    if (_stToken) return _stToken;
-    const cache = sessionStorage.getItem('hsq_st_token');
-    if (cache) { _stToken = cache; return _stToken; }
+
+  // El token dura una hora. Antes se reutilizaba sin mirar la fecha, así que a
+  // quien dejaba el formulario abierto un rato le fallaba la subida con
+  // '"exp" claim timestamp check failed'. Se descarta con dos minutos de
+  // margen para que no venza justo mientras sube la foto.
+  function tokenVencido(jwt) {
+    try {
+      let carga = String(jwt).split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (carga.length % 4) carga += '=';
+      const exp = JSON.parse(atob(carga)).exp;
+      if (!exp) return true;
+      return exp * 1000 <= Date.now() + 120000;
+    } catch (e) {
+      return true;   // si no se puede leer, es más seguro pedir uno nuevo
+    }
+  }
+
+  async function tokenStorage(renovar) {
+    if (!renovar) {
+      if (_stToken && !tokenVencido(_stToken)) return _stToken;
+      const cache = sessionStorage.getItem('hsq_st_token');
+      if (cache && !tokenVencido(cache)) { _stToken = cache; return _stToken; }
+    }
+    _stToken = null;
+    sessionStorage.removeItem('hsq_st_token');
     const base = CFG.SUPABASE_URL.replace(/\/$/, '');
+
+    const guardar = (d) => {
+      if (!d || !d.access_token) return null;
+      _stToken = d.access_token;
+      sessionStorage.setItem('hsq_st_token', _stToken);
+      if (d.refresh_token) sessionStorage.setItem('hsq_st_refresh', d.refresh_token);
+      return _stToken;
+    };
+
+    // Primero se renueva el usuario anónimo que ya existe. Crear uno nuevo
+    // cada hora llenaría Supabase de usuarios temporales sin necesidad.
+    const rt = sessionStorage.getItem('hsq_st_refresh');
+    if (rt) {
+      try {
+        const r = await fetch(base + '/auth/v1/token?grant_type=refresh_token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY },
+          body: JSON.stringify({ refresh_token: rt }),
+        });
+        const d = await r.json();
+        const tok = guardar(d);
+        if (tok) return tok;
+      } catch (e) { /* si no se puede renovar, se crea uno nuevo */ }
+      sessionStorage.removeItem('hsq_st_refresh');
+    }
+
     let res;
     try {
       res = await fetch(base + '/auth/v1/signup', {
@@ -301,13 +348,11 @@
         body: JSON.stringify({}),
       });
     } catch (e) { throw new Error('No se pudo preparar la subida de fotos (conexión).'); }
-    const data = await res.json();
-    if (!data || !data.access_token) {
+    const tok = guardar(await res.json());
+    if (!tok) {
       throw new Error('Para subir fotos, activa "Anonymous sign-ins" en Supabase (Authentication).');
     }
-    _stToken = data.access_token;
-    sessionStorage.setItem('hsq_st_token', _stToken);
-    return _stToken;
+    return tok;
   }
 
   // Documentos del vehículo: ruta FIJA por persona -> al renovar, el archivo
@@ -327,26 +372,33 @@
       const hoy = new Date().toISOString().slice(0, 10);
       path = [ced, hoy, fid + '_' + a.id_pregunta + '_' + stamp + extension].map(encodeURIComponent).join('/');
     }
-    const st = await tokenStorage();
-    const headers = {
-      apikey: CFG.SUPABASE_KEY,
-      Authorization: 'Bearer ' + st,
-      'Content-Type': blob.type || 'image/jpeg',
-    };
-    let res;
-    try {
-      res = await fetch(base + '/storage/v1/object/evidencias/' + path, {
-        method: 'POST',
-        headers: headers,
-        body: blob,
-      });
-    } catch (e) {
-      throw new Error('No se pudo subir la evidencia. Revisa tu conexión.');
-    }
-    if (!res.ok) {
-      let msg = '';
+    // Se intenta con el token que hay; si el servidor lo rechaza por sesión,
+    // se pide uno nuevo y se reintenta. El mensajero no tiene que hacer nada.
+    let res, msg = '';
+    for (let intento = 0; intento < 2; intento++) {
+      const st = await tokenStorage(intento > 0);
+      try {
+        res = await fetch(base + '/storage/v1/object/evidencias/' + path, {
+          method: 'POST',
+          headers: {
+            apikey: CFG.SUPABASE_KEY,
+            Authorization: 'Bearer ' + st,
+            'Content-Type': blob.type || 'image/jpeg',
+          },
+          body: blob,
+        });
+      } catch (e) {
+        throw new Error('No se pudo subir la evidencia. Revisa tu conexión.');
+      }
+      if (res.ok) break;
+      msg = '';
       try { msg = (await res.json()).message || ''; } catch (e) { /* noop */ }
-      throw new Error('No se pudo subir la evidencia' + (msg ? ': ' + msg : '') + '. Verifica el permiso del bucket "evidencias".');
+      const esSesion = res.status === 401 || res.status === 403 || /exp|jwt|token|expired/i.test(msg);
+      if (!esSesion || intento === 1) {
+        throw new Error(esSesion
+          ? 'La sesión para subir fotos venció. Vuelve a intentarlo; si sigue, recarga la página.'
+          : 'No se pudo subir la evidencia' + (msg ? ': ' + msg : '') + '. Verifica el permiso del bucket "evidencias".');
+      }
     }
     return {
       id_pregunta: a.id_pregunta,
