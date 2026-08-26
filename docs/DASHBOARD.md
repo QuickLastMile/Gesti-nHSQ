@@ -10,7 +10,7 @@ Todo lo demás sigue disponible, pero en su sección.
 |---|---|
 | **Resumen** | El estado en menos de diez segundos: KPI, alertas, cumplimiento por proyecto, tendencia y seguimiento. |
 | **Seguimiento** | Quién responde por el cumplimiento, los pendientes críticos y el espacio reservado para la gestión. |
-| **HSEQ** | Cumplimiento por colaborador, registros con novedad, top de fallas, actividad por día de la semana y franja horaria. |
+| **HSEQ** | Registros con novedad, top de fallas, actividad por día de la semana y franja horaria. |
 | **Documentos** | SOAT, tecnomecánica y licencia: vencidos, sin fecha o por vencer. |
 | **Preventivo** | Puntos reportados como *No cumple* tres veces o más en 30 días. |
 | **Detalle** | Las tablas completas: proyectos, encargados, mejores y peores desempeños, cumplimiento por días y mensajero, y las gráficas históricas. |
@@ -79,6 +79,28 @@ registros por día y lo dice en pantalla — nunca inventa un porcentaje.
   dice y ofrece volver al mes.
 - Ninguna tabla comparte fila con otra: todas ocupan el ancho completo.
 
+## Los filtros de encargado se encadenan
+
+Al elegir una **jefatura**, el filtro de *líder* deja solo los suyos; al elegir un
+**líder**, el de *coordinador* deja solo los suyos. Si la selección que tenías
+deja de ser posible, se limpia sola.
+
+Se calcula con las combinaciones reales que hay en la operación —quién responde
+a quién según la gente activa—, así que no hay listas inventadas: si un líder no
+tiene coordinadores, el desplegable queda vacío.
+
+## Días justificados
+
+Las tablas de *Cumplimiento por proyecto*, *Detalle por encargado* y *Seguimiento
+de operación* traen una columna **Justificados**: los días que no se exigieron
+por descanso, permiso, incapacidad o vacaciones.
+
+Son días-persona, la misma unidad de *Esperados*, y **ya vienen descontados** de
+ese número. Sirven para no confundir un proyecto con poco esperado por
+calendario con uno que tuvo muchos permisos.
+
+Necesita `db/dashboard_justificados.sql`.
+
 ## Exportaciones
 
 Excel y PDF siguen funcionando igual. El PDF dibuja las gráficas de las secciones
@@ -87,8 +109,9 @@ ocultas antes de capturarlas, así que no salen en blanco.
 ## Script
 
 ```
-db/por_dia_esperadas.sql   -- opcional: habilita el % diario de la tendencia
+db/dashboard_justificados.sql
 ```
 
-Es aditivo: agrega la clave `por_dia_cumplimiento` y no cambia ningún cálculo
-existente.
+Reemplaza a `por_dia_esperadas.sql`: lo incluye completo y le suma los días
+justificados y los filtros encadenados. Si ya corriste aquel, este lo actualiza;
+si no, con este basta.

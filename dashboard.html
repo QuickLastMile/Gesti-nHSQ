@@ -457,7 +457,7 @@
                 <option value="mensajero">Por mensajero</option>
               </select></div>
             <div class="card-body"><div class="tbl-wrap">
-              <table style="min-width:640px"><thead><tr><th>#</th><th>Responsable</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Pendientes</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
+              <table style="min-width:700px"><thead><tr><th>#</th><th>Responsable</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Pendientes</th><th>Justificados</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
               <tbody id="segFullRows"></tbody></table>
               <div id="segFullEmpty" class="empty hidden">Nadie tiene ese nivel asignado todavía.</div>
             </div></div>
@@ -497,11 +497,6 @@
         <!-- ============ HSEQ ============ -->
         <section id="hseq" class="section">
           <div class="grid">
-          <article class="card">
-          <div class="card-head"><div><h2>Cumplimiento por colaboradores</h2><p>Cuenta mensajeros únicos, no formularios. Separa quién está al día, parcial o sin diligenciar.</p></div></div>
-          <div class="card-body"><div class="canvas-wrap" style="height:220px"><canvas id="cPeople"></canvas></div><div id="peopleLegend" class="people-legend"></div><div id="peopleNote" class="people-note"></div></div>
-          </article>
-          
           </div>
 <article class="card">
           <div class="card-head"><div><h2>Registros con novedad</h2><p>Registros del periodo que quedaron marcados con alerta (documentos o fallas reportadas).</p></div>
@@ -566,7 +561,7 @@
           <div class="card-head"><div><h2>Cumplimiento por proyecto</h2>
           <p><b>Esperados</b> = solo los días que cada proyecto realmente labora (según su calendario), sin festivos si no opera en ellos, y descontando las ausencias ya justificadas.</p></div></div>
           <div class="card-body"><div class="tbl-wrap">
-          <table><thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th><th>Meta</th><th>Estado</th></tr></thead>
+          <table><thead><tr><th>#</th><th>Proyecto</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Justificados</th><th>Cumplimiento</th><th>Meta</th><th>Estado</th></tr></thead>
           <tbody id="projRows"></tbody></table>
           <div id="projEmpty" class="empty hidden">Sin proyectos para este filtro.</div>
           </div></div>
@@ -582,7 +577,7 @@
           </select>
           </div>
           <div class="card-body"><div class="tbl-wrap">
-          <table><thead><tr><th>#</th><th>Encargado</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
+          <table><thead><tr><th>#</th><th>Encargado</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Faltantes</th><th>Justificados</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
           <tbody id="encRows"></tbody></table>
           <div id="encEmpty" class="empty hidden">Nadie tiene ese nivel asignado todavía.</div>
           </div></div>
@@ -672,11 +667,15 @@
     $('btnClear').addEventListener('click', () => {
       $('fProject').value = ''; $('fDay').value = hoyISO(); $('fForm').value = 'TODOS';
       $('fJefe').value = ''; $('fLider').value = ''; $('fCoord').value = '';
+      pintarFiltrosEncargado();
       $('fYear').value = String(new Date().getFullYear());
       $('fMonth').value = String(new Date().getMonth() + 1);
       cargar();
     });
     $('fDay').addEventListener('change', cargar);
+    // Al cambiar un nivel se recortan los de abajo, sin recargar datos.
+    $('fJefe').addEventListener('change', pintarFiltrosEncargado);
+    $('fLider').addEventListener('change', pintarFiltrosEncargado);
     $('docSearch').addEventListener('input', pintarDocs);
     $('trendDays').addEventListener('change', pintarTendenciaDiaria);
     $('segNivel').addEventListener('change', pintarSeguimiento);
@@ -814,20 +813,49 @@
 
     // Un desplegable por nivel. El de coordinador solo se muestra cuando
     // ya hay alguno asignado.
+    // Quién depende de quién, para recortar un filtro según el anterior.
+    let encCombis = [];
+
     async function cargarEncargados() {
       try {
         const e = await HSQ_API.call('listaEncargados');
-        const llenar = (id, arr, todos) => {
-          $(id).innerHTML = `<option value="">${esc(todos)}</option>` + (arr || []).map((x) =>
-            `<option value="${esc(x.nombre)}">${esc(x.nombre)} (${x.personas})</option>`).join('');
-        };
-        llenar('fJefe', e.jefaturas, 'Todas');
-        llenar('fLider', e.lideres, 'Todos');
-        llenar('fCoord', e.coordinadores, 'Todos');
+        encCombis = e.combinaciones || [];
+        pintarFiltrosEncargado();
         const hayCoord = (e.coordinadores || []).length > 0;
         $('fCoordBox').classList.toggle('hidden', !hayCoord);
         $('cardCoord').classList.toggle('hidden', !hayCoord);
       } catch (err) { /* si falla, quedan en "Todos" */ }
+    }
+
+    // El líder se recorta al jefe elegido, y el coordinador al líder.
+    // Si la selección actual deja de existir en el recorte, se limpia.
+    function pintarFiltrosEncargado() {
+      const jefe = $('fJefe').value || '';
+      const lider = $('fLider').value || '';
+
+      const cuenta = (campo, filtro) => {
+        const m = new Map();
+        encCombis.forEach((c) => {
+          if (!c[campo]) return;
+          for (const k in filtro) { if (filtro[k] && c[k] !== filtro[k]) return; }
+          m.set(c[campo], (m.get(c[campo]) || 0) + Number(c.personas || 0));
+        });
+        return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      };
+
+      const llenar = (id, pares, todos, valor) => {
+        const sel = $(id);
+        sel.innerHTML = `<option value="">${esc(todos)}</option>` + pares.map(([n, p]) =>
+          `<option value="${esc(n)}">${esc(n)} (${p})</option>`).join('');
+        // Solo se conserva la selección si sigue siendo posible.
+        sel.value = pares.some(([n]) => n === valor) ? valor : '';
+      };
+
+      llenar('fJefe',  cuenta('jefatura', {}), 'Todas', jefe);
+      const jefeOk = $('fJefe').value;
+      llenar('fLider', cuenta('lider', { jefatura: jefeOk }), 'Todos', lider);
+      const liderOk = $('fLider').value;
+      llenar('fCoord', cuenta('coordinador', { jefatura: jefeOk, lider: liderOk }), 'Todos', $('fCoord').value);
     }
 
     function encargadoSel() {
@@ -992,6 +1020,7 @@
         return (data.por_proyecto || []).map((x) => ({
           nombre: x.proyecto || 'Sin proyecto', activos: x.activos, realizadas: x.realizadas,
           esperadas: x.esperadas, pendientes: x.no_realizadas, porcentaje: x.porcentaje,
+          justificados: x.justificados,
           estado: MAPA_ESTADO[x.estado] || estadoDe(x.porcentaje, x.esperadas),
           filtro: { campo: 'fProject', valor: x.proyecto },
         }));
@@ -1001,6 +1030,7 @@
           nombre: m.nombre || '(sin nombre)', sub: m.proyecto, activos: 1,
           realizadas: m.realizadas, esperadas: m.esperadas,
           pendientes: Math.max(Number(m.esperadas || 0) - Number(m.realizadas || 0), 0),
+          justificados: m.dias_justificados,
           porcentaje: m.porcentaje, estado: estadoDe(m.porcentaje, m.esperadas), filtro: null,
         }));
       }
@@ -1008,6 +1038,7 @@
       return (((data.por_encargado || {})[nivel]) || []).map((e) => ({
         nombre: e.nombre || 'Sin asignar', activos: e.activos, realizadas: e.realizadas,
         esperadas: e.esperadas, pendientes: e.no_realizadas, porcentaje: e.porcentaje,
+        justificados: e.justificados,
         estado: MAPA_ESTADO[e.estado] || estadoDe(e.porcentaje, e.esperadas),
         // "Sin asignar" no es una persona: no sirve como filtro.
         filtro: e.nombre ? { campo, valor: e.nombre } : null,
@@ -1049,6 +1080,7 @@
           <td class="tnum">${fmt(f.realizadas)}</td>
           <td class="tnum">${fmt(f.esperadas)}</td>
           <td class="tnum">${fmt(f.pendientes)}</td>
+          <td class="tnum">${fmt(f.justificados)}</td>
           <td>${celdaPct(f.porcentaje, f.estado)}</td>
           <td>${chipEstado(f.estado)}</td>
         </tr>`).join('');
@@ -1156,32 +1188,10 @@
       barraEnc('cJefe', enc.jefatura);
       barraEnc('cLider', enc.lider);
       barraEnc('cCoord', enc.coordinador);
-      donaMensajeros();
       barras('cDow', (data.por_dia_semana || []), (d) => DOW[d.dow - 1].slice(0, 3), (d) => d.realizadas, C.lima,
         (d) => [fmt(d.realizadas) + ' registros', 'en ' + fmt(d.dias) + ' día(s)']);
       barras('cHour', (data.por_hora || []), (d) => String(d.hora).padStart(2, '0') + 'h', (d) => d.realizadas, C.verde,
         (d) => [fmt(d.realizadas) + ' registros', 'entre ' + String(d.hora).padStart(2, '0') + ':00 y ' + String(d.hora).padStart(2, '0') + ':59']);
-    }
-
-    function donaMensajeros() {
-      const ms = data.mensajeros || [];
-      const alDia = ms.filter((m) => Number(m.esperadas)>0 && Number(m.realizadas)>=Number(m.esperadas)).length;
-      const parcial = ms.filter((m) => Number(m.esperadas)>0 && Number(m.realizadas)>0 && Number(m.realizadas)<Number(m.esperadas)).length;
-      const sin = ms.filter((m) => Number(m.esperadas)>0 && Number(m.realizadas)===0).length;
-      const noExig = ms.filter((m) => Number(m.esperadas)===0).length;
-      const grupos = [
-        {n:'Al día',v:alDia,c:C.ok},{n:'Cumplimiento parcial',v:parcial,c:C.warn},{n:'Sin diligenciar',v:sin,c:C.bad}
-      ];
-      const total = alDia + parcial + sin, p = base('cPeople'); if (!p) return;
-      const {x,w,h}=p, cx=w/2,cy=h/2,r=Math.min(w,h)*.35,ri=r*.58;
-      if (!total) { sinDatos(x,w,h); }
-      else {
-        let a=-Math.PI/2;
-        grupos.forEach((g)=>{const fin=a+Math.PI*2*g.v/total;x.beginPath();x.arc(cx,cy,r,a,fin);x.arc(cx,cy,ri,fin,a,true);x.closePath();x.fillStyle=g.c;x.fill();a=fin});
-        x.textAlign='center';x.fillStyle='#17352b';x.font='800 28px "Segoe UI"';x.fillText(fmt(total),cx,cy-2);x.fillStyle='#73867f';x.font='11px "Segoe UI"';x.fillText('mensajeros exigibles',cx,cy+18);x.textAlign='left';
-      }
-      $('peopleLegend').innerHTML=grupos.map((g)=>`<div class="people-item"><span><i style="background:${g.c}"></i>${g.n}</span><b>${fmt(g.v)} · ${total?pct(g.v*100/total):'0.0%'}</b></div>`).join('');
-      $('peopleNote').textContent=noExig?fmt(noExig)+' mensajero(s) no eran exigibles en el periodo por calendario o justificación.':'';
     }
 
     function base(id) {
@@ -1450,6 +1460,7 @@
         <td class="t-name">${esc(p.proyecto)}</td>
         <td class="tnum">${fmt(p.activos)}</td><td class="tnum">${fmt(p.realizadas)}</td>
         <td class="tnum">${fmt(p.esperadas)}</td><td class="tnum">${fmt(p.no_realizadas)}</td>
+        <td class="tnum">${fmt(p.justificados)}</td>
         <td>${barra(p.porcentaje)}</td>
         <td class="tnum t-sub">${p.meta != null ? Number(p.meta).toFixed(0) + '%' : '—'}</td>
         <td>${cls ? `<span class="badge ${cls}">${txt}</span>` : '<span class="t-sub">—</span>'}</td></tr>`;
@@ -1473,6 +1484,7 @@
         <td class="t-name">${esc(d.nombre)}${sinAsignar ? ' <small class="t-sub">(falta cargarlo)</small>' : ''}</td>
         <td class="tnum">${fmt(d.activos)}</td><td class="tnum">${fmt(d.realizadas)}</td>
         <td class="tnum">${fmt(d.esperadas)}</td><td class="tnum">${fmt(d.no_realizadas)}</td>
+        <td class="tnum">${fmt(d.justificados)}</td>
         <td>${barra(d.porcentaje)}</td>
         <td>${cls ? `<span class="badge ${cls}">${txt}</span>` : '<span class="t-sub">—</span>'}</td></tr>`;
       }).join('');
@@ -1695,7 +1707,6 @@
         ['Cumplimiento por proyecto', imagenCanvas('cProjBars')],
         ['Tendencia de cumplimiento', imagenCanvas('cTrend')],
         ['Comportamiento por día', imagenCanvas('cDaily')],
-        ['Cumplimiento de colaboradores', imagenCanvas('cPeople')],
       ].filter((g) => g[1]);
       const proyectos = (data.por_proyecto || []).slice(0, 12);
       const fallas = (data.top_fallas || []).slice(0, 12);

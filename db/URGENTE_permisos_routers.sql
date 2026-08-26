@@ -263,6 +263,66 @@ revoke all on function admin_borrar_huerfano(jsonb) from public, anon;
 grant execute on function admin_borrar_huerfano(jsonb) to authenticated;
 
 -- ------------------------------------------------------------
+-- 1.e) Historial: todo lo que se ha cambiado, con fecha y hora
+--      Vive en Administracion, no en el dashboard.
+-- ------------------------------------------------------------
+create or replace function admin_historial(payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $fn$
+declare
+  q      text := btrim(coalesce(payload->>'q', ''));
+  v_tipo text := btrim(coalesce(payload->>'tipo', ''));
+  desde  date := nullif(payload->>'desde', '')::date;
+  hasta  date := nullif(payload->>'hasta', '')::date;
+  lim    int  := least(greatest(coalesce(nullif(payload->>'limite', '')::int, 300), 1), 1000);
+  filas  jsonb;
+  cuantos bigint;
+begin
+  drop table if exists tmp_hist_sel;
+  create temporary table tmp_hist_sel on commit drop as
+    select h.id, h.creado_en, coalesce(h.tipo, '') tipo,
+           coalesce(h.cedula, '') cedula,
+           coalesce(c.nombre, '') nombre,
+           coalesce(h.detalle, '') detalle,
+           coalesce(c.proyecto_efectivo, c.proyecto, '') proyecto
+      from historial h
+      left join colaboradores c
+        on regexp_replace(c.cedula, '\D', '', 'g') = regexp_replace(coalesce(h.cedula, ''), '\D', '', 'g')
+       and coalesce(h.cedula, '') <> ''
+     where (v_tipo = '' or h.tipo = v_tipo)
+       and (desde is null or (h.creado_en at time zone 'America/Bogota')::date >= desde)
+       and (hasta is null or (h.creado_en at time zone 'America/Bogota')::date <= hasta)
+       and (q = ''
+            or coalesce(h.cedula, '') ilike '%' || q || '%'
+            or coalesce(h.detalle, '') ilike '%' || q || '%'
+            or coalesce(h.tipo, '') ilike '%' || q || '%'
+            or coalesce(c.nombre, '') ilike '%' || q || '%');
+
+  select count(*) into cuantos from tmp_hist_sel;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', t.id,
+           'fecha', to_char(t.creado_en at time zone 'America/Bogota', 'YYYY-MM-DD'),
+           'hora',  to_char(t.creado_en at time zone 'America/Bogota', 'HH24:MI'),
+           'tipo', t.tipo, 'cedula', t.cedula, 'nombre', t.nombre,
+           'proyecto', t.proyecto, 'detalle', t.detalle) order by t.creado_en desc), '[]'::jsonb)
+    into filas
+    from (select * from tmp_hist_sel order by creado_en desc limit lim) t;
+
+  return jsonb_build_object(
+    'filas', filas,
+    'total', cuantos,
+    'mostrados', jsonb_array_length(filas),
+    -- Los tipos que existen, para el desplegable de la pantalla.
+    'tipos', coalesce((select jsonb_agg(x.tipo order by x.tipo)
+                         from (select distinct coalesce(tipo, '') tipo from historial
+                                where coalesce(tipo, '') <> '') x), '[]'::jsonb));
+end;
+$fn$;
+
+revoke all on function admin_historial(jsonb) from public, anon;
+grant execute on function admin_historial(jsonb) to authenticated;
+
+-- ------------------------------------------------------------
 -- 2) Router de administración: solo HSQ
 --    Incluye la actualización de matriz, que se muda aquí desde
 --    la pantalla de coordinadores.
@@ -299,6 +359,7 @@ begin
     when 'asignarFrente'             then result := admin_asignar_frente(payload);
     when 'coordinadorMasivo'         then result := admin_coordinador_masivo(payload);
     when 'borrarHuerfano'            then result := admin_borrar_huerfano(payload);
+    when 'historial'                 then result := admin_historial(payload);
     when 'listaEncargados'           then result := api_lista_encargados();
     -- Nuevas: la matriz se actualiza desde Administración.
     when 'actualizarMatriz'          then result := api_actualizar_matriz(payload);

@@ -166,6 +166,7 @@
           <div class="adm-group">
             <p class="adm-group__title">Configuración</p>
           <button class="adm-link" type="button" data-v="calendario" aria-label="Calendario y metas"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/></svg></span><span>Calendario y metas</span></button>
+          <button class="adm-link" type="button" data-v="historial" aria-label="Historial"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/><path d="M12 8v4.5l3 1.8"/></svg></span><span>Historial</span></button>
           <button class="adm-link" type="button" data-v="formularios" aria-label="Formularios por proyecto"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h4"/></svg></span><span>Formularios por proyecto</span></button>
           </div>
           <div class="adm-group">
@@ -529,6 +530,40 @@
         </div>
       </div>
 
+      <!-- ============ HISTORIAL ============ -->
+      <div id="v-historial" class="view hidden">
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <p class="card__title">Historial de cambios</p>
+              <p class="card__sub">Traslados, ingresos, actualizaciones de matriz y encargados</p>
+            </div>
+            <button id="hisRecargar" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Recargar</button>
+          </div>
+          <div class="card__body">
+            <p class="hint-inline" style="margin-top:0">
+              Queda registrado qué se cambió y cuándo. Esta información vive solo aquí:
+              no aparece en el dashboard.
+            </p>
+            <div class="input-row" style="margin-top:12px">
+              <input id="hisBuscar" autocomplete="off" placeholder="Buscar por cédula, nombre o detalle…">
+              <button id="hisLimpiar" class="btn btn--ghost btn--icon" type="button" title="Limpiar">✕</button>
+            </div>
+            <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr 1fr;margin-top:10px">
+              <div class="field"><span class="label">Tipo</span>
+                <select id="hisTipo"><option value="">Todos</option></select></div>
+              <div class="field"><span class="label">Desde</span><input id="hisDesde" type="date"></div>
+              <div class="field"><span class="label">Hasta</span><input id="hisHasta" type="date"></div>
+            </div>
+            <button id="hisConsultar" class="btn btn--primary btn--block" type="button" style="margin-top:12px">
+              Consultar
+            </button>
+            <div id="hisStatus" class="status" aria-live="polite"></div>
+            <div id="hisLista" style="margin-top:12px"></div>
+          </div>
+        </section>
+      </div>
+
       <div id="v-calendario" class="view hidden">
         <section class="card">
           <div class="card__head">
@@ -618,6 +653,7 @@
       'encargados-carga': ['Cargar tabla de encargados', 'Se pega tal cual desde Excel; la llave es el CECO'],
       calendario: ['Calendario y metas', 'Qué días opera cada proyecto y su meta'],
       formularios: ['Formularios por proyecto', 'Qué debe diligenciar cada operación'],
+      historial: ['Historial de cambios', 'Qué se movió, cuándo y a quién'],
     };
 
     document.querySelectorAll('.adm-link[data-v]').forEach((t) => {
@@ -635,6 +671,7 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
       // Cada sección carga sus datos la primera vez que se abre.
       if (clave === 'matriz') cargarMatrizInfo();
+      if (clave === 'historial' && !hisData) consultarHistorial();
       if (clave === 'calendario' && !calData) cargarCalendario();
       if (clave === 'formularios' && !frmData) cargarFormulariosProyecto();
       if ((clave === 'encargados' || clave === 'encargados-carga') && !encData) cargarEncargados();
@@ -1814,6 +1851,79 @@
       } finally {
         $('btnMatriz').disabled = false;
       }
+    }
+
+    /* ================= HISTORIAL ================= */
+    let hisData = null;
+
+    $('hisConsultar').addEventListener('click', consultarHistorial);
+    $('hisRecargar').addEventListener('click', consultarHistorial);
+    $('hisBuscar').addEventListener('keydown', (e) => { if (e.key === 'Enter') consultarHistorial(); });
+    $('hisLimpiar').addEventListener('click', () => {
+      $('hisBuscar').value = ''; $('hisTipo').value = '';
+      $('hisDesde').value = ''; $('hisHasta').value = '';
+      consultarHistorial();
+    });
+
+    // Cada tipo de movimiento con su color, para leer la lista de un vistazo.
+    const TONO_HISTORIAL = {
+      TRASLADO: 'info', PROVISIONAL: 'ok', ENCARGADOS: 'info',
+      ACTUALIZACION_MATRIZ: 'warn', INACTIVACION: 'warn',
+      ANULACION: 'bad', CAMBIO_PLACA: 'info', DOCUMENTOS: 'info',
+    };
+
+    async function consultarHistorial() {
+      setStatus('hisStatus', 'Consultando\u2026', 'info');
+      try {
+        hisData = await adminCall('historial', {
+          q: $('hisBuscar').value.trim(),
+          tipo: $('hisTipo').value,
+          desde: $('hisDesde').value,
+          hasta: $('hisHasta').value,
+        });
+        // El desplegable de tipos se llena con lo que existe de verdad.
+        const tipoActual = $('hisTipo').value;
+        $('hisTipo').innerHTML = '<option value="">Todos</option>' +
+          (hisData.tipos || []).map((t) => `<option value="${esc(t)}">${esc(t.replaceAll('_', ' '))}</option>`).join('');
+        $('hisTipo').value = tipoActual;
+        pintarHistorial();
+        const m = hisData.mostrados, t = hisData.total;
+        setStatus('hisStatus', m < t ? `Mostrando los ${m} m\u00e1s recientes de ${t}. Afina la b\u00fasqueda para ver otros.`
+                                     : `${t} movimiento(s).`, m < t ? 'warn' : 'ok');
+      } catch (err) {
+        setStatus('hisStatus', err.message, 'error');
+      }
+    }
+
+    function pintarHistorial() {
+      const filas = (hisData && hisData.filas) || [];
+      if (!filas.length) {
+        $('hisLista').innerHTML = '<p class="hint-inline">No hay movimientos con esos filtros.</p>';
+        return;
+      }
+      let ultimaFecha = '';
+      $('hisLista').innerHTML = filas.map((h) => {
+        // Un encabezado por d\u00eda: as\u00ed se lee como una bit\u00e1cora.
+        const cabecera = h.fecha !== ultimaFecha
+          ? `<p class="label" style="margin:16px 0 8px">${esc(h.fecha)}</p>` : '';
+        ultimaFecha = h.fecha;
+        const tono = TONO_HISTORIAL[h.tipo] || '';
+        const quien = h.nombre
+          ? `${esc(h.nombre)} <span class="suave">\u00b7 CC ${esc(h.cedula)}</span>`
+          : (h.cedula ? `CC ${esc(h.cedula)}` : '');
+        return cabecera + `
+        <div class="checkitem" style="width:100%">
+          <span class="checkitem__body">
+            <span class="checkitem__title">${esc(h.detalle)}</span>
+            <span class="meta">
+              <span><i>${esc(h.hora)}</i></span>
+              <span class="rowchip ${tono === 'bad' ? 'aviso' : ''}">${esc(String(h.tipo).replaceAll('_', ' '))}</span>
+              ${quien ? `<span>${quien}</span>` : ''}
+              ${h.proyecto ? `<span class="suave">${esc(h.proyecto)}</span>` : ''}
+            </span>
+          </span>
+        </div>`;
+      }).join('');
     }
 
     function setStatus(id, msg, type) { const n = $(id); n.className = `status show status--${type}`; n.textContent = msg; }
