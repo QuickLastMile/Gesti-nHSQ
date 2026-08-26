@@ -276,6 +276,11 @@ declare
   lim    int  := least(greatest(coalesce(nullif(payload->>'limite', '')::int, 300), 1), 1000);
   filas  jsonb;
   cuantos bigint;
+  -- Lo que hace el mensajero desde su celular no es un cambio
+  -- administrativo: sube sus documentos al diligenciar (DOCUMENTOS) y
+  -- registra su placa la primera vez (CAMBIO_PLACA). Eso no va aqui.
+  -- Ojo: ADMIN_PLACA y ADMIN_ESTADO si son de HSQ y si se muestran.
+  del_mensajero text[] := array['DOCUMENTOS', 'CAMBIO_PLACA'];
 begin
   drop table if exists tmp_hist_sel;
   create temporary table tmp_hist_sel on commit drop as
@@ -288,7 +293,8 @@ begin
       left join colaboradores c
         on regexp_replace(c.cedula, '\D', '', 'g') = regexp_replace(coalesce(h.cedula, ''), '\D', '', 'g')
        and coalesce(h.cedula, '') <> ''
-     where (v_tipo = '' or h.tipo = v_tipo)
+     where coalesce(h.tipo, '') <> all (del_mensajero)
+       and (v_tipo = '' or h.tipo = v_tipo)
        and (desde is null or (h.creado_en at time zone 'America/Bogota')::date >= desde)
        and (hasta is null or (h.creado_en at time zone 'America/Bogota')::date <= hasta)
        and (q = ''
@@ -315,7 +321,8 @@ begin
     -- Los tipos que existen, para el desplegable de la pantalla.
     'tipos', coalesce((select jsonb_agg(x.tipo order by x.tipo)
                          from (select distinct coalesce(tipo, '') tipo from historial
-                                where coalesce(tipo, '') <> '') x), '[]'::jsonb));
+                                where coalesce(tipo, '') <> ''
+                                  and coalesce(tipo, '') <> all (del_mensajero)) x), '[]'::jsonb));
 end;
 $fn$;
 

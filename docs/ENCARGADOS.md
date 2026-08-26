@@ -197,6 +197,23 @@ para separar lo que consulta un coordinador de lo que cambia la nómina.
 Va por el router de administración, así que **exige sesión de HSQ**: la cuenta de
 coordinador ya no alcanza para actualizar la matriz.
 
+## Historial
+
+**Administración → Historial** muestra lo que se ha cambiado, agrupado por día y
+con hora, tipo, persona y proyecto. Filtros por texto, tipo y rango de fechas.
+
+Incluye traslados, ingresos provisionales, actualizaciones de matriz, cambios de
+encargados, justificaciones, anulaciones y cambios hechos por HSQ sobre una
+ficha.
+
+**No incluye las marcaciones del mensajero**: cuando sube sus documentos al
+diligenciar (`DOCUMENTOS`) o registra su placa la primera vez (`CAMBIO_PLACA`).
+Eso es operación diaria, no un cambio administrativo, y llenaría la bitácora de
+ruido. Los equivalentes hechos por HSQ —`ADMIN_PLACA` y `ADMIN_ESTADO`— sí
+aparecen.
+
+Vive solo en Administración: no está en el dashboard.
+
 ## Scripts
 
 Todos se pueden volver a ejecutar sin problema, **pero el orden importa**: varios
