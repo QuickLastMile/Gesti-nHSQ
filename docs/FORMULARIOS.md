@@ -40,6 +40,16 @@ descarga solo las columnas de ese perfil. Sin filtro salen todas, y las que no
 apliquen quedan vacías. El CSV trae además una columna `tipo` con `MOTO` o
 `VEHICULO` por registro.
 
+## Cuantos registros aguanta el exportable
+
+El exportable arma el archivo en una sola consulta, asi que un rango de varios
+dias con todos los proyectos sale en segundos. El tope es de **30.000 registros**
+por descarga: pasado ese punto avisa y pide acortar el rango o filtrar, en vez
+de dejar la pantalla colgada.
+
+Si aparece *canceling statement due to statement timeout*, falta correr
+`db/FIX_exportable_lento.sql`.
+
 ## El formulario de limpieza no comparte preguntas
 
 En limpieza y desinfección, los dos formularios son **independientes**: el
@@ -85,5 +95,6 @@ marcado no lo exige ni lo cuenta en el cumplimiento.
 | `db/preoperacional_vehiculos.sql` | La columna `aplica_a` y las 17 preguntas del preoperacional de vehículo. |
 | `db/limpieza_vehiculos.sql` | Las preguntas de limpieza y desinfección de vehículo. |
 | `db/limpieza_vehiculos_v2.sql` | Corrección: separa por completo los dos formularios, agrega modelo y combustible, y pone la infografía. |
+| `db/FIX_exportable_lento.sql` | Arregla el *statement timeout* del exportable en rangos largos. |
 
 Ambos se pueden volver a ejecutar sin duplicar nada.
