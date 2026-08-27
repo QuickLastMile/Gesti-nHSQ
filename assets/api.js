@@ -202,7 +202,7 @@
       coordinador: filtros.coordinador || '',
     };
     const r = await rpc('generarExportable', p);
-    await firmarEvidenciasExportable(r.filas || []);
+    const sinFirmar = await firmarEvidenciasExportable(r.filas || []);
 
     // 'tipo' distingue moto de vehículo en el mismo archivo.
     const base = ['fecha', 'hora', 'cedula', 'nombre', 'cargo', 'tipo', 'proyecto_id', 'proyecto',
@@ -236,39 +236,82 @@
     const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '').slice(0, 15);
     return {
       ok: true, filas: r.total || 0, columnas: encabezados.length,
+      evidenciasSinFirmar: sinFirmar || 0,
       nombre: 'Exportable_' + p.formulario + sufijo + '_' + stamp + '.csv',
       url: url, downloadUrl: url, esArchivoLocal: true,
       registros: r.filas || [],
     };
   }
 
+  // Convierte lo guardado en la base (ruta o enlace publico) en la ruta
+  // dentro del bucket, que es lo que entiende Storage.
+  function rutaEvidencia(valor) {
+    let ruta = String(valor || '');
+    const marca = '/evidencias/';
+    const pos = ruta.indexOf(marca);
+    if (pos !== -1) ruta = ruta.slice(pos + marca.length);
+    try { ruta = decodeURIComponent(ruta); } catch (e) { /* ya venia sin codificar */ }
+    return ruta.replace(/^\/+/, '');
+  }
+
+  // Devuelve cuantas evidencias quedaron sin enlace firmado.
+  //
+  // Storage firma en lote: un pedido por cada 200 archivos. Antes se hacia
+  // uno por archivo y todos a la vez, asi que una semana de todos los
+  // proyectos disparaba miles de peticiones simultaneas y el servidor
+  // respondia con una pagina de error.
   async function firmarEvidenciasExportable(filas) {
     const token = sessionStorage.getItem('hsq_coord_token') || sessionStorage.getItem('hsq_admin_token') || '';
-    if (!token) return;
+    if (!token) return 0;
     const base = CFG.SUPABASE_URL.replace(/\/$/, '');
-    const cache = {};
+
+    const firmadas = new Map();   // ruta -> enlace firmado
     const entradas = [];
     (filas || []).forEach((fila) => Object.entries(fila.evidencias || {}).forEach(([id, valor]) => {
-      entradas.push({ fila, id, valor: String(valor || '') });
+      const ruta = rutaEvidencia(valor);
+      if (!ruta) return;
+      entradas.push({ fila, id, ruta });
+      if (!firmadas.has(ruta)) firmadas.set(ruta, '');
     }));
-    await Promise.all(entradas.map(async (item) => {
-      let path = item.valor;
-      const marca = '/evidencias/';
-      const pos = path.indexOf(marca);
-      if (pos !== -1) path = path.slice(pos + marca.length);
-      path = decodeURIComponent(path).replace(/^\/+/, '');
-      if (!path) return;
-      if (!cache[path]) cache[path] = (async () => {
-        const res = await fetch(base + '/storage/v1/object/sign/evidencias/' + path.split('/').map(encodeURIComponent).join('/'), {
+    if (!entradas.length) return 0;
+
+    const lista = [...firmadas.keys()];
+    const LOTE = 200;      // archivos por pedido
+    const A_LA_VEZ = 4;    // pedidos en paralelo
+
+    const trozos = [];
+    for (let i = 0; i < lista.length; i += LOTE) trozos.push(lista.slice(i, i + LOTE));
+
+    const firmarTrozo = async (rutas) => {
+      let datos = null;
+      try {
+        const res = await fetch(base + '/storage/v1/object/sign/evidencias', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ expiresIn: 604800 }),
+          body: JSON.stringify({ expiresIn: 604800, paths: rutas }),
         });
-        const data = await res.json();
-        return data.signedURL ? base + '/storage/v1' + data.signedURL : '';
-      })();
-      item.fila.evidencias[item.id] = await cache[path];
+        // Si el servidor responde una pagina de error, esto falla: se deja la
+        // evidencia sin firmar en vez de tumbar toda la descarga.
+        datos = await res.json();
+      } catch (e) { return; }
+      if (!Array.isArray(datos)) return;
+      datos.forEach((d) => {
+        if (d && d.signedURL && d.path) firmadas.set(d.path, base + '/storage/v1' + d.signedURL);
+      });
+    };
+
+    let siguiente = 0;
+    await Promise.all(Array.from({ length: Math.min(A_LA_VEZ, trozos.length) }, async () => {
+      while (siguiente < trozos.length) await firmarTrozo(trozos[siguiente++]);
     }));
+
+    let sinFirmar = 0;
+    entradas.forEach((it) => {
+      const enlace = firmadas.get(it.ruta);
+      if (enlace) it.fila.evidencias[it.id] = enlace;
+      else sinFirmar++;
+    });
+    return sinFirmar;
   }
 
   // Sube las fotos al almacenamiento y arma el registro con sus enlaces.

@@ -50,6 +50,13 @@ de dejar la pantalla colgada.
 Si aparece *canceling statement due to statement timeout*, falta correr
 `db/FIX_exportable_lento.sql`.
 
+Los enlaces de las fotos se firman **en lotes de 200**, no uno por uno: una
+semana de todos los proyectos son miles de archivos y pedirlos todos a la vez
+hacia que el servidor respondiera una pagina de error.
+
+Si algun lote falla, el archivo igual se genera: esas evidencias salen como
+ruta en vez de enlace y el mensaje de la pantalla dice cuantas fueron.
+
 ## El formulario de limpieza no comparte preguntas
 
 En limpieza y desinfección, los dos formularios son **independientes**: el

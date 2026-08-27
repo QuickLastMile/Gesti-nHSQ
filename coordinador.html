@@ -196,7 +196,7 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=23"></script>
+  <script src="assets/api.js?v=24"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -572,7 +572,11 @@
       try {
         const resp = await HSQ_API.call('generarExportable', filtros);
         showResult(resp);
-        showStatus(`✓ Exportable generado: ${resp.filas} fila(s), ${resp.columnas} columna(s).`, resp.filas ? 'ok' : 'warn');
+        const sinFirma = resp.evidenciasSinFirmar || 0;
+        // Un enlace sin firmar sale como ruta suelta: hay que decirlo, no callarlo.
+        const aviso = sinFirma ? ` ${sinFirma} evidencia(s) quedaron sin enlace y salen como ruta.` : '';
+        showStatus(`✓ Exportable generado: ${resp.filas} fila(s), ${resp.columnas} columna(s).${aviso}`,
+          !resp.filas || sinFirma ? 'warn' : 'ok');
       } catch (err) {
         showStatus(err.message, 'error');
       } finally {
