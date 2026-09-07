@@ -473,6 +473,22 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .form-toggle input { width: 19px; height: 19px; min-height: 0; margin: 0; accent-color: var(--success); flex: 0 0 auto; }
 .form-toggle span { min-width: 0; }
 .form-toggle b { display: block; line-height: 1.25; }
+/* El selector de frecuencia va FUERA del label: si estuviera dentro,
+   desplegarlo marcaria o desmarcaria la casilla. */
+/* Columna: la casilla se estira y el selector queda abajo, para que los
+   selectores de una misma fila queden alineados aunque el nombre del
+   formulario ocupe una linea o dos. */
+.form-toggle-box { display: flex; flex-direction: column; gap: 6px; }
+.form-toggle-box > .form-toggle { flex: 1 1 auto; }
+.form-freq {
+  width: 100%; min-height: 38px; padding: 6px 9px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  background: var(--surface); color: var(--text);
+}
+.form-freq-warn {
+  font-size: 11px; line-height: 1.35; padding: 6px 8px; border-radius: 8px;
+  color: var(--warning); background: var(--warning-soft);
+}
 @media (max-width: 560px) {
   .project-form-head { align-items: flex-start; flex-direction: column; }
   .project-form-options { grid-template-columns: 1fr; }

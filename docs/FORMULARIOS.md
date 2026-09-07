@@ -89,6 +89,39 @@ infografía de referencia, igual que la versión de moto. La imagen vive en
 apunta a ella. También acepta un enlace de Google Drive: la app reconoce el
 formato y muestra la miniatura sola.
 
+## Cada cuánto se exige un formulario
+
+En **Administración → Formularios por proyecto**, cada formulario habilitado
+trae debajo un selector de frecuencia:
+
+- **Todos los días del calendario** — lo de siempre, y el valor por defecto.
+- **Solo los lunes** (o el día que se elija) — para las operaciones que solo
+  hacen la limpieza una vez por semana, por auditoría.
+
+La frecuencia se combina con el calendario del proyecto: si el día elegido no es
+laboral, o cae festivo y el proyecto no labora festivos, esa semana no se exige.
+El panel avisa en amarillo si el día elegido no está en el calendario del
+proyecto, porque en ese caso el formulario **nunca** llegaría a pedirse.
+
+Cambia en los cuatro lados a la vez:
+
+| Dónde | Qué pasa |
+|---|---|
+| Mensajero | El formulario no le aparece los días que no le tocan |
+| Cumplimiento diario | No queda como pendiente un día que no se exigía |
+| Dashboard | Las *esperadas* cuentan solo los días que aplican |
+| Mi cumplimiento | La racha no se rompe por un día que no se pedía nada |
+
+### Dos cosas que conviene saber
+
+Un registro **ya hecho** en un día que ahora no se exige sigue contando como
+hecho. No se borra ni se esconde nada.
+
+El cambio **aplica también hacia atrás**: el dashboard recalcula las esperadas de
+los meses anteriores con la nueva frecuencia, así que el porcentaje de esos meses
+sube. Si hace falta conservar la historia tal como se midió, hay que agregarle
+una fecha de vigencia a la frecuencia — hoy no la tiene.
+
 ## Para que un conductor lo vea
 
 Su proyecto debe tener el formulario habilitado en
@@ -103,5 +136,6 @@ marcado no lo exige ni lo cuenta en el cumplimiento.
 | `db/limpieza_vehiculos.sql` | Las preguntas de limpieza y desinfección de vehículo. |
 | `db/limpieza_vehiculos_v2.sql` | Corrección: separa por completo los dos formularios, agrega modelo y combustible, y pone la infografía. |
 | `db/FIX_exportable_lento.sql` | Arregla el *statement timeout* del exportable en rangos largos. |
+| `db/frecuencia_formulario.sql` | Frecuencia diaria o semanal por proyecto y formulario. Correr **después** de `dashboard_justificados.sql`. |
 
 Ambos se pueden volver a ejecutar sin duplicar nada.

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=12">
+  <link rel="stylesheet" href="assets/styles.css?v=14">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -1102,15 +1102,34 @@
           const estado = habilitados > 0
             ? `<span class="project-form-state on">${habilitados} habilitado(s)</span>`
             : '<span class="project-form-state off">Fuera del dashboard</span>';
+          const laborales = String(p.dias_laborales || '1,2,3,4,5,6').split(',');
           const controles = formularios.map((f) => {
             const checked = f.activo_global && seleccion[f.id] === true;
             const disabled = f.activo_global ? '' : 'disabled';
             const nota = f.activo_global ? '' : '<small>Inactivo globalmente</small>';
-            return `<label class="form-toggle ${checked ? 'on' : ''} ${f.activo_global ? '' : 'disabled'}">
+            const casilla = `<label class="form-toggle ${checked ? 'on' : ''} ${f.activo_global ? '' : 'disabled'}">
               <input type="checkbox" data-project="${esc(p.proyecto)}" data-form="${esc(f.id)}"
                 ${checked ? 'checked' : ''} ${disabled}>
               <span><b>${esc(f.nombre)}</b><small>${esc(f.id)}</small>${nota}</span>
             </label>`;
+            // La frecuencia solo tiene sentido si el formulario esta habilitado.
+            if (!checked) return `<div class="form-toggle-box">${casilla}</div>`;
+            const fr = (p.frecuencias || {})[f.id] || {};
+            const valor = fr.frecuencia === 'SEMANAL' && fr.dia_semana
+              ? 'SEMANAL:' + fr.dia_semana : 'DIARIA';
+            const opciones = ['<option value="DIARIA">Todos los dias del calendario</option>']
+              .concat(DIAS_SEMANA.map((d, i) =>
+                `<option value="SEMANAL:${i + 1}">Solo los ${d}</option>`)).join('');
+            // Un dia que el proyecto no labora nunca llega: hay que avisarlo.
+            const dia = valor.startsWith('SEMANAL:') ? valor.slice(8) : '';
+            const aviso = dia && laborales.indexOf(dia) === -1
+              ? `<p class="form-freq-warn">Este proyecto no labora los ${DIAS_SEMANA[Number(dia) - 1]},
+                 asi que nunca se va a exigir. Ajusta el calendario del proyecto o cambia el dia.</p>`
+              : '';
+            return `<div class="form-toggle-box">${casilla}
+              <select class="form-freq" data-freq-project="${esc(p.proyecto)}" data-freq-form="${esc(f.id)}">
+                ${opciones}
+              </select>${aviso}</div>`;
           }).join('');
           return `<article class="project-form-row" data-project-row="${esc(p.proyecto)}">
             <div class="project-form-head">
@@ -1124,6 +1143,13 @@
       $('frmLista').querySelectorAll('input[data-project][data-form]').forEach((input) => {
         input.addEventListener('change', () => guardarFormularioProyecto(input));
       });
+      $('frmLista').querySelectorAll('select[data-freq-form]').forEach((sel) => {
+        const proy = (frmData.proyectos || []).find((x) => x.proyecto === sel.dataset.freqProject);
+        const fr = ((proy && proy.frecuencias) || {})[sel.dataset.freqForm] || {};
+        sel.value = fr.frecuencia === 'SEMANAL' && fr.dia_semana
+          ? 'SEMANAL:' + fr.dia_semana : 'DIARIA';
+        sel.addEventListener('change', () => guardarFrecuencia(sel));
+      });
     }
 
     async function guardarFormularioProyecto(input) {
@@ -1133,13 +1159,20 @@
       input.disabled = true;
       setStatus('frmStatus', `Guardando ${proyecto}…`, 'info');
       try {
+        const previa = ((frmData.proyectos || []).find((x) => x.proyecto === proyecto)
+          || {}).frecuencias || {};
+        const fr = previa[formulario] || {};
         const r = await adminCall('guardarFormularioProyecto', {
           proyecto, formulario_id: formulario, activo,
+          // Volver a habilitar no debe borrar la frecuencia que ya tenia.
+          frecuencia: fr.frecuencia || 'DIARIA', dia_semana: fr.dia_semana || '',
         });
         const p = (frmData.proyectos || []).find((x) => x.proyecto === proyecto);
         if (p) {
           p.formularios = p.formularios || {};
           p.formularios[formulario] = activo;
+          p.frecuencias = p.frecuencias || {};
+          p.frecuencias[formulario] = { frecuencia: r.frecuencia, dia_semana: r.dia_semana };
           p.habilitados = r.habilitados;
         }
         pintarFormulariosProyecto();
@@ -1147,6 +1180,40 @@
       } catch (err) {
         input.checked = !activo;
         input.disabled = false;
+        setStatus('frmStatus', err.message, 'error');
+      }
+    }
+
+    // 1=lunes ... 7=domingo, igual que el calendario laboral.
+    const DIAS_SEMANA = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabados', 'domingos'];
+
+    async function guardarFrecuencia(sel) {
+      const proyecto = sel.dataset.freqProject;
+      const formulario = sel.dataset.freqForm;
+      const [frecuencia, dia] = sel.value.split(':');
+      const previo = sel.value;
+      sel.disabled = true;
+      setStatus('frmStatus', `Guardando ${proyecto}...`, 'info');
+      try {
+        const r = await adminCall('guardarFormularioProyecto', {
+          proyecto, formulario_id: formulario, activo: true,
+          frecuencia, dia_semana: dia || '',
+        });
+        const p = (frmData.proyectos || []).find((x) => x.proyecto === proyecto);
+        if (p) {
+          p.frecuencias = p.frecuencias || {};
+          p.frecuencias[formulario] = { frecuencia: r.frecuencia, dia_semana: r.dia_semana };
+        }
+        pintarFormulariosProyecto();
+        const texto = r.frecuencia === 'SEMANAL'
+          ? `solo los ${DIAS_SEMANA[Number(r.dia_semana) - 1]}`
+          : 'todos los dias del calendario';
+        // El servidor avisa si el dia elegido no es laboral para el proyecto.
+        setStatus('frmStatus', r.aviso ? `${proyecto}: ${r.aviso}` : `✓ ${proyecto}: ${texto}.`,
+          r.aviso ? 'warn' : 'ok');
+      } catch (err) {
+        sel.value = previo;
+        sel.disabled = false;
         setStatus('frmStatus', err.message, 'error');
       }
     }
@@ -1257,7 +1324,7 @@
         alternarSeleccion(false);
         $('encSelCoord').value = '';
         await cargarEncargados();
-        setStatus('encStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        setStatus('encStatus', '✓ ' + (r.mensaje || 'Listo.'), 'ok');
       } catch (err) {
         setStatus('encStatus', err.message, 'error');
         $('encSelAplicar').disabled = false;
@@ -1433,7 +1500,7 @@
         const r = await adminCall('borrarHuerfano', { proyecto_id: pid });
         await cargarEncargados();
         verHuerfanos();
-        setStatus('encStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        setStatus('encStatus', '✓ ' + (r.mensaje || 'Listo.'), 'ok');
       } catch (err) {
         setStatus('encStatus', err.message, 'error');
       }
@@ -1525,7 +1592,7 @@
       try {
         const r = await adminCall('cargarEncargados', { filas: encFilas });
         setStatus('encCargaStatus',
-          `\u2713 ${r.mensaje} `
+          `✓ ${r.mensaje} `
           + (r.ignorados ? `${r.ignorados} fila(s) sin CECO no se guardaron. ` : '')
           + `Quedan ${r.proyectos_sin_jefe} proyecto(s) con gente activa sin jefe y ${r.proyectos_sin_lider} sin l\u00edder.`, 'ok');
         $('encPreview').innerHTML = '';
@@ -1656,7 +1723,7 @@
             });
           }
         }
-        setStatus('encFrenteStatus', '\u2713 Coordinaci\u00f3n guardada.', 'ok');
+        setStatus('encFrenteStatus', '✓ Coordinaci\u00f3n guardada.', 'ok');
         await refrescarProyecto();
       } catch (err) {
         setStatus('encFrenteStatus', err.message, 'error');
@@ -1677,7 +1744,7 @@
         });
         mostrarListaProyectos();
         await cargarEncargados();
-        setStatus('encStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        setStatus('encStatus', '✓ ' + (r.mensaje || 'Listo.'), 'ok');
       } catch (err) {
         setStatus('encBorrarStatus', err.message, 'error');
       } finally {
@@ -1689,7 +1756,7 @@
       setStatus('encFrenteStatus', 'Guardando\u2026', 'info');
       try {
         const r = await adminCall('guardarEncargado', Object.assign({ proyecto_id: $('e_pid').value }, datos));
-        setStatus('encFrenteStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        setStatus('encFrenteStatus', '✓ ' + (r.mensaje || 'Listo.'), 'ok');
         await refrescarProyecto();
       } catch (err) {
         setStatus('encFrenteStatus', err.message, 'error');
@@ -1709,7 +1776,7 @@
           lider: $('e_lider').value.trim(),
           coordinador: (encCoordFilas.find((f) => !f.frente && !f.nueva) || {}).coordinador || '',
         });
-        setStatus('encProyStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        setStatus('encProyStatus', '✓ ' + (r.mensaje || 'Listo.'), 'ok');
         await refrescarProyecto();
       } catch (err) {
         setStatus('encProyStatus', err.message, 'error');
@@ -1799,7 +1866,7 @@
       setStatus('encAsigStatus', 'Aplicando\u2026', 'info');
       try {
         const r = await adminCall('asignarFrente', datos);
-        setStatus('encAsigStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        setStatus('encAsigStatus', '✓ ' + (r.mensaje || 'Listo.'), 'ok');
         $('e_asig_coord').value = '';
         await refrescarProyecto();
       } catch (err) {
@@ -1842,7 +1909,7 @@
                  <b style="display:block;font-size:20px;margin-top:5px">${v}</b>
                </div>`).join('')}
           </div>`;
-        setStatus('matrizStatus', '\u2713 Matriz actualizada el ' + r.fecha + '.', 'ok');
+        setStatus('matrizStatus', '✓ Matriz actualizada el ' + r.fecha + '.', 'ok');
         $('matrizData').value = '';
         cargarMatrizInfo();
         // Los encargados se recalculan solos, pero el resumen hay que releerlo.
