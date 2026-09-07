@@ -52,6 +52,29 @@ alter table proyectos_formularios add constraint chk_pf_frecuencia check (
 );
 
 -- ------------------------------------------------------------
+--  Que formularios pueden ser semanales
+--  ------------------------------------------------------------
+--  El preoperacional se hace todos los dias sin excepcion: no tiene
+--  sentido ofrecerle una frecuencia. La marca vive en la tabla de
+--  formularios y no en el codigo, para poder habilitarla manana en
+--  otro formulario sin tocar la app.
+-- ------------------------------------------------------------
+alter table formularios
+  add column if not exists permite_frecuencia boolean not null default false;
+
+update formularios
+   set permite_frecuencia = true
+ where id like 'LIMPIEZA%' and not permite_frecuencia;
+
+-- Si algo quedo en semanal donde no corresponde, vuelve a diario.
+update proyectos_formularios pf
+   set frecuencia = 'DIARIA', dia_semana = null, actualizado_en = now()
+  from formularios f
+ where f.id = pf.formulario_id
+   and not f.permite_frecuencia
+   and pf.frecuencia <> 'DIARIA';
+
+-- ------------------------------------------------------------
 --  2) Las dos preguntas que se hace todo el sistema
 -- ------------------------------------------------------------
 -- Se le exige ESTE formulario a ESTE proyecto en ESTA fecha?
@@ -92,7 +115,9 @@ returns jsonb language sql security definer set search_path = public as $fn$
     'formularios', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', f.id, 'nombre', f.nombre, 'descripcion', coalesce(f.descripcion,''),
-        'activo_global', f.activo, 'orden', f.orden
+        'activo_global', f.activo, 'orden', f.orden,
+        -- Solo estos muestran el selector de frecuencia en el panel.
+        'permite_frecuencia', coalesce(f.permite_frecuencia, false)
       ) order by f.orden, f.nombre)
       from formularios f
     ), '[]'::jsonb),
@@ -151,6 +176,11 @@ begin
 
   if v_frec not in ('DIARIA','SEMANAL') then
     raise exception 'Frecuencia no valida: %', v_frec;
+  end if;
+  -- El preoperacional (y cualquier formulario sin la marca) es siempre diario.
+  if v_frec = 'SEMANAL'
+     and not coalesce((select permite_frecuencia from formularios where id=v_formulario), false) then
+    raise exception '% se diligencia todos los dias: no admite frecuencia semanal.', v_nombre;
   end if;
   if v_frec = 'SEMANAL' then
     if v_dia is null or v_dia < 1 or v_dia > 7 then

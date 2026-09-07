@@ -1112,8 +1112,9 @@
                 ${checked ? 'checked' : ''} ${disabled}>
               <span><b>${esc(f.nombre)}</b><small>${esc(f.id)}</small>${nota}</span>
             </label>`;
-            // La frecuencia solo tiene sentido si el formulario esta habilitado.
-            if (!checked) return `<div class="form-toggle-box">${casilla}</div>`;
+            // El selector solo aplica a los formularios marcados en la base como
+            // que admiten frecuencia (limpieza). El preoperacional es diario siempre.
+            if (!checked || !f.permite_frecuencia) return `<div class="form-toggle-box">${casilla}</div>`;
             const fr = (p.frecuencias || {})[f.id] || {};
             const valor = fr.frecuencia === 'SEMANAL' && fr.dia_semana
               ? 'SEMANAL:' + fr.dia_semana : 'DIARIA';

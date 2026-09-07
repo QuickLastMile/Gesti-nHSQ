@@ -91,8 +91,9 @@ formato y muestra la miniatura sola.
 
 ## Cada cuánto se exige un formulario
 
-En **Administración → Formularios por proyecto**, cada formulario habilitado
-trae debajo un selector de frecuencia:
+En **Administración → Formularios por proyecto**, los formularios de **limpieza
+y desinfección** traen debajo un selector de frecuencia. El preoperacional no lo
+tiene: se hace todos los días sin excepción.
 
 - **Todos los días del calendario** — lo de siempre, y el valor por defecto.
 - **Solo los lunes** (o el día que se elija) — para las operaciones que solo
@@ -102,6 +103,10 @@ La frecuencia se combina con el calendario del proyecto: si el día elegido no e
 laboral, o cae festivo y el proyecto no labora festivos, esa semana no se exige.
 El panel avisa en amarillo si el día elegido no está en el calendario del
 proyecto, porque en ese caso el formulario **nunca** llegaría a pedirse.
+
+Qué formularios admiten frecuencia lo decide la columna `permite_frecuencia` de
+la tabla `formularios`, no el código: para habilitarla en otro formulario basta
+con marcarla ahí.
 
 Cambia en los cuatro lados a la vez:
 
@@ -137,5 +142,6 @@ marcado no lo exige ni lo cuenta en el cumplimiento.
 | `db/limpieza_vehiculos_v2.sql` | Corrección: separa por completo los dos formularios, agrega modelo y combustible, y pone la infografía. |
 | `db/FIX_exportable_lento.sql` | Arregla el *statement timeout* del exportable en rangos largos. |
 | `db/frecuencia_formulario.sql` | Frecuencia diaria o semanal por proyecto y formulario. Correr **después** de `dashboard_justificados.sql`. |
+| `db/frecuencia_solo_limpieza.sql` | Deja el selector de frecuencia solo en limpieza. Correr **después** del anterior. |
 
 Ambos se pueden volver a ejecutar sin duplicar nada.
