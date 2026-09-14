@@ -61,7 +61,10 @@
     return true;
   }
   function cerrarSesion() {
-    ['hsq_coord_token', 'hsq_admin_token', 'hsq_refresh_token'].forEach((k) => sessionStorage.removeItem(k));
+    // Tambien la linea: si entra otra persona en esta pestana, no debe
+    // heredar la linea que dejo seleccionada la anterior.
+    ['hsq_coord_token', 'hsq_admin_token', 'hsq_refresh_token', 'hsq_linea']
+      .forEach((k) => sessionStorage.removeItem(k));
   }
 
   // Renueva el token con el refresh_token guardado en el login.

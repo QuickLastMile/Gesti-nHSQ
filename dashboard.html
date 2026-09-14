@@ -364,6 +364,7 @@
             <button id="btnExcel" class="export-btn" type="button" disabled>Excel</button>
             <button id="btnPdf" class="export-btn" type="button" disabled>PDF</button>
             <span class="pill"><span class="dot"></span>Datos en vivo</span>
+            <button id="btnSalir" class="export-btn" type="button" title="Cerrar sesión">Salir</button>
           </div>
         </header>
         <div class="filterbar">
@@ -651,7 +652,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=29"></script>
+  <script src="assets/api.js?v=30"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
@@ -673,6 +674,13 @@
 
     initFiltros();
     arrancar();
+
+    $('btnSalir').addEventListener('click', () => {
+      // Una sola sesion: salir de aqui cierra tambien Cumplimiento y
+      // Administracion.
+      HSQ_API.cerrarSesion();
+      location.href = 'index.html';
+    });
 
     $('btnApply').addEventListener('click', cargar);
     $('btnExcel').addEventListener('click', exportarExcel);

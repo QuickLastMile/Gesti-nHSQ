@@ -750,9 +750,8 @@
       ['hsq_admin_token', 'hsq_coord_token', 'hsq_refresh_token', 'hsq_linea']
         .forEach((k) => sessionStorage.removeItem(k));
       token = '';
-      $('panel').classList.add('hidden');
-      $('loginCard').classList.remove('hidden');
-      $('password').value = '';
+      // Ya no se entra por aqui: se vuelve al inicio, no a un login suelto.
+      location.href = 'index.html';
     }
 
     function mostrarPanel() {
