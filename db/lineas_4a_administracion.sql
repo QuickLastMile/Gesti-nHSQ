@@ -83,6 +83,10 @@ $fn$;
 -- ------------------------------------------------------------
 --  3) La lista de proyectos que alimenta los desplegables
 -- ------------------------------------------------------------
+-- Ojo: esta funcion antes no recibia parametros. 'create or replace' no
+-- reemplaza una firma por otra, crea una segunda; las dos se podrian
+-- llamar sin argumentos y Postgres responderia "is not unique".
+drop function if exists admin_proyectos();
 create or replace function admin_proyectos(payload jsonb default '{}'::jsonb)
 returns jsonb language sql security definer set search_path = public as $fn$
   with lin as (select linea_efectiva(coalesce(payload->>'linea','')) as id)
@@ -104,6 +108,10 @@ $fn$;
 -- ------------------------------------------------------------
 --  4) Calendario y metas
 -- ------------------------------------------------------------
+-- Ojo: esta funcion antes no recibia parametros. 'create or replace' no
+-- reemplaza una firma por otra, crea una segunda; las dos se podrian
+-- llamar sin argumentos y Postgres responderia "is not unique".
+drop function if exists admin_calendario();
 create or replace function admin_calendario(payload jsonb default '{}'::jsonb)
 returns jsonb language sql security definer set search_path = public as $fn$
   select jsonb_build_object(
@@ -134,6 +142,10 @@ $fn$;
 -- ------------------------------------------------------------
 --  5) Proyectos y encargados
 -- ------------------------------------------------------------
+-- Ojo: esta funcion antes no recibia parametros. 'create or replace' no
+-- reemplaza una firma por otra, crea una segunda; las dos se podrian
+-- llamar sin argumentos y Postgres responderia "is not unique".
+drop function if exists admin_encargados();
 create or replace function admin_encargados(payload jsonb default '{}'::jsonb)
 returns jsonb language sql security definer set search_path = public as $fn$
   with lin as (
@@ -227,6 +239,10 @@ $fn$;
 -- ------------------------------------------------------------
 --  6) Formularios por proyecto
 -- ------------------------------------------------------------
+-- Ojo: esta funcion antes no recibia parametros. 'create or replace' no
+-- reemplaza una firma por otra, crea una segunda; las dos se podrian
+-- llamar sin argumentos y Postgres responderia "is not unique".
+drop function if exists admin_formularios_proyecto();
 create or replace function admin_formularios_proyecto(payload jsonb default '{}'::jsonb)
 returns jsonb language sql security definer set search_path = public as $fn$
   select jsonb_build_object(

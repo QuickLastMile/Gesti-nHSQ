@@ -40,6 +40,10 @@ on conflict (clave) do nothing;
 --  mandarle la linea del desplegable sin tener que reescribir el
 --  router, que es donde mas caro sale equivocarse.
 -- ------------------------------------------------------------
+-- Ojo: esta funcion antes no recibia parametros. 'create or replace' no
+-- reemplaza una firma por otra, crea una segunda; las dos se podrian
+-- llamar sin argumentos y Postgres responderia "is not unique".
+drop function if exists api_lista_encargados();
 create or replace function api_lista_encargados(payload jsonb default '{}'::jsonb)
 returns jsonb language sql stable security definer set search_path = public as $fn$
   with lin as (

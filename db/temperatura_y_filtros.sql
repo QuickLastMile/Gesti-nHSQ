@@ -91,6 +91,10 @@ $fn$;
 --  Solo lo llaman Cumplimiento y el Dashboard, que siempre tienen
 --  sesion; el mensajero no pasa por aqui.
 -- ------------------------------------------------------------
+-- Ojo: esta funcion antes no recibia parametros. 'create or replace' no
+-- reemplaza una firma por otra, crea una segunda; las dos se podrian
+-- llamar sin argumentos y Postgres responderia "is not unique".
+drop function if exists api_get_bootstrap();
 create or replace function api_get_bootstrap(payload jsonb default '{}'::jsonb)
 returns jsonb language sql security definer set search_path = public as $fn$
   with lin as (select linea_efectiva(coalesce(payload->>'linea','')) as id)
