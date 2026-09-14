@@ -83,15 +83,24 @@ El usuario se crea antes en **Supabase → Authentication → Add user**.
 | `db/lineas_1_fundacion.sql` | Tabla de líneas, la línea de cada colaborador y de cada registro, y el alcance por usuario. No cambia el comportamiento de nadie. |
 | `db/lineas_2_matriz.sql` | El cargue de matriz queda amarrado a la línea activa. **Correr antes de cargar cualquier matriz nueva.** |
 | `db/lineas_3_lecturas.sql` | Dashboard, cumplimiento del día, exportable y lista de encargados devuelven solo la línea activa. |
+| `db/lineas_4a_administracion.sql` | Administración (Buscar, Proyectos, Calendario, Formularios, Historial) muestra solo la línea activa. |
 
 ## Lo que todavía NO filtra
 
-**Administración**: Buscar y editar, Proyectos, Calendario, Formularios por
-proyecto e Historial siguen mostrando todas las líneas. Mientras eso siga así,
-no le entregues a otra línea un usuario con rol ADMIN o HSEQ — usa COORDINADOR,
-que solo llega a Cumplimiento y Dashboard.
+Las **escrituras** de Administración: guardar un encargado, mover a alguien de
+proyecto, asignar un coordinador masivo o borrar un huérfano todavía no
+verifican que el destino sea de la línea activa.
 
-Esa es la etapa 4.
+Hoy eso no es un hueco de seguridad —a Administración solo llega ADMIN/HSEQ, y
+el único que existe es el usuario universal—, pero hay que cerrarlo **antes** de
+subir a HSEQ a los usuarios de línea. Esa es la etapa 4b.
+
+Dos detalles de la 4a que conviene saber:
+
+- Un **CECO huérfano** (cargado pero sin gente) no tiene línea deducible, así que
+  solo lo ve el usuario universal.
+- En el **historial**, los movimientos sin cédula (calendario, cargues de tabla)
+  tampoco tienen línea, así que también son solo para el universal.
 
 ## Una consulta que no pasa por el router
 
