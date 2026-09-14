@@ -207,7 +207,7 @@
       caja.innerHTML = '<span class="header-linea__tag">Linea</span>'
         + '<span class="header-linea__fija">' + esc(n) + '</span>';
       caja.className = 'header-linea';
-      return actual;
+      return info;
     }
 
     caja.className = 'header-linea';
@@ -220,7 +220,7 @@
       fijarLinea(ev.target.value);
       if (typeof alCambiar === 'function') alCambiar(ev.target.value);
     });
-    return actual;
+    return info;
   }
 
   async function supabaseCall(action, payload = {}) {

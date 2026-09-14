@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=16">
+  <link rel="stylesheet" href="assets/styles.css?v=17">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -124,6 +124,10 @@
         <p>Matriz de colaboradores</p>
       </div>
       <div id="lineaBox" class="header-linea"></div>
+      <a class="header-back" href="coordinador.html" title="Volver a Gestión administrativa">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="solo-ancho">Gestión</span>
+      </a>
       <a class="header-back" href="index.html">
         <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Inicio
@@ -628,7 +632,11 @@
     const $ = (id) => document.getElementById(id);
     const CFG = window.HSQ_CONFIG || {};
     const BASE = (CFG.SUPABASE_URL || '').replace(/\/$/, '');
-    let token = sessionStorage.getItem('hsq_admin_token') || '';
+    // Se entra una sola vez, desde Gestion administrativa. Aqui se acepta
+    // esa misma sesion; el formulario de abajo queda solo por si alguien
+    // abre esta pagina directo.
+    let token = sessionStorage.getItem('hsq_admin_token')
+             || sessionStorage.getItem('hsq_coord_token') || '';
     let resultados = [];
     let fichaActual = null;
 
@@ -738,7 +746,9 @@
     }
 
     function salir() {
-      sessionStorage.removeItem('hsq_admin_token');
+      // Es una sola sesion: salir de aqui es salir de todo.
+      ['hsq_admin_token', 'hsq_coord_token', 'hsq_refresh_token', 'hsq_linea']
+        .forEach((k) => sessionStorage.removeItem(k));
       token = '';
       $('panel').classList.add('hidden');
       $('loginCard').classList.remove('hidden');

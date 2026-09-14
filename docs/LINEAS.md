@@ -19,6 +19,24 @@ El desplegable **propone**, la base **dispone**: cada llamada pasa por
 `linea_efectiva()`, que valida contra las líneas permitidas del usuario. Si
 mañana se olvida un filtro en el HTML, no se filtra información igual.
 
+## Una sola puerta
+
+Desde la página de inicio hay dos tarjetas: **Soy Mensajero** (sin contraseña) y
+**Gestión administrativa**. El acceso suelto a Administración desapareció: se
+entra una sola vez, con la misma cuenta.
+
+Dentro, el engranaje de **Configuración** en la barra lleva a la matriz y la
+configuración, **sin pedir la contraseña otra vez**, y solo aparece si el rol es
+ADMIN o HSEQ. Un COORDINADOR no lo ve.
+
+Eso decide lo que se **ve**, no lo que se **puede**: quien manipule la página
+para mostrar el botón igual choca contra la guarda de `hseq_admin`, que sigue
+exigiendo ADMIN o HSEQ.
+
+La sesión vive **por pestaña**, así que el salto a Configuración tiene que ser
+en la misma pestaña. Salir desde Configuración cierra toda la sesión, no solo
+esa pantalla.
+
 ## Dónde está el selector
 
 En la barra superior de **Administración**, **Cumplimiento** y **Dashboard** —
@@ -84,6 +102,7 @@ El usuario se crea antes en **Supabase → Authentication → Add user**.
 | `db/lineas_2_matriz.sql` | El cargue de matriz queda amarrado a la línea activa. **Correr antes de cargar cualquier matriz nueva.** |
 | `db/lineas_3_lecturas.sql` | Dashboard, cumplimiento del día, exportable y lista de encargados devuelven solo la línea activa. |
 | `db/lineas_4a_administracion.sql` | Administración (Buscar, Proyectos, Calendario, Formularios, Historial) muestra solo la línea activa. |
+| `db/lineas_perfil_usuario.sql` | `api_lineas` devuelve también el rol, para decidir si se muestra el engranaje de Configuración. |
 
 ## Lo que todavía NO filtra
 

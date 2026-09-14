@@ -99,6 +99,11 @@ a { color: var(--accent-dark); }
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 .header-back svg { width: 16px; height: 16px; }
+/* Con varios accesos en la barra, en pantalla angosta queda solo el icono. */
+@media (max-width: 720px) {
+  .header-back .solo-ancho { display: none; }
+  .header-back { padding: 8px 10px; }
+}
 
 /* Linea de negocio activa. Solo aparece en las pantallas con sesion:
    el mensajero no escoge linea, se la dice su cedula. */
