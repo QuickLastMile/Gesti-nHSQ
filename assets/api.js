@@ -229,6 +229,10 @@
     if (!caja) return null;
     let info;
     try { info = await lineasPermitidas(); } catch (e) { caja.innerHTML = ''; return null; }
+    // Cuenta general (ve todas las lineas) o cuenta de una linea. Hasta que
+    // no se corra el script que agrega 'universal', se deduce de si puede
+    // cambiar de linea, que hoy es justamente lo que distingue a las dos.
+    info.general = (info.universal === undefined) ? !!info.puede_cambiar : !!info.universal;
     const lineas = info.lineas || [];
     if (!lineas.length) { caja.innerHTML = ''; return null; }
 
@@ -244,12 +248,12 @@
       const n = (lineas.find((l) => l.id === actual) || lineas[0]).nombre;
       // Sin tocar la clase: cada pantalla trae la suya -el dashboard usa
       // otra- y pisarla le quitaba el formato a esa barra.
-      caja.innerHTML = '<span class="header-linea__tag">Linea</span>'
+      caja.innerHTML = '<span class="header-linea__tag">Línea</span>'
         + '<span class="header-linea__fija">' + esc(n) + '</span>';
       return info;
     }
 
-    caja.innerHTML = '<span class="header-linea__tag">Linea</span>'
+    caja.innerHTML = '<span class="header-linea__tag">Línea</span>'
       + '<select id="' + idCaja + 'Sel" aria-label="Linea de negocio">'
       + lineas.map((l) => '<option value="' + esc(l.id) + '"'
           + (l.id === actual ? ' selected' : '') + '>' + esc(l.nombre) + '</option>').join('')

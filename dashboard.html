@@ -81,6 +81,12 @@
       padding:7px 10px;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;transition:.15s}
     .export-btn:hover{background:var(--green-2);border-color:var(--green-2);color:#fff}
     .export-btn:disabled{opacity:.42;cursor:not-allowed;background:var(--surface);color:var(--muted)}
+    /* Solo icono: el nombre vive en title y aria-label. */
+    .export-btn--ico{width:34px;height:34px;padding:0;display:inline-grid;place-items:center;border-radius:50%}
+    .export-btn--ico svg{width:17px;height:17px}
+    .linea-box select{appearance:none;-webkit-appearance:none;padding-right:26px;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f6a4f' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 8px center;background-size:10px 10px}
     .back-link{display:inline-flex;align-items:center;text-decoration:none}
     /* Linea de negocio. Va primero en la barra porque manda sobre
        todos los demas filtros: cambiarla recarga el tablero entero. */
@@ -416,7 +422,10 @@
             <button id="btnExcel" class="export-btn" type="button" disabled>Excel</button>
             <button id="btnPdf" class="export-btn" type="button" disabled>PDF</button>
             <span class="pill"><span class="dot"></span>Datos en vivo</span>
-            <button id="btnSalir" class="export-btn" type="button" title="Cerrar sesión">Salir</button>
+            <button id="btnSalir" class="export-btn export-btn--ico" type="button"
+                    title="Cerrar sesión" aria-label="Cerrar sesión">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 12H4m0 0 3.5-3.5M4 12l3.5 3.5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 7V5.5A1.5 1.5 0 0 1 11.5 4h6A1.5 1.5 0 0 1 19 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 10 18.5V17" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>
+            </button>
           </div>
         </header>
         <div class="filterbar">
@@ -704,7 +713,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=33"></script>
+  <script src="assets/api.js?v=34"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
@@ -740,6 +749,8 @@
     $('btnApply').addEventListener('click', cargar);
     $('btnExcel').addEventListener('click', exportarExcel);
     $('btnPdf').addEventListener('click', exportarPdf);
+    // Ojo: los listeners se enganchan antes de saber el tipo de cuenta.
+    // No hay problema: si la cuenta es de linea, el boton se elimina.
     $('btnClear').addEventListener('click', () => {
       $('fProject').value = ''; $('fDay').value = hoyISO(); $('fForm').value = 'TODOS';
       $('fJefe').value = ''; $('fLider').value = ''; $('fCoord').value = '';
@@ -846,10 +857,37 @@
         (b.formularios_detalle || []).forEach((f) => { nombreLargo[f.id_formulario] = f.nombre_formulario; });
         // La linea manda sobre todos los filtros: al cambiarla se recarga
         // el tablero entero en vez de mezclar datos de dos operaciones.
-        await HSQ_API.montarSelectorLinea('lineaBox', () => location.reload());
+        const perfil = await HSQ_API.montarSelectorLinea('lineaBox', () => location.reload());
+        ajustarPorCuenta(perfil);
         await cargarEncargados();
         await cargar();
       } catch (e) { manejarError(e); }
+    }
+
+    // La cuenta general -la que ve todas las lineas- tiene el tablero
+    // completo. Las cuentas de una linea trabajan el dia a dia de su
+    // operacion: resumen, seguimiento y documentos.
+    //
+    // Esto ordena la pantalla, no protege los datos: lo que cada cuenta
+    // PUEDE consultar ya lo decide la base por linea. Y el Excel y el PDF
+    // se arman aqui con la informacion que ya se descargo, asi que
+    // quitarlos es alcance, no candado.
+    const SECCIONES_DE_LINEA = ['resumen', 'seguimiento', 'documentos'];
+
+    function ajustarPorCuenta(perfil) {
+      // Sin perfil no se recorta nada: es mejor un tablero completo que uno
+      // mutilado por un error de red.
+      if (!perfil || perfil.general !== false) return;
+
+      // Se quita el acceso, no la seccion: pintarGraficas() escribe dentro
+      // de esos bloques y borrarlos la dejaria buscando elementos que ya no
+      // estan. Sin boton en el menu no hay forma de llegar.
+      document.querySelectorAll('.nav button[data-s]').forEach((b) => {
+        if (!SECCIONES_DE_LINEA.includes(b.dataset.s)) b.remove();
+      });
+      // Se quitan del todo, no se ocultan: asi nada vuelve a habilitarlos
+      // al terminar de cargar.
+      ['btnExcel', 'btnPdf'].forEach((id) => { const n = $(id); if (n) n.remove(); });
     }
 
     async function entrar(ev) {
@@ -880,8 +918,9 @@
           ...encargadoSel(),
         });
         pintar();
-        $('btnExcel').disabled = false;
-        $('btnPdf').disabled = false;
+        // En las cuentas de linea estos botones no existen.
+        if ($('btnExcel')) $('btnExcel').disabled = false;
+        if ($('btnPdf')) $('btnPdf').disabled = false;
         const f = data.filtros || {};
         const proy = $('fProject').selectedIndex > 0 ? $('fProject').options[$('fProject').selectedIndex].text : 'Todos los proyectos';
         const periodo = f.dia ? ('día ' + f.dia)

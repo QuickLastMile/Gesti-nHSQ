@@ -100,27 +100,59 @@ a { color: var(--accent-dark); }
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 .header-back svg { width: 16px; height: 16px; }
+
+/* Los accesos de la barra van juntos y a la derecha. Antes cada uno traia
+   su propio margin-left:auto y el espacio sobrante se repartia entre todos:
+   por eso quedaban regados de lado a lado. */
+.header-tools { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.header-tools .header-back,
+.header-tools .header-linea { margin-left: 0; }
+.header-acciones { display: flex; align-items: center; gap: 6px; }
+
+/* Solo icono: lo que se hace seguido no necesita que se lo expliquen cada
+   vez. El nombre vive en title y aria-label, para el raton y el lector. */
+.header-back--ico {
+  width: 38px; height: 38px; padding: 0; gap: 0;
+  justify-content: center; border-radius: 50%;
+}
+.header-back--ico svg { width: 18px; height: 18px; }
+.header-back:hover { background: rgba(255, 255, 255, 0.2); }
+
 /* Con varios accesos en la barra, en pantalla angosta queda solo el icono. */
 @media (max-width: 720px) {
   .header-back .solo-ancho { display: none; }
   .header-back { padding: 8px 10px; }
+  .header-tools { gap: 8px; }
 }
 
 /* Linea de negocio activa. Solo aparece en las pantallas con sesion:
    el mensajero no escoge linea, se la dice su cedula. */
-.header-linea { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.header-linea { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 .header-linea + .header-back { margin-left: 8px; }
 .header-linea__tag {
-  font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 9.5px; font-weight: 800; letter-spacing: .7px; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
 }
 .header-linea select, .header-linea__fija {
-  font: inherit; font-size: 13px; font-weight: 700; color: #fff;
-  padding: 7px 11px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  font: inherit; font-size: 12.5px; font-weight: 700; color: #fff;
+  padding: 0 12px; border-radius: 999px; line-height: 34px; height: 34px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
 }
-.header-linea select { cursor: pointer; }
+/* La flecha del sistema es pesada y de otro estilo: se apaga y se dibuja
+   una fina, del tamano del texto. */
+.header-linea select {
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+  /* Los campos del formulario son altos a proposito, para el dedo en la
+     moto. Este vive en la barra y no es un campo que se diligencie: con
+     esa altura se veia como un boton gigante. */
+  min-height: 0; height: 34px;
+  padding-right: 29px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 11px 11px;
+}
 /* El desplegable nativo pinta las opciones con el fondo del sistema. */
 .header-linea select option { color: #14342a; background: #fff; }
 @media (max-width: 560px) {

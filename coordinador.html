@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/styles.css?v=22">
+  <link rel="stylesheet" href="assets/styles.css?v=23">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -57,25 +57,28 @@
         <h1>Exportar</h1>
         <p>Coordinador · Gestión HSEQ</p>
       </div>
+      <div class="header-tools">
       <div id="lineaBox" class="header-linea"></div>
+      <div class="header-acciones">
       <!-- Solo para ADMIN/HSEQ: se muestra al conocer el rol, no antes. -->
-      <a id="btnConfig" class="header-back hidden" href="admin.html"
+      <a id="btnConfig" class="header-back header-back--ico hidden" href="admin.html"
          title="Matriz y configuración" aria-label="Matriz y configuración">
         <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.54 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.54a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.1 4.65a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.46 9c.26.62.87 1.03 1.54 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="solo-ancho">Configuración</span>
       </a>
-      <a class="header-back" href="dashboard.html" title="Abrir dashboard HSEQ">
+      <a class="header-back header-back--ico" href="dashboard.html"
+         title="Dashboard HSEQ" aria-label="Dashboard HSEQ">
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 19V9m5 10V5m6 14v-7m5 7V3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-        <span class="solo-ancho">Dashboard</span>
       </a>
-      <button id="btnSalir" class="header-back" type="button" title="Cerrar sesión">
+      <button id="btnSalir" class="header-back header-back--ico" type="button"
+              title="Cerrar sesión" aria-label="Cerrar sesión">
         <svg viewBox="0 0 24 24" fill="none"><path d="M15 12H4m0 0 3.5-3.5M4 12l3.5 3.5" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 7V5.5A1.5 1.5 0 0 1 11.5 4h6A1.5 1.5 0 0 1 19 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-6A1.5 1.5 0 0 1 10 18.5V17" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>
-        <span class="solo-ancho">Salir</span>
       </button>
-      <a class="header-back" href="index.html">
+      </div>
+      <a class="header-back" href="index.html" title="Volver al inicio">
         <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span class="solo-ancho">Inicio</span>
       </a>
+      </div>
     </div>
   </header>
 
@@ -222,7 +225,7 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=33"></script>
+  <script src="assets/api.js?v=34"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
