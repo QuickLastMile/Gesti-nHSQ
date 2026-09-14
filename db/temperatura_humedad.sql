@@ -31,6 +31,19 @@
 alter table preguntas
   add column if not exists alerta_en_registro boolean not null default false;
 
+-- ------------------------------------------------------------
+--  1.b) No todo formulario exige los papeles del vehiculo
+--  ------------------------------------------------------------
+--  Al guardar CUALQUIER registro se exige hoy tener cargados SOAT,
+--  tecnomecanica y licencia, y se revisan sus vencimientos. Eso vale
+--  para quien anda en moto, pero no para quien mide la temperatura
+--  de una bodega: sin esta marca, el formulario nuevo seria
+--  imposible de enviar ("Falta adjuntar el SOAT") y ademas saldria
+--  siempre con alerta de documentos.
+-- ------------------------------------------------------------
+alter table formularios
+  add column if not exists exige_documentos boolean not null default true;
+
 
 -- ------------------------------------------------------------
 --  2) Al guardar, una respuesta marcada deja el registro en gestion
@@ -57,6 +70,7 @@ declare
   v_soat_u text; v_tecno_u text; v_lic_u text;
   alertas_doc text := '';
   alertas_resp text := '';
+  exige_docs boolean := true;
   estado jsonb := '{}'::jsonb;
   regs jsonb := '[]'::jsonb;
   completo boolean := true;
@@ -99,6 +113,9 @@ begin
                and formulario_id = fid and fecha = hoy) then
     raise exception 'Ya realizaste este registro hoy. Solo se permite un registro diario por tipo.';
   end if;
+
+  select coalesce(exige_documentos, true) into exige_docs
+    from formularios where id = fid;
 
   gate := upper(coalesce(respuestas->>'DOC_PRIMERA_O_RENOVACION','')) = 'SI';
 
@@ -155,6 +172,9 @@ begin
     end if;
   end if;
 
+  -- Quien mide la temperatura de una bodega no tiene moto: exigirle
+  -- los papeles del vehiculo dejaria el formulario imposible de enviar.
+  if exige_docs then
   if coalesce(btrim(coalesce(v_soat_u, c.soat_url)),'') = '' then
     raise exception 'Falta adjuntar el SOAT.';
   end if;
@@ -186,6 +206,8 @@ begin
   elsif coalesce(v_lic_v, c.licencia_vence) <= hoy + 15 then
     alertas_doc := alertas_doc || 'Licencia proxima a vencer el ' || to_char(coalesce(v_lic_v, c.licencia_vence),'YYYY-MM-DD') || ' | ';
   end if;
+  end if;   -- exige_docs
+
   if es_diferido then
     alertas_doc := alertas_doc || 'Registro diligenciado sin conexion el ' ||
       to_char(local_ts at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI') || ' | ';
@@ -437,21 +459,25 @@ $fn$;
 --  4) Los dos formularios
 -- ------------------------------------------------------------
 
-insert into formularios (id, nombre, descripcion, activo, orden) values
-  ('TEMP_HUM_AM', 'Temperatura y humedad · Mañana', 'Control de temperatura y humedad en bodega.', true, 3)
+insert into formularios (id, nombre, descripcion, activo, orden, exige_documentos) values
+  ('TEMP_HUM_AM', 'Temperatura y humedad · Mañana', 'Control de temperatura y humedad en bodega.', true, 3, false)
 on conflict (id) do update
   set nombre = excluded.nombre,
       descripcion = excluded.descripcion,
       activo = true,
-      orden = excluded.orden;
+      orden = excluded.orden,
+      -- No pide SOAT ni tecnomecanica: no se mide sobre un vehiculo.
+      exige_documentos = false;
 
-insert into formularios (id, nombre, descripcion, activo, orden) values
-  ('TEMP_HUM_PM', 'Temperatura y humedad · Tarde', 'Control de temperatura y humedad en bodega.', true, 4)
+insert into formularios (id, nombre, descripcion, activo, orden, exige_documentos) values
+  ('TEMP_HUM_PM', 'Temperatura y humedad · Tarde', 'Control de temperatura y humedad en bodega.', true, 4, false)
 on conflict (id) do update
   set nombre = excluded.nombre,
       descripcion = excluded.descripcion,
       activo = true,
-      orden = excluded.orden;
+      orden = excluded.orden,
+      -- No pide SOAT ni tecnomecanica: no se mide sobre un vehiculo.
+      exige_documentos = false;
 
 -- ------------------------------------------------------------
 --  5) Las preguntas de cada jornada

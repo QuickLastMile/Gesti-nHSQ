@@ -154,6 +154,16 @@ La pregunta de la desviación lleva `alerta_en_registro`, así que una respuesta
 *Sí* deja el registro en **REQUIERE_GESTIÓN** y pide la foto del soporte. Es una
 marca por pregunta: el preoperacional y limpieza no cambian de comportamiento.
 
+### No todo formulario exige los papeles del vehículo
+
+Al guardar cualquier registro se exigían SOAT, tecnomecánica y licencia. Eso vale
+para quien anda en moto, pero no para quien mide la temperatura de una bodega:
+sin la marca `formularios.exige_documentos` el formulario sería imposible de
+enviar y saldría siempre con alerta de documentos.
+
+Los formularios de temperatura nacen con la marca en `false`; los demás la
+conservan en `true` y no cambian.
+
 ## Para que un conductor lo vea
 
 Su proyecto debe tener el formulario habilitado en
