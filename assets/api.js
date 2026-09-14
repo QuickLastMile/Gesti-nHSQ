@@ -157,6 +157,41 @@
     return data;
   }
 
+  // ---------- Ver / ocultar la contrasena ----------
+  // Envuelve el campo y le pone un boton. Se usa igual en las tres
+  // pantallas de ingreso, para que se comporte siempre igual.
+  function ojoClave(idInput) {
+    const inp = document.getElementById(idInput);
+    if (!inp || inp.dataset.conOjo) return;
+    inp.dataset.conOjo = '1';
+
+    const caja = document.createElement('span');
+    caja.className = 'campo-clave';
+    inp.parentNode.insertBefore(caja, inp);
+    caja.appendChild(inp);
+
+    const OJO = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.9"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.9"/></svg>';
+    const TACHADO = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5c1.6 0 3 .5 4.2 1.1M21.5 12s-1.2 2.2-3.4 4M9.9 9.9a3 3 0 0 0 4.2 4.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="m4 4 16 16" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ojo-clave';
+    btn.innerHTML = OJO;
+    btn.setAttribute('aria-label', 'Mostrar contrasena');
+    btn.setAttribute('aria-pressed', 'false');
+    caja.appendChild(btn);
+
+    btn.addEventListener('click', () => {
+      const visible = inp.type === 'text';
+      inp.type = visible ? 'password' : 'text';
+      btn.innerHTML = visible ? OJO : TACHADO;
+      btn.setAttribute('aria-label', visible ? 'Mostrar contrasena' : 'Ocultar contrasena');
+      btn.setAttribute('aria-pressed', visible ? 'false' : 'true');
+      // Al volver del boton, el cursor queda donde estaba.
+      inp.focus();
+    });
+  }
+
   // ---------- Linea de negocio ----------
   // Se guarda por pestana: cambiar de linea no le cambia la vista a
   // nadie mas, y al cerrar sesion se va con ella.
@@ -734,5 +769,6 @@
     montarSelectorLinea,
     lineaActiva,
     fijarLinea,
+    ojoClave,
   };
 })();

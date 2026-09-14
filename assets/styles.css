@@ -713,8 +713,34 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
   background: linear-gradient(120deg, var(--bg-grad-1), var(--bg-grad-2));
   display: flex; align-items: center; justify-content: center; padding: 20px;
 }
-.gate__card { background: #fff; border-radius: 18px; padding: 28px 24px; width: 100%; max-width: 360px; box-shadow: var(--shadow-lg); text-align: center; }
-.gate__card h2 { margin: 6px 0 4px; color: var(--brand); }
-.gate__card p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+.gate__card {
+  background: #fff; border-radius: 20px; padding: 34px 30px 28px;
+  width: 100%; max-width: 380px; box-shadow: var(--shadow-lg); text-align: center;
+}
+.gate__marca {
+  display: block; margin-top: 16px; font-size: 11px; font-weight: 800;
+  letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted);
+}
+.gate__card h2 { margin: 4px 0 6px; color: var(--brand); font-size: 21px; letter-spacing: .2px; }
+.gate__card p { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.45; }
 .gate__card .field { text-align: left; }
+.gate__card .field + .field { margin-top: 14px; }
+.gate__card .btn { margin-top: 18px; }
+/* Nota al pie: a quien acudir si no puede entrar. */
+.gate__ayuda {
+  margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line);
+  font-size: 12.5px; color: var(--muted); line-height: 1.45;
+}
+
+/* Ver / ocultar la contrasena. El boton va dentro del campo, asi que el
+   campo necesita espacio a la derecha para no quedar tapado. */
+.campo-clave { position: relative; display: block; }
+.campo-clave > input { padding-right: 48px; width: 100%; }
+.ojo-clave {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px; min-height: 0; padding: 0; display: grid; place-items: center;
+  border: 0; border-radius: 9px; background: transparent; color: var(--muted); cursor: pointer;
+}
+.ojo-clave:hover { background: var(--surface-2); color: var(--brand); }
+.ojo-clave svg { width: 19px; height: 19px; }
 .gate__err { color: var(--danger); font-weight: 700; font-size: 13px; min-height: 18px; margin-top: 10px; }

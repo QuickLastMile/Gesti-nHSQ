@@ -206,11 +206,24 @@
 
     /* ---------- Login ---------- */
     .gate{position:fixed;inset:0;z-index:100;background:rgba(4,28,21,.9);display:grid;place-items:center;padding:20px}
-    .gate-card{width:min(400px,100%);background:#fff;border-radius:18px;padding:30px;box-shadow:0 30px 80px rgba(0,0,0,.3)}
-    .gate-card h2{margin:14px 0 4px;font-size:19px}
-    .gate-card p{color:var(--muted);margin:0 0 16px;font-size:13px}
-    .gate-card input{display:block;width:100%;margin-bottom:10px;padding:11px 12px;border:1px solid var(--line-2);border-radius:9px}
-    .gate-card button{width:100%;padding:12px;border:0;border-radius:9px;background:var(--green-2);color:#fff;font-weight:750;cursor:pointer}
+    .gate-card{width:min(400px,100%);background:#fff;border-radius:20px;padding:34px 30px 28px;box-shadow:0 30px 80px rgba(0,0,0,.3);text-align:center}
+    .gate-card .logo{justify-content:center}
+    .gate-marca{display:block;margin-top:14px;font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
+    .gate-card h2{margin:4px 0 6px;font-size:20px}
+    .gate-card p{color:var(--muted);margin:0 0 20px;font-size:13px;line-height:1.45}
+    .gate-card label{display:block;text-align:left;margin-bottom:14px}
+    .gate-card label span{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px}
+    .gate-card input{display:block;width:100%;padding:11px 12px;border:1px solid var(--line-2);border-radius:9px;font:inherit}
+    .gate-card input:focus{outline:2px solid var(--green-2);outline-offset:1px}
+    .gate-card button{width:100%;margin-top:4px;padding:12px;border:0;border-radius:9px;background:var(--green-2);color:#fff;font-weight:750;cursor:pointer}
+    .gate-ayuda{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line-2);font-size:12px;color:var(--muted);line-height:1.45}
+    /* Ver / ocultar la contrasena: el boton va dentro del campo, asi que el
+       campo necesita espacio a la derecha para no quedar tapado. */
+    .campo-clave{position:relative;display:block}
+    .campo-clave>input{padding-right:48px}
+    .gate-card .ojo-clave{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;padding:0;margin:0;display:grid;place-items:center;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
+    .gate-card .ojo-clave:hover{background:var(--line);color:var(--green-2)}
+    .gate-card .ojo-clave svg{width:19px;height:19px}
     .msg{margin-top:10px;font-size:12.5px;color:var(--muted)}
     .msg.err{color:var(--bad)}
 
@@ -322,12 +335,17 @@
   <div id="gate" class="gate hidden">
     <form id="loginForm" class="gate-card">
       <div class="logo" style="color:var(--green)">QU<i style="color:var(--lime)">I</i>CK</div>
-      <h2>Dashboard HSEQ</h2>
-      <p>Ingresa con tu cuenta autorizada de coordinador.</p>
-      <input id="email" type="email" autocomplete="username" placeholder="Correo" required>
-      <input id="password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
+      <span class="gate-marca">Gestión HSEQ</span>
+      <h2>Acceso administrativo</h2>
+      <p>Indicadores y cumplimiento de tu línea de negocio.</p>
+      <label><span>Correo</span>
+        <input id="email" type="email" autocomplete="username" placeholder="correo@empresa.com" required></label>
+      <label><span>Contraseña</span>
+        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
       <button>Iniciar sesión</button>
       <div id="loginMsg" class="msg"></div>
+      <p class="gate-ayuda">¿No puedes entrar? Tu cuenta la crea y la
+         restablece el equipo HSEQ.</p>
     </form>
   </div>
 
@@ -652,7 +670,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=30"></script>
+  <script src="assets/api.js?v=31"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
@@ -710,6 +728,7 @@
     sideToggle.addEventListener('click', () => actualizarMenuLateral(!layout.classList.contains('side-collapsed'), true));
     document.querySelectorAll('.nav button').forEach((b) => b.addEventListener('click', () => irA(b)));
     $('loginForm').addEventListener('submit', entrar);
+    HSQ_API.ojoClave('password');
     let redibujar; window.addEventListener('resize', () => { clearTimeout(redibujar); redibujar = setTimeout(() => data && pintarGraficas(), 180); });
 
     function actualizarMenuLateral(colapsado, guardar) {
