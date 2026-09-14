@@ -116,13 +116,31 @@ alter table app_roles add column if not exists todas_lineas boolean not null def
 
 -- Los que ya existen son de Last Mile, salvo que sean ADMIN/HSEQ:
 -- esos quedan como universales para que nada se les cierre hoy.
-update app_roles
-   set todas_lineas = true
- where rol in ('ADMIN','HSEQ') and not todas_lineas;
+--
+-- SOLO LA PRIMERA VEZ. Despues habra usuarios HSEQ de una sola linea
+-- -el de Warehouse, el de Last Mile- y volver a correr esto los
+-- convertiria en universales, que es justo lo contrario. La bandera
+-- en config lo impide.
+do $backfill$
+begin
+  if exists (select 1 from config where clave = 'LINEAS_BACKFILL_ROLES') then
+    raise notice 'El reparto inicial de lineas ya se hizo: no se toca a nadie.';
+    return;
+  end if;
 
-update app_roles
-   set lineas = array['LAST_MILE']
- where not todas_lineas and coalesce(array_length(lineas,1),0) = 0;
+  update app_roles
+     set todas_lineas = true
+   where rol in ('ADMIN','HSEQ') and not todas_lineas;
+
+  update app_roles
+     set lineas = array['LAST_MILE']
+   where not todas_lineas and coalesce(array_length(lineas,1),0) = 0;
+
+  insert into config (clave, valor)
+  values ('LINEAS_BACKFILL_ROLES', to_char(now(), 'YYYY-MM-DD HH24:MI'))
+  on conflict (clave) do nothing;
+end
+$backfill$;
 
 -- ------------------------------------------------------------
 --  5) Las dos preguntas que se hace el sistema
