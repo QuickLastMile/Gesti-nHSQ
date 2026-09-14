@@ -5,10 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#07382b">
   <title>Dashboard ejecutivo · Gestión HSEQ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap">
   <style>
     :root{
       --ink:#0f1f1a; --ink-2:#33453e; --muted:#688077; --faint:#93a8a0;
       --green:#07382b; --green-2:#0f6a4f; --green-3:#12875f; --lime:#b8d43f;
+      --titulo:Poppins,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
       --bg:#eef2f0; --surface:#fff; --surface-2:#f6f9f8; --line:#dde7e3; --line-2:#c9dad3;
       --ok:#0f7a4d; --ok-bg:#e4f4ec; --warn:#b57611; --warn-bg:#fdf2df; --bad:#b83a33; --bad-bg:#fbe8e6;
       --plot:#e9f0ed; --grid:#d3e2db;
@@ -205,18 +209,26 @@
     .empty{text-align:center;padding:42px 20px;color:var(--muted)}
 
     /* ---------- Login ---------- */
-    .gate{position:fixed;inset:0;z-index:100;background:rgba(4,28,21,.9);display:grid;place-items:center;padding:20px}
-    .gate-card{width:min(400px,100%);background:#fff;border-radius:20px;padding:34px 30px 28px;box-shadow:0 30px 80px rgba(0,0,0,.3);text-align:center}
-    .gate-card .logo{justify-content:center}
-    .gate-marca{display:block;margin-top:14px;font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted)}
-    .gate-card h2{margin:4px 0 6px;font-size:20px}
-    .gate-card p{color:var(--muted);margin:0 0 20px;font-size:13px;line-height:1.45}
+    /* Ingreso: imagen a la izquierda, formulario a la derecha. En el celular
+       la imagen se vuelve una franja arriba y el formulario queda debajo. */
+    .gate{position:fixed;inset:0;z-index:100;background:var(--surface);display:grid;grid-template-columns:1.02fr .98fr}
+    body:has(.gate:not(.hidden)){overflow:hidden}
+    .gate-visual{position:relative;overflow:hidden;background:var(--green)}
+    .gate-visual img{width:100%;height:100%;object-fit:cover;display:block}
+    .gate-frase{position:absolute;left:0;right:0;bottom:0;padding:44px 46px 46px;color:#fff;background:linear-gradient(to top,rgba(6,32,22,.95) 28%,rgba(6,32,22,.72) 62%,rgba(6,32,22,0) 100%)}
+    .gate-frase h3{font-family:var(--titulo);font-weight:800;letter-spacing:-.4px;font-size:clamp(26px,2.6vw,38px);line-height:1.12;margin:0 0 12px}
+    .gate-frase p{margin:0;font-size:15px;line-height:1.5;color:rgba(255,255,255,.82);max-width:42ch}
+    .gate-panel{display:grid;place-items:center;padding:32px 24px;overflow-y:auto}
+    .gate-card{width:100%;max-width:380px;background:transparent;text-align:left;border-radius:0;padding:0;box-shadow:none}
+    .gate-marca{display:block;font-size:11px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--green-3)}
+    .gate-card h2{font-family:var(--titulo);font-weight:800;letter-spacing:-.6px;margin:10px 0 6px;font-size:32px;line-height:1.1;color:var(--ink)}
+    .gate-card p{color:var(--muted);margin:0 0 22px;font-size:13.5px;line-height:1.5}
     .gate-card label{display:block;text-align:left;margin-bottom:14px}
     .gate-card label span{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:5px}
-    .gate-card input{display:block;width:100%;padding:11px 12px;border:1px solid var(--line-2);border-radius:9px;font:inherit}
+    .gate-card input{display:block;width:100%;padding:11px 12px;border:1px solid var(--line-2);border-radius:9px;font:inherit;background:var(--surface)}
     .gate-card input:focus{outline:2px solid var(--green-2);outline-offset:1px}
-    .gate-card button{width:100%;margin-top:4px;padding:12px;border:0;border-radius:9px;background:var(--green-2);color:#fff;font-weight:750;cursor:pointer}
-    .gate-ayuda{margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line-2);font-size:12px;color:var(--muted);line-height:1.45}
+    .gate-card button{width:100%;margin-top:6px;padding:13px;border:0;border-radius:9px;background:var(--green-2);color:#fff;font-weight:750;cursor:pointer}
+    .gate-ayuda{margin:20px 0 0;padding-top:16px;border-top:1px solid var(--line-2);font-size:12px;color:var(--muted);line-height:1.45}
     /* Ver / ocultar la contrasena: el boton va dentro del campo, asi que el
        campo necesita espacio a la derecha para no quedar tapado. */
     .campo-clave{position:relative;display:block}
@@ -224,6 +236,20 @@
     .gate-card .ojo-clave{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;padding:0;margin:0;display:grid;place-items:center;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
     .gate-card .ojo-clave:hover{background:var(--line);color:var(--green-2)}
     .gate-card .ojo-clave svg{width:19px;height:19px}
+    @media (max-width:900px){
+      .gate{grid-template-columns:1fr;grid-template-rows:176px 1fr}
+      .gate-visual img{object-position:50% 22%}
+      .gate-frase{padding:18px 22px 20px}
+      .gate-frase h3{font-size:21px;margin-bottom:0}
+      .gate-frase p{display:none}
+      .gate-panel{padding:28px 22px 40px;align-items:start}
+      .gate-card h2{font-size:26px}
+    }
+    @media (max-width:900px) and (max-height:620px){
+      /* Con el teclado abierto la franja estorba mas de lo que aporta. */
+      .gate{grid-template-rows:0 1fr}
+      .gate-visual{display:none}
+    }
     .msg{margin-top:10px;font-size:12.5px;color:var(--muted)}
     .msg.err{color:var(--bad)}
 
@@ -333,20 +359,28 @@
 </head>
 <body>
   <div id="gate" class="gate hidden">
-    <form id="loginForm" class="gate-card">
-      <div class="logo" style="color:var(--green)">QU<i style="color:var(--lime)">I</i>CK</div>
-      <span class="gate-marca">Gestión HSEQ</span>
-      <h2>Acceso administrativo</h2>
-      <p>Indicadores y cumplimiento de tu línea de negocio.</p>
-      <label><span>Correo</span>
-        <input id="email" type="email" autocomplete="username" placeholder="correo@empresa.com" required></label>
-      <label><span>Contraseña</span>
-        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
-      <button>Iniciar sesión</button>
-      <div id="loginMsg" class="msg"></div>
-      <p class="gate-ayuda">¿No puedes entrar? Tu cuenta la crea y la
-         restablece el equipo HSEQ.</p>
-    </form>
+    <div class="gate-visual">
+      <img src="assets/acceso.svg" alt="" aria-hidden="true">
+      <div class="gate-frase">
+        <h3>Cada turno empieza con una revisión.</h3>
+        <p>Preoperacional, limpieza y temperatura: registrados el mismo día, medidos por proyecto y listos para auditoría.</p>
+      </div>
+    </div>
+    <div class="gate-panel">
+      <form id="loginForm" class="gate-card">
+        <span class="gate-marca">Gestión HSEQ</span>
+        <h2>Acceso administrativo</h2>
+        <p>Indicadores y cumplimiento de tu línea de negocio.</p>
+        <label><span>Correo</span>
+          <input id="email" type="email" autocomplete="username" placeholder="correo@empresa.com" required></label>
+        <label><span>Contraseña</span>
+          <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" required></label>
+        <button>Iniciar sesión</button>
+        <div id="loginMsg" class="msg"></div>
+        <p class="gate-ayuda">¿No puedes entrar? Tu cuenta la crea y la
+           restablece el equipo HSEQ.</p>
+      </form>
+    </div>
   </div>
 
   <div id="tip" class="tip"></div>
@@ -670,7 +704,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=32"></script>
+  <script src="assets/api.js?v=33"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);

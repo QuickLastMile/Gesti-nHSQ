@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Ilustración: revisión preoperacional de la flota">
+  <title>Revisión preoperacional de la flota</title>
+  <!--
+    La escena vive en los dos tercios de arriba. El tercio de abajo se deja
+    oscuro y limpio a proposito: ahi va el titular de la pantalla de ingreso,
+    y un dibujo debajo del texto no deja leer ninguno de los dos.
+  -->
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2=".85" y2="1">
+      <stop offset="0" stop-color="#0f6647"/>
+      <stop offset=".45" stop-color="#0d4831"/>
+      <stop offset="1" stop-color="#072418"/>
+    </linearGradient>
+    <radialGradient id="brillo" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#2fd18c" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#2fd18c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="brilloOro" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#ffc21f" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#ffc21f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="velo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#062016" stop-opacity="0"/>
+      <stop offset=".45" stop-color="#062016" stop-opacity=".82"/>
+      <stop offset="1" stop-color="#062016" stop-opacity=".94"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="1200" fill="url(#fondo)"/>
+
+  <!-- Luces suaves de fondo -->
+  <circle cx="780" cy="170" r="340" fill="url(#brillo)"/>
+  <circle cx="170" cy="660" r="300" fill="url(#brilloOro)"/>
+
+  <!-- Trama de puntos: da textura sin robar atencion -->
+  <g fill="#ffffff" opacity=".1">
+    <g id="fila">
+      <circle cx="60" cy="56" r="2.6"/><circle cx="140" cy="56" r="2.6"/><circle cx="220" cy="56" r="2.6"/>
+      <circle cx="300" cy="56" r="2.6"/><circle cx="380" cy="56" r="2.6"/><circle cx="460" cy="56" r="2.6"/>
+      <circle cx="540" cy="56" r="2.6"/><circle cx="620" cy="56" r="2.6"/><circle cx="700" cy="56" r="2.6"/>
+      <circle cx="780" cy="56" r="2.6"/><circle cx="860" cy="56" r="2.6"/>
+    </g>
+    <use href="#fila" y="72"/><use href="#fila" y="144"/><use href="#fila" y="216"/>
+    <use href="#fila" y="288"/><use href="#fila" y="360"/>
+  </g>
+
+  <!-- Estanteria de bodega, al fondo -->
+  <g opacity=".2" stroke="#ffffff" stroke-width="5" fill="none" stroke-linecap="round">
+    <path d="M598 494 h262 M598 606 h262 M598 718 h262"/>
+    <path d="M626 436 v302 M832 436 v302"/>
+  </g>
+  <g opacity=".26" fill="#ffffff">
+    <rect x="648" y="436" width="64" height="56" rx="7"/>
+    <rect x="730" y="448" width="78" height="44" rx="7"/>
+    <rect x="648" y="554" width="84" height="50" rx="7"/>
+    <rect x="750" y="544" width="58" height="60" rx="7"/>
+    <rect x="664" y="668" width="72" height="48" rx="7"/>
+    <rect x="754" y="678" width="56" height="38" rx="7"/>
+  </g>
+
+  <!-- Insignia: revision aprobada -->
+  <g transform="translate(694 306)">
+    <circle cx="0" cy="0" r="80" fill="#ffffff" opacity=".09"/>
+    <circle cx="0" cy="0" r="57" fill="#ffc21f"/>
+    <path d="M-23 2l14 14 31-33" stroke="#0d3b2a" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Tarjeta de chequeo: el corazon del sistema -->
+  <g transform="translate(90 150) rotate(-4)">
+    <rect x="0" y="0" width="428" height="336" rx="28" fill="#ffffff" opacity=".97"/>
+    <rect x="154" y="-16" width="120" height="34" rx="17" fill="#0d3b2a"/>
+    <rect x="182" y="-6" width="64" height="14" rx="7" fill="#ffffff" opacity=".5"/>
+
+    <rect x="42" y="54" width="200" height="16" rx="8" fill="#0d3b2a" opacity=".85"/>
+    <rect x="42" y="84" width="124" height="12" rx="6" fill="#5c7367" opacity=".5"/>
+
+    <g>
+      <circle cx="64" cy="156" r="21" fill="#13905c"/>
+      <path d="M54 156l7 7 14-15" stroke="#ffffff" stroke-width="5.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="100" y="147" width="244" height="15" rx="7.5" fill="#0d3b2a" opacity=".18"/>
+    </g>
+    <g>
+      <circle cx="64" cy="216" r="21" fill="#13905c"/>
+      <path d="M54 216l7 7 14-15" stroke="#ffffff" stroke-width="5.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="100" y="207" width="200" height="15" rx="7.5" fill="#0d3b2a" opacity=".18"/>
+    </g>
+    <g>
+      <circle cx="64" cy="276" r="21" fill="#ffc21f"/>
+      <rect x="61" y="265" width="6" height="13" rx="3" fill="#0d3b2a"/>
+      <circle cx="64" cy="285" r="3.4" fill="#0d3b2a"/>
+      <rect x="100" y="267" width="152" height="15" rx="7.5" fill="#0d3b2a" opacity=".18"/>
+    </g>
+  </g>
+
+  <!-- La via -->
+  <path d="M0 790 H900" stroke="#ffffff" stroke-width="4" opacity=".24"/>
+  <path d="M40 790 h74 M174 790 h74 M308 790 h74 M442 790 h74 M576 790 h74 M710 790 h74 M844 790 h56"
+        stroke="#ffc21f" stroke-width="5" opacity=".45" stroke-linecap="round"/>
+
+  <!-- La moto de reparto: cuerpo solido, que se lea como moto y no como bici -->
+  <g transform="translate(168 524)">
+    <g fill="#ffffff" fill-opacity=".93">
+      <!-- Carenaje trasero y motor -->
+      <path d="M62 150 h118 l26 46 h60 a12 12 0 0 1 0 24 H150 a88 88 0 0 0 -88 -70 Z"/>
+      <!-- Asiento -->
+      <rect x="66" y="122" width="132" height="30" rx="15"/>
+      <!-- Piso -->
+      <rect x="196" y="196" width="118" height="24" rx="12"/>
+      <!-- Escudo delantero -->
+      <path d="M296 214 L330 106 l34 10 l-28 108 Z"/>
+      <!-- Guardabarros delantero -->
+      <path d="M296 176 a56 56 0 0 1 60 -18 l-10 30 a34 34 0 0 0 -34 10 Z"/>
+    </g>
+
+    <!-- Caja de carga, con sus correas -->
+    <rect x="30" y="34" width="134" height="92" rx="15" fill="#ffc21f"/>
+    <rect x="30" y="72" width="134" height="12" fill="#0d3b2a" opacity=".42"/>
+    <rect x="110" y="34" width="13" height="92" fill="#0d3b2a" opacity=".26"/>
+
+    <!-- Manubrio -->
+    <path d="M318 100 H374" stroke="#ffffff" stroke-width="14" stroke-linecap="round" fill="none" opacity=".93"/>
+    <circle cx="352" cy="140" r="16" fill="#ffc21f"/>
+
+    <!-- Ruedas: el anillo deja ver el fondo, como una llanta -->
+    <g fill="none" stroke="#ffffff" stroke-width="17" opacity=".93">
+      <circle cx="104" cy="214" r="44"/>
+      <circle cx="340" cy="214" r="44"/>
+    </g>
+    <g fill="#ffffff" opacity=".93">
+      <circle cx="104" cy="214" r="11"/>
+      <circle cx="340" cy="214" r="11"/>
+    </g>
+  </g>
+
+  <!-- Velo: deja el tercio de abajo limpio para el titular -->
+  <rect y="760" width="900" height="440" fill="url(#velo)"/>
+</svg>

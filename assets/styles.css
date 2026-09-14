@@ -33,6 +33,7 @@
   --radius-sm: 10px;
   --tap: 54px;
   --maxw: 1120px;
+  --titulo: Poppins, 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -706,31 +707,52 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .modal__actions { display: grid; gap: 10px; margin-top: 16px; }
 
 /* ============================================================
-   Gate de PIN (coordinador)
+   Ingreso (gate)
    ============================================================ */
+/* ---------- Ingreso: imagen a la izquierda, formulario a la derecha ----------
+   En el celular no caben las dos: la imagen se vuelve una franja arriba,
+   con la frase encima, y el formulario queda debajo completo. */
 .gate {
-  position: fixed; inset: 0; z-index: 50;
-  background: linear-gradient(120deg, var(--bg-grad-1), var(--bg-grad-2));
-  display: flex; align-items: center; justify-content: center; padding: 20px;
+  position: fixed; inset: 0; z-index: 50; background: var(--surface);
+  display: grid; grid-template-columns: 1.02fr .98fr;
 }
+body:has(.gate:not(.hidden)) { overflow: hidden; }
+.gate__visual { position: relative; overflow: hidden; background: var(--brand); }
+.gate__visual img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gate__frase {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 44px 46px 46px; color: #fff;
+  /* El velo del SVG solo sirve si se ve el pie de la ilustracion; en la
+     franja del celular el recorte cae a media altura. Este acompana al
+     texto, lo recorte donde lo recorte. */
+  background:linear-gradient(to top,rgba(6,32,22,.95) 28%,rgba(6,32,22,.72) 62%,rgba(6,32,22,0) 100%);
+}
+.gate__frase h3 {
+  font-family: var(--titulo); font-weight: 800; letter-spacing: -.4px;
+  font-size: clamp(26px, 2.6vw, 38px); line-height: 1.12; margin: 0 0 12px;
+}
+.gate__frase p { margin: 0; font-size: 15px; line-height: 1.5; color: rgba(255,255,255,.82); max-width: 42ch; }
+
+.gate__panel { display: grid; place-items: center; padding: 32px 24px; overflow-y: auto; }
 .gate__card {
-  background: #fff; border-radius: 20px; padding: 34px 30px 28px;
-  width: 100%; max-width: 380px; box-shadow: var(--shadow-lg); text-align: center;
+  background: var(--surface); width: 100%; max-width: 380px; text-align: left;
+  border-radius: 0; padding: 0; box-shadow: none;
 }
 .gate__marca {
-  display: block; margin-top: 16px; font-size: 11px; font-weight: 800;
-  letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted);
+  display: block; font-size: 11px; font-weight: 800;
+  letter-spacing: 1.6px; text-transform: uppercase; color: var(--accent);
 }
-.gate__card h2 { margin: 4px 0 6px; color: var(--brand); font-size: 21px; letter-spacing: .2px; }
-.gate__card p { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.45; }
-.gate__card .field { text-align: left; }
+.gate__card h2 {
+  font-family: var(--titulo); font-weight: 800; letter-spacing: -.6px;
+  margin: 10px 0 6px; color: var(--ink); font-size: 32px; line-height: 1.1;
+}
+.gate__card p { margin: 0 0 22px; color: var(--muted); font-size: 14px; line-height: 1.5; }
 .gate__card .field + .field { margin-top: 14px; }
-.gate__card .btn { margin-top: 18px; }
-/* Nota al pie: a quien acudir si no puede entrar. */
+.gate__card .btn { margin-top: 20px; }
 .gate__ayuda {
-  margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line);
+  margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line);
   font-size: 12.5px; color: var(--muted); line-height: 1.45;
 }
+.gate__err { color: var(--danger); font-weight: 700; font-size: 13px; min-height: 18px; margin-top: 10px; }
 
 /* Ver / ocultar la contrasena. El boton va dentro del campo, asi que el
    campo necesita espacio a la derecha para no quedar tapado. */
@@ -743,4 +765,20 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 }
 .ojo-clave:hover { background: var(--surface-2); color: var(--brand); }
 .ojo-clave svg { width: 19px; height: 19px; }
-.gate__err { color: var(--danger); font-weight: 700; font-size: 13px; min-height: 18px; margin-top: 10px; }
+
+@media (max-width: 900px) {
+  .gate { grid-template-columns: 1fr; grid-template-rows: 176px 1fr; }
+  /* En una franja baja conviene mostrar la parte alta del dibujo: la
+     tarjeta de chequeo, no las ruedas. */
+  .gate__visual img { object-position: 50% 22%; }
+  .gate__frase { padding: 18px 22px 20px; }
+  .gate__frase h3 { font-size: 21px; margin-bottom: 0; }
+  .gate__frase p { display: none; }
+  .gate__panel { padding: 28px 22px 40px; align-items: start; }
+  .gate__card h2 { font-size: 26px; }
+}
+@media (max-width: 900px) and (max-height: 620px) {
+  /* Con el teclado abierto la franja estorba mas de lo que aporta. */
+  .gate { grid-template-rows: 0 1fr; }
+  .gate__visual { display: none; }
+}
