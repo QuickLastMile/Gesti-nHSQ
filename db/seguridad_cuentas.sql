@@ -1,28 +1,24 @@
 -- ============================================================
---  Seguridad: el PIN de anulacion y las cuentas
+--  Seguridad: el PIN para eliminar registros
 --  ------------------------------------------------------------
 --  Agrega a Administracion una seccion para la CUENTA GENERAL:
---
---    - ver y cambiar el PIN que autoriza eliminar registros
---    - ver que cuentas existen, con que rol, sobre que linea,
---      si estan activas y cuando entraron por ultima vez
+--  ver y cambiar el PIN que autoriza eliminar registros.
 --
 --  SOBRE LAS CONTRASENAS
 --  ---------------------
---  Esta seccion NO muestra contrasenas, y no es un descuido: no
+--  Aqui no hay nada de contrasenas, y no se puede haber: no
 --  existen guardadas en ninguna parte. Supabase guarda un hash
 --  bcrypt, que es una huella de un solo sentido: sirve para
 --  comprobar si la que se digita coincide, pero no se puede
---  devolver a texto. Ni Supabase, ni esta base, ni nadie puede
---  leerlas. Cambiarlas es otra cosa y va aparte.
+--  devolver a texto. Para ponerle una nueva a una cuenta se usa
+--  el panel de Supabase: Authentication -> Users -> Reset password.
 --
---  El PIN si se puede mostrar: no es una contrasena de nadie,
---  es un codigo de autorizacion compartido que vive en la tabla
+--  El PIN si se puede mostrar: no es la contrasena de nadie, es
+--  un codigo de autorizacion compartido que vive en la tabla
 --  config en texto plano, y quien lo reparte es la administradora.
 --
 --  Este script tambien deja api_lineas con el campo 'universal'.
---  Si ya corriste db/lineas_universal.sql, se vuelve a aplicar
---  igual y no pasa nada.
+--  Se puede correr las veces que sea: no hace nada dos veces.
 --
 --  Supabase -> SQL Editor -> New query -> pegar todo -> Run
 -- ============================================================
@@ -44,36 +40,17 @@ revoke all on function es_cuenta_general() from public, anon;
 grant execute on function es_cuenta_general() to authenticated;
 
 -- ------------------------------------------------------------
---  2) Lo que ve la seccion
+--  2) Lo que ve la seccion: el PIN de hoy
 -- ------------------------------------------------------------
 create or replace function admin_seguridad(payload jsonb default '{}'::jsonb)
 returns jsonb language plpgsql stable security definer set search_path = public as $fn$
-declare cuentas jsonb;
 begin
   if not es_cuenta_general() then
-    raise exception 'Solo la cuenta general administra el PIN y las cuentas.';
+    raise exception 'Solo la cuenta general administra el PIN.';
   end if;
 
-  select coalesce(jsonb_agg(jsonb_build_object(
-           'email',   r.email,
-           'rol',     r.rol,
-           'general', r.todas_lineas,
-           'lineas',  case when r.todas_lineas then 'Todas'
-                           else coalesce(array_to_string(r.lineas, ', '), '') end,
-           'activo',  r.activo,
-           -- Sin confirmar el correo, Supabase no deja iniciar sesion.
-           'confirmada', u.email_confirmed_at is not null,
-           'ultimo_ingreso', coalesce(
-             to_char(u.last_sign_in_at at time zone 'America/Bogota', 'YYYY-MM-DD HH24:MI'),
-             'Nunca')
-         ) order by r.todas_lineas desc, r.email), '[]'::jsonb)
-    into cuentas
-    from app_roles r
-    left join auth.users u on u.id = r.user_id;
-
   return jsonb_build_object(
-    'pin', coalesce((select valor from config where clave = 'PIN_ANULACION'), ''),
-    'cuentas', cuentas
+    'pin', coalesce((select valor from config where clave = 'PIN_ANULACION'), '')
   );
 end;
 $fn$;

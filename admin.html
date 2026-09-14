@@ -167,7 +167,7 @@
             <p class="adm-group__title">Configuración</p>
           <button class="adm-link" type="button" data-v="calendario" aria-label="Calendario y metas"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/></svg></span><span>Calendario y metas</span></button>
           <button class="adm-link" type="button" data-v="historial" aria-label="Historial"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/><path d="M12 8v4.5l3 1.8"/></svg></span><span>Historial</span></button>
-          <button id="lnkSeguridad" class="adm-link hidden" type="button" data-v="seguridad" aria-label="Seguridad y cuentas"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6z"/><path d="M12 10v4"/></svg></span><span>Seguridad y cuentas</span></button>
+          <button id="lnkSeguridad" class="adm-link hidden" type="button" data-v="seguridad" aria-label="Seguridad"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6z"/><path d="M12 10v4"/></svg></span><span>Seguridad</span></button>
           <button class="adm-link" type="button" data-v="formularios" aria-label="Formularios por proyecto"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h4"/></svg></span><span>Formularios por proyecto</span></button>
           </div>
           <div class="adm-group">
@@ -615,19 +615,6 @@
           </div>
         </section>
 
-        <section class="card" style="margin-top:16px">
-          <div class="card__head">
-            <p class="card__title">Cuentas de acceso</p>
-          </div>
-          <div class="card__body">
-            <p class="hint-inline"><b>Las contraseñas no se pueden mostrar aquí ni en
-               ninguna parte.</b> No quedan guardadas: de cada una se conserva solo una huella
-               que sirve para comprobar si la que se digita coincide, y esa huella no se puede
-               devolver a texto. Lo que sí se puede es asignarle una nueva a una cuenta.</p>
-            <div id="segCuentas" style="margin-top:12px"></div>
-            <div id="segStatus" class="status" aria-live="polite"></div>
-          </div>
-        </section>
       </div>
 
       <div id="v-formularios" class="view hidden">
@@ -700,7 +687,7 @@
       calendario: ['Calendario y metas', 'Qué días opera cada proyecto y su meta'],
       formularios: ['Formularios por proyecto', 'Qué debe diligenciar cada operación'],
       historial: ['Historial de cambios', 'Qué se movió, cuándo y a quién'],
-      seguridad: ['Seguridad y cuentas', 'El PIN de eliminación y quién tiene acceso'],
+      seguridad: ['Seguridad', 'El PIN que autoriza eliminar registros'],
     };
 
     document.querySelectorAll('.adm-link[data-v]').forEach((t) => {
@@ -763,41 +750,15 @@
     let segData = null;
 
     async function cargarSeguridad() {
-      setStatus('segStatus', 'Consultando\u2026', 'info');
+      setStatus('segPinStatus', 'Consultando\u2026', 'info');
       try {
+        // La respuesta trae tambien la lista de cuentas; aqui no se usa.
         segData = await adminCall('seguridad', {});
         $('segPin').value = segData.pin || '';
-        pintarCuentas();
-        clearStatus('segStatus');
+        clearStatus('segPinStatus');
       } catch (err) {
-        setStatus('segStatus', err.message, 'error');
+        setStatus('segPinStatus', err.message, 'error');
       }
-    }
-
-    function pintarCuentas() {
-      const filas = (segData && segData.cuentas) || [];
-      if (!filas.length) {
-        $('segCuentas').innerHTML = '<p class="hint-inline">No hay cuentas registradas.</p>';
-        return;
-      }
-      $('segCuentas').innerHTML = filas.map((c) => {
-        // Una cuenta activa pero sin correo confirmado NO puede entrar.
-        // Se ve aqui y no cuando la persona reclame que no la deja.
-        const estado = !c.activo ? ['Inactiva', 'aviso']
-          : (!c.confirmada ? ['Sin confirmar', 'aviso'] : ['Activa', '']);
-        return `
-        <div class="checkitem" style="width:100%;cursor:default">
-          <span class="checkitem__body">
-            <span class="checkitem__title">${esc(c.email)}</span>
-            <span class="meta">
-              <span class="rowchip ${estado[1]}">${esc(estado[0])}</span>
-              <span>${esc(c.rol || '\u2014')}</span>
-              <span class="suave">${esc(c.general ? 'Todas las lineas' : (c.lineas || 'Sin linea'))}</span>
-              <span class="suave">Ultimo ingreso: ${esc(c.ultimo_ingreso)}</span>
-            </span>
-          </span>
-        </div>`;
-      }).join('');
     }
 
     function verPin() {
