@@ -220,14 +220,14 @@ begin
   -- Respuestas que la configuracion pide escalar. Solo las preguntas
   -- con alerta_en_registro, no todas las que tienen respuesta_alerta:
   -- asi el preoperacional y limpieza siguen comportandose igual.
-  select coalesce(string_agg(p.pregunta || ': ' || coalesce(respuestas->>p.id,''), ' | '), '')
+  select coalesce(string_agg(pa.pregunta || ': ' || coalesce(respuestas->>pa.id,''), ' | '), '')
     into alertas_resp
-    from preguntas p
-   where p.formulario_id = fid
-     and p.activo
-     and p.alerta_en_registro
-     and nullif(btrim(coalesce(p.respuesta_alerta,'')),'') is not null
-     and upper(btrim(coalesce(respuestas->>p.id,''))) = upper(btrim(p.respuesta_alerta));
+    from preguntas pa
+   where pa.formulario_id = fid
+     and pa.activo
+     and pa.alerta_en_registro
+     and nullif(btrim(coalesce(pa.respuesta_alerta,'')),'') is not null
+     and upper(btrim(coalesce(respuestas->>pa.id,''))) = upper(btrim(pa.respuesta_alerta));
 
   if alertas_resp <> '' then
     alertas_doc := case when alertas_doc = '' then alertas_resp
