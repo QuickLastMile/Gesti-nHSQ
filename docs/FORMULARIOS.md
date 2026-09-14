@@ -127,6 +127,33 @@ los meses anteriores con la nueva frecuencia, así que el porcentaje de esos mes
 sube. Si hace falta conservar la historia tal como se midió, hay que agregarle
 una fecha de vigencia a la frecuencia — hoy no la tiene.
 
+## Etiquetas informativas
+
+Una pregunta de tipo `info` no se responde: se lee. Sale como un aviso con
+formato propio —sin número, sin insignias y sin campo— y sirve para criterios de
+aceptación, instrucciones o avisos legales que antes había que disfrazar de
+pregunta.
+
+El texto va en la columna `ayuda` y admite varios párrafos separados por salto de
+línea. Los teléfonos se vuelven enlaces para poder marcarlos desde el celular.
+Respeta la lógica condicional, así que un aviso puede aparecer solo cuando
+aplica. No genera columna en el exportable.
+
+## Temperatura y humedad: dos formularios, no uno
+
+La medición se hace **dos veces al día**, pero la base tiene la regla de un
+registro por persona, por formulario, por día. En vez de relajar esa regla —que
+protege a los demás formularios— hay dos formularios: `TEMP_HUM_AM` y
+`TEMP_HUM_PM`.
+
+Sale mejor por todos lados: la regla del día sigue intacta, el dashboard cuenta
+dos esperadas sin tocar nada, el mensajero ve cuál de las dos le falta, y el
+cumplimiento muestra por separado si la de la tarde se está quedando.
+
+La pregunta de la desviación lleva `alerta_en_registro`, así que una respuesta
+*Sí* deja el registro en **REQUIERE_GESTIÓN** y pide la foto del soporte. Es una
+marca por pregunta: el preoperacional y limpieza no cambian de comportamiento.
+
 ## Para que un conductor lo vea
 
 Su proyecto debe tener el formulario habilitado en
@@ -143,5 +170,6 @@ marcado no lo exige ni lo cuenta en el cumplimiento.
 | `db/FIX_exportable_lento.sql` | Arregla el *statement timeout* del exportable en rangos largos. |
 | `db/frecuencia_formulario.sql` | Frecuencia diaria o semanal por proyecto y formulario. Correr **después** de `dashboard_justificados.sql`. |
 | `db/frecuencia_solo_limpieza.sql` | Deja el selector de frecuencia solo en limpieza. Correr **después** del anterior. |
+| `db/temperatura_humedad.sql` | Control de temperatura y humedad (mañana y tarde), etiquetas informativas y alerta por respuesta. |
 
 Ambos se pueden volver a ejecutar sin duplicar nada.
