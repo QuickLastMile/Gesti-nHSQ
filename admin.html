@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=25">
+  <link rel="stylesheet" href="assets/styles.css?v=26">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -167,6 +167,7 @@
             <p class="adm-group__title">Configuración</p>
           <button class="adm-link" type="button" data-v="calendario" aria-label="Calendario y metas"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/></svg></span><span>Calendario y metas</span></button>
           <button class="adm-link" type="button" data-v="historial" aria-label="Historial"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/><path d="M12 8v4.5l3 1.8"/></svg></span><span>Historial</span></button>
+          <button id="lnkSeguridad" class="adm-link hidden" type="button" data-v="seguridad" aria-label="Seguridad y cuentas"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6z"/><path d="M12 10v4"/></svg></span><span>Seguridad y cuentas</span></button>
           <button class="adm-link" type="button" data-v="formularios" aria-label="Formularios por proyecto"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h4"/></svg></span><span>Formularios por proyecto</span></button>
           </div>
           <div class="adm-group">
@@ -593,6 +594,42 @@
       </div>
 
       <!-- ============ FORMULARIOS POR PROYECTO ============ -->
+      <div id="v-seguridad" class="view hidden">
+        <section class="card">
+          <div class="card__head">
+            <p class="card__title">PIN para eliminar registros</p>
+          </div>
+          <div class="card__body">
+            <p class="hint-inline">Es uno solo para toda la empresa. Se pide cada vez que se
+               elimina un registro en Cumplimiento, y queda constancia en el historial.</p>
+            <div class="field" style="max-width:220px;margin-top:12px">
+              <span class="label">PIN actual (4 dígitos)</span>
+              <input id="segPin" type="password" inputmode="numeric" maxlength="4"
+                     autocomplete="off" placeholder="••••">
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+              <button id="btnVerPin" class="btn btn--ghost" type="button">Ver</button>
+              <button id="btnGuardarPin" class="btn btn--primary" type="button">Guardar PIN</button>
+            </div>
+            <div id="segPinStatus" class="status" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="card" style="margin-top:16px">
+          <div class="card__head">
+            <p class="card__title">Cuentas de acceso</p>
+          </div>
+          <div class="card__body">
+            <p class="hint-inline"><b>Las contraseñas no se pueden mostrar aquí ni en
+               ninguna parte.</b> No quedan guardadas: de cada una se conserva solo una huella
+               que sirve para comprobar si la que se digita coincide, y esa huella no se puede
+               devolver a texto. Lo que sí se puede es asignarle una nueva a una cuenta.</p>
+            <div id="segCuentas" style="margin-top:12px"></div>
+            <div id="segStatus" class="status" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+
       <div id="v-formularios" class="view hidden">
         <section class="card">
           <div class="card__head">
@@ -647,6 +684,8 @@
     $('btnCalendario').addEventListener('click', cargarCalendario);
     $('calBuscar').addEventListener('input', () => pintarCalendario());
     $('calLimpiar').addEventListener('click', () => { $('calBuscar').value = ''; pintarCalendario(); });
+    $('btnVerPin').addEventListener('click', verPin);
+    $('btnGuardarPin').addEventListener('click', guardarPin);
     $('btnFormularios').addEventListener('click', cargarFormulariosProyecto);
     $('frmBuscar').addEventListener('input', pintarFormulariosProyecto);
     $('frmLimpiar').addEventListener('click', () => { $('frmBuscar').value = ''; pintarFormulariosProyecto(); });
@@ -661,6 +700,7 @@
       calendario: ['Calendario y metas', 'Qué días opera cada proyecto y su meta'],
       formularios: ['Formularios por proyecto', 'Qué debe diligenciar cada operación'],
       historial: ['Historial de cambios', 'Qué se movió, cuándo y a quién'],
+      seguridad: ['Seguridad y cuentas', 'El PIN de eliminación y quién tiene acceso'],
     };
 
     document.querySelectorAll('.adm-link[data-v]').forEach((t) => {
@@ -681,6 +721,7 @@
       if (clave === 'historial' && !hisData) consultarHistorial();
       if (clave === 'calendario' && !calData) cargarCalendario();
       if (clave === 'formularios' && !frmData) cargarFormulariosProyecto();
+      if (clave === 'seguridad' && !segData) cargarSeguridad();
       if ((clave === 'encargados' || clave === 'encargados-carga') && !encData) cargarEncargados();
     }
 
@@ -717,6 +758,70 @@
     $('btnProvisional').addEventListener('click', crearProvisional);
     $('btnTraslado').addEventListener('click', guardarTraslado);
     $('f_activo').addEventListener('change', pintarEstado);
+
+    /* ---------- Seguridad y cuentas (solo cuenta general) ---------- */
+    let segData = null;
+
+    async function cargarSeguridad() {
+      setStatus('segStatus', 'Consultando\u2026', 'info');
+      try {
+        segData = await adminCall('seguridad', {});
+        $('segPin').value = segData.pin || '';
+        pintarCuentas();
+        clearStatus('segStatus');
+      } catch (err) {
+        setStatus('segStatus', err.message, 'error');
+      }
+    }
+
+    function pintarCuentas() {
+      const filas = (segData && segData.cuentas) || [];
+      if (!filas.length) {
+        $('segCuentas').innerHTML = '<p class="hint-inline">No hay cuentas registradas.</p>';
+        return;
+      }
+      $('segCuentas').innerHTML = filas.map((c) => {
+        // Una cuenta activa pero sin correo confirmado NO puede entrar.
+        // Se ve aqui y no cuando la persona reclame que no la deja.
+        const estado = !c.activo ? ['Inactiva', 'aviso']
+          : (!c.confirmada ? ['Sin confirmar', 'aviso'] : ['Activa', '']);
+        return `
+        <div class="checkitem" style="width:100%;cursor:default">
+          <span class="checkitem__body">
+            <span class="checkitem__title">${esc(c.email)}</span>
+            <span class="meta">
+              <span class="rowchip ${estado[1]}">${esc(estado[0])}</span>
+              <span>${esc(c.rol || '\u2014')}</span>
+              <span class="suave">${esc(c.general ? 'Todas las lineas' : (c.lineas || 'Sin linea'))}</span>
+              <span class="suave">Ultimo ingreso: ${esc(c.ultimo_ingreso)}</span>
+            </span>
+          </span>
+        </div>`;
+      }).join('');
+    }
+
+    function verPin() {
+      const inp = $('segPin'), btn = $('btnVerPin');
+      const oculto = inp.type === 'password';
+      inp.type = oculto ? 'text' : 'password';
+      btn.textContent = oculto ? 'Ocultar' : 'Ver';
+    }
+
+    async function guardarPin() {
+      const pin = $('segPin').value.trim();
+      if (!/^\d{4}$/.test(pin)) return setStatus('segPinStatus', 'El PIN son 4 digitos.', 'error');
+      $('btnGuardarPin').disabled = true;
+      setStatus('segPinStatus', 'Guardando\u2026', 'info');
+      try {
+        const r = await adminCall('guardarPin', { pin });
+        setStatus('segPinStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        if (segData) segData.pin = pin;
+      } catch (err) {
+        setStatus('segPinStatus', err.message, 'error');
+      } finally {
+        $('btnGuardarPin').disabled = false;
+      }
+    }
 
     function salir() {
       // Es una sola sesion: salir de aqui es salir de todo.
@@ -865,6 +970,13 @@
         caja.innerHTML = '';
         return;
       }
+
+      // Mientras no se corra db/seguridad_cuentas.sql no llega 'universal':
+      // hasta entonces se deduce de si puede cambiar de linea, que hoy es
+      // justamente lo que distingue a la cuenta general. Esto solo decide
+      // si se ve el boton; quien manda es es_cuenta_general() en la base.
+      const general = (info.universal === undefined) ? !!info.puede_cambiar : !!info.universal;
+      if (general) $('lnkSeguridad').classList.remove('hidden');
 
       const guardada = lineaActiva();
       const actual = info.lineas.some((l) => l.id === guardada)
