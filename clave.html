@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d3b2a">
+  <meta name="robots" content="noindex">
+  <title>Nueva contraseña · Gestión HSEQ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap">
+  <link rel="stylesheet" href="assets/styles.css?v=27">
+</head>
+<body>
+  <!--
+    A esta pantalla se llega desde el correo de restablecimiento. Supabase
+    valida el enlace y devuelve aqui con los datos en el pedazo de la
+    direccion que va despues del #, que nunca viaja al servidor.
+  -->
+  <div class="gate">
+    <div class="gate__visual">
+      <img src="assets/acceso.svg" alt="" aria-hidden="true">
+      <div class="gate__frase">
+        <h3>Cada turno empieza con una revisión.</h3>
+        <p>Preoperacional, limpieza y temperatura: registrados el mismo día,
+           medidos por proyecto y listos para auditoría.</p>
+      </div>
+    </div>
+    <div class="gate__panel">
+      <div class="gate__card">
+        <span class="gate__marca">Gestión HSEQ</span>
+        <h2>Nueva contraseña</h2>
+        <p id="intro">Escribe la contraseña con la que vas a entrar de ahora en adelante.</p>
+
+        <div id="formulario">
+          <div class="field">
+            <span class="label">Contraseña nueva</span>
+            <input id="clave1" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+          </div>
+          <div class="field">
+            <span class="label">Repítela</span>
+            <input id="clave2" type="password" autocomplete="new-password" placeholder="••••••••">
+          </div>
+          <button id="btnGuardar" class="btn btn--primary btn--block" type="button">Guardar contraseña</button>
+        </div>
+
+        <div id="estado" class="status" aria-live="polite"></div>
+
+        <p class="gate__ayuda">
+          ¿El enlace no sirve? Pide uno nuevo desde <a href="coordinador.html">el ingreso</a>.
+          Cada solicitud anula la anterior: sirve únicamente el último correo.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/config.js?v=20"></script>
+  <script src="assets/api.js?v=35"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const CFG = window.HSQ_CONFIG || {};
+    const BASE = String(CFG.SUPABASE_URL || '').replace(/\/$/, '');
+
+    function estado(msg, tipo) {
+      const n = $('estado');
+      n.className = 'status show status--' + tipo;
+      n.textContent = msg;
+    }
+
+    // Supabase manda todo despues del #: los datos de acceso si el enlace
+    // sirvio, o el motivo si no. Se lee como una cadena de consulta.
+    const datos = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const acceso = datos.get('access_token');
+    const fallo = datos.get('error_description') || datos.get('error_code');
+
+    // Ya se uso: no tiene por que quedarse en la barra de direcciones ni
+    // en el historial del navegador.
+    if (location.hash) history.replaceState(null, '', location.pathname);
+
+    const MOTIVOS = {
+      otp_expired: 'El enlace ya no sirve. Solo funciona el último correo que pediste, '
+                 + 'y vence al poco tiempo. Pide uno nuevo desde el ingreso.',
+      access_denied: 'El enlace no es válido. Pide uno nuevo desde el ingreso.',
+    };
+
+    if (fallo) {
+      $('formulario').classList.add('hidden');
+      $('intro').textContent = 'No se pudo abrir el enlace.';
+      estado(MOTIVOS[datos.get('error_code')] || decodeURIComponent(String(fallo).replace(/\+/g, ' ')), 'error');
+    } else if (!acceso) {
+      // Alguien entro a la direccion a mano, sin venir del correo.
+      $('formulario').classList.add('hidden');
+      $('intro').textContent = 'Esta página se abre desde el correo de restablecimiento.';
+      estado('Pide el correo desde el ingreso y abre el enlace que te llegue.', 'info');
+    } else {
+      HSQ_API.ojoClave('clave1');
+      HSQ_API.ojoClave('clave2');
+      $('clave2').addEventListener('keydown', (e) => { if (e.key === 'Enter') guardar(); });
+      $('btnGuardar').addEventListener('click', guardar);
+    }
+
+    // Supabase responde en ingles y hablando de JWT. Quien abre esta
+    // pantalla no tiene por que leer eso: lo unico que necesita saber es
+    // si puede seguir o si le toca pedir otro enlace.
+    function enEspanol(estadoHttp, data) {
+      const crudo = String(data.msg || data.error_description || data.message || '');
+      if (/different from the old|should be different/i.test(crudo)) {
+        return 'Esa es la misma contraseña que ya tenías. Escribe una distinta.';
+      }
+      if (/at least|weak|short/i.test(crudo)) {
+        return 'La contraseña es muy débil. Usa una más larga, con letras y números.';
+      }
+      if (estadoHttp === 401 || estadoHttp === 403 || /jwt|token|expired|invalid/i.test(crudo)) {
+        return 'El enlace ya no sirve. Pide uno nuevo desde el ingreso y abre el último correo.';
+      }
+      if (estadoHttp === 429) {
+        return 'Demasiados intentos seguidos. Espera unos minutos.';
+      }
+      return crudo || 'No se pudo cambiar la contraseña. Pide un enlace nuevo.';
+    }
+
+    async function guardar() {
+      const c1 = $('clave1').value;
+      const c2 = $('clave2').value;
+      if (c1.length < 8) return estado('La contraseña debe tener al menos 8 caracteres.', 'error');
+      if (c1 !== c2) return estado('Las dos contraseñas no coinciden.', 'error');
+
+      $('btnGuardar').disabled = true;
+      estado('Guardando…', 'info');
+      try {
+        const res = await fetch(BASE + '/auth/v1/user', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: CFG.SUPABASE_KEY,
+            Authorization: 'Bearer ' + acceso,
+          },
+          body: JSON.stringify({ password: c1 }),
+        });
+        // Si el enlace expiro entre que se abrio y se envio, la respuesta
+        // puede no ser JSON: no se asume nada.
+        let data = {};
+        try { data = await res.json(); } catch (e) { /* respuesta sin cuerpo */ }
+        if (!res.ok) throw new Error(enEspanol(res.status, data));
+        $('formulario').classList.add('hidden');
+        $('intro').textContent = 'Listo.';
+        estado('✓ Contraseña actualizada. Ya puedes entrar con ella.', 'ok');
+        const ir = document.createElement('a');
+        ir.className = 'btn btn--primary btn--block';
+        ir.style.marginTop = '16px';
+        ir.href = 'coordinador.html';
+        ir.textContent = 'Ir al ingreso';
+        $('estado').after(ir);
+      } catch (err) {
+        estado(err.message, 'error');
+        $('btnGuardar').disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

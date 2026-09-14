@@ -157,6 +157,33 @@
     return data;
   }
 
+  // ---------- Restablecer la contrasena ----------
+  // Manda el correo con el enlace. El 'redirect_to' apunta a clave.html,
+  // que es la pantalla que sabe recibirlo; hay que tenerla listada en
+  // Supabase -> Authentication -> URL Configuration -> Redirect URLs, o
+  // Supabase la ignora y devuelve al Site URL.
+  async function pedirRestablecer(email) {
+    const correo = String(email || '').trim();
+    if (!correo) throw new Error('Escribe tu correo.');
+    const base = CFG.SUPABASE_URL.replace(/\/$/, '');
+    const destino = new URL('clave.html', location.href).href;
+    const res = await fetch(base + '/auth/v1/recover?redirect_to=' + encodeURIComponent(destino), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY },
+      body: JSON.stringify({ email: correo }),
+    });
+    if (!res.ok) {
+      let data = {};
+      try { data = await res.json(); } catch (e) { /* respuesta sin cuerpo */ }
+      // El limite de envios de Supabase es bajo y se topa con facilidad.
+      if (res.status === 429) {
+        throw new Error('Ya se pidieron varios correos seguidos. Espera unos minutos.');
+      }
+      throw new Error(data.msg || data.error_description || 'No se pudo enviar el correo.');
+    }
+    return true;
+  }
+
   // ---------- Ver / ocultar la contrasena ----------
   // Envuelve el campo y le pone un boton. Se usa igual en las tres
   // pantallas de ingreso, para que se comporte siempre igual.
@@ -774,5 +801,6 @@
     lineaActiva,
     fijarLinea,
     ojoClave,
+    pedirRestablecer,
   };
 })();

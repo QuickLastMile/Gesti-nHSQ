@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/styles.css?v=26">
+  <link rel="stylesheet" href="assets/styles.css?v=27">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -37,8 +37,11 @@
         </div>
         <button id="coordLogin" class="btn btn--primary btn--block" type="button">Iniciar sesión</button>
         <div id="coordLoginStatus" class="status" aria-live="polite"></div>
-        <p class="gate__ayuda">¿No puedes entrar? Tu cuenta la crea y la
-           restablece el equipo HSEQ.</p>
+        <p class="gate__ayuda">
+          ¿Olvidaste tu contraseña?
+          <a id="btnOlvide" href="#" role="button">Te enviamos un enlace</a> al correo
+          que escribas arriba.
+        </p>
       </div>
     </div>
   </div>
@@ -225,7 +228,7 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=34"></script>
+  <script src="assets/api.js?v=35"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -235,11 +238,30 @@
       if (!sessionStorage.getItem('hsq_coord_token')) $('gate').classList.remove('hidden');
       $('coordLogin').addEventListener('click', loginCoordinador);
       HSQ_API.ojoClave('coordPassword');
+      $('btnOlvide').addEventListener('click', pedirEnlace);
       // Enter en la contrasena entra, sin tener que buscar el boton.
       $('coordPassword').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') loginCoordinador();
       });
     })();
+
+    async function pedirEnlace(ev) {
+      ev.preventDefault();
+      const correo = $('coordEmail').value.trim();
+      if (!correo) {
+        $('coordEmail').focus();
+        return setStatusId('coordLoginStatus', 'Escribe primero tu correo aqu\u00ed arriba.', 'error');
+      }
+      setStatusId('coordLoginStatus', 'Enviando el enlace\u2026', 'info');
+      try {
+        await HSQ_API.pedirRestablecer(correo);
+        setStatusId('coordLoginStatus',
+          'Listo. Revisa ' + correo + ' y abre el \u00faltimo correo: solo sirve ese, '
+          + 'y vence al poco tiempo. Mira tambi\u00e9n en correo no deseado.', 'ok');
+      } catch (err) {
+        setStatusId('coordLoginStatus', err.message, 'error');
+      }
+    }
 
     async function loginCoordinador() {
       const email = $('coordEmail').value.trim();
