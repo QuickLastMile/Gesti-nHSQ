@@ -1,27 +1,30 @@
 -- ============================================================
---  Temperatura: solo conductores, y las dos jornadas juntas
+--  Temperatura por cargo, y los filtros por linea
 --  ------------------------------------------------------------
---  Dos cosas:
+--  Junta cuatro cosas que se pidieron seguidas:
 --
---  1) La medicion la hace el conductor, no el mensajero. Hasta
---     ahora un formulario se habilitaba por PROYECTO y lo veia todo
---     el mundo de ese proyecto. Se agrega 'aplica_a' al formulario
---     -igual que ya existe en las preguntas- para poder limitarlo a
---     un cargo.
+--  1) La temperatura la mide el CONDUCTOR, no el mensajero. Un
+--     formulario se habilitaba por proyecto y lo veia todo el mundo
+--     de ese proyecto; ahora puede limitarse a un cargo.
 --
---  2) En la pantalla del mensajero, manana y tarde se veian como
---     dos formularios sueltos. Con 'grupo' y 'etiqueta' se pintan
---     como una sola fila con dos botones, y cada uno se marca al
---     diligenciarlo.
+--  2) Manana y tarde se veian como dos formularios sueltos. Con
+--     'grupo' y 'etiqueta' se pintan como una fila con dos botones.
 --
---  Nada de esto cambia los formularios que ya existen: sin
---  'aplica_a' un formulario lo sigue viendo todo el proyecto, y sin
---  'grupo' se sigue pintando como una fila propia.
+--  3) Los desplegables de proyecto y formulario de Cumplimiento y
+--     del Dashboard no filtraban por linea: entrando como Warehouse
+--     salia la lista de Last Mile. Las consultas SI filtraban -no se
+--     escapo informacion- pero el desplegable mostraba nombres
+--     ajenos.
+--
+--  4) El filtro de formulario mostraba las jornadas por separado.
+--     Ahora es una sola opcion y el tablero suma las dos.
+--
+--  El exportable sigue jornada por jornada a proposito: el CSV saca
+--  una columna por pregunta y cada jornada tiene las suyas.
 --
 --  Ejecutar DESPUES de db/lineas_3_lecturas.sql.
 --  Supabase -> SQL Editor -> New query -> pegar todo -> Run
 -- ============================================================
-
 -- ------------------------------------------------------------
 --  1) Las columnas nuevas
 -- ------------------------------------------------------------
@@ -65,9 +68,81 @@ returns int language sql stable set search_path = public as $fn$
      and (pf.frecuencia <> 'SEMANAL'
           or extract(isodow from v_fecha)::smallint = pf.dia_semana);
 $fn$;
+-- ------------------------------------------------------------
+--  1) Que formularios cubre el filtro
+--  ------------------------------------------------------------
+--  Devuelve null cuando no hay filtro. Si el valor es un grupo, se
+--  expande a sus jornadas; si no, es un formulario suelto.
+-- ------------------------------------------------------------
+create or replace function formularios_del_filtro(p_valor text)
+returns text[] language sql stable set search_path = public as $fn$
+  select case
+    when upper(coalesce(btrim(p_valor),'')) in ('', 'TODOS') then null
+    else coalesce(
+      (select array_agg(f.id) from formularios f
+        where f.activo and f.grupo = btrim(p_valor)),
+      array[upper(btrim(p_valor))])
+  end;
+$fn$;
 
 -- ------------------------------------------------------------
---  3) Lo que se le pide al mensajero
+--  2) Los desplegables de proyecto y formulario
+--  ------------------------------------------------------------
+--  Solo lo llaman Cumplimiento y el Dashboard, que siempre tienen
+--  sesion; el mensajero no pasa por aqui.
+-- ------------------------------------------------------------
+create or replace function api_get_bootstrap(payload jsonb default '{}'::jsonb)
+returns jsonb language sql security definer set search_path = public as $fn$
+  with lin as (select linea_efectiva(coalesce(payload->>'linea','')) as id)
+  select jsonb_build_object(
+    -- Las jornadas de un mismo grupo son UNA opcion: al elegirla, el
+    -- tablero suma las dos. El valor es el grupo, no el formulario.
+    'formularios', coalesce((
+      select jsonb_agg(x.opcion order by x.orden)
+      from (
+        select min(f.orden) as orden,
+               jsonb_build_object(
+                 'id_formulario', coalesce(nullif(f.grupo,''), f.id),
+                 'nombre_formulario', f.nombre) as opcion
+          from formularios f, lin
+         where f.activo and exists (
+                 select 1 from proyectos_formularios pf
+                 join colaboradores c on c.proyecto = pf.proyecto and c.activo
+                                      and c.linea = lin.id
+                 where pf.formulario_id = f.id and pf.activo)
+         group by coalesce(nullif(f.grupo,''), f.id), f.nombre
+      ) x), '[]'::jsonb),
+    -- Suelta, jornada por jornada: la usa el exportable, que saca un
+    -- archivo por formulario.
+    'formularios_detalle', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id_formulario', f.id,
+               'nombre_formulario', f.nombre
+                 || case when coalesce(f.etiqueta,'') <> '' then ' - ' || f.etiqueta else '' end)
+             order by f.orden)
+      from formularios f, lin
+      where f.activo and exists (
+              select 1 from proyectos_formularios pf
+              join colaboradores c on c.proyecto = pf.proyecto and c.activo
+                                   and c.linea = lin.id
+              where pf.formulario_id = f.id and pf.activo)), '[]'::jsonb),
+    'proyectos', coalesce((
+      select jsonb_agg(jsonb_build_object('proyecto_id', p.proyecto_id, 'proyecto', p.proyecto))
+      from (select distinct c.proyecto_id, c.proyecto
+            from colaboradores c, lin
+            where c.activo and coalesce(c.proyecto,'') <> ''
+              and c.linea = lin.id
+              and exists (
+                select 1 from proyectos_formularios pf
+                join formularios f on f.id=pf.formulario_id and f.activo
+                where pf.proyecto=c.proyecto and pf.activo
+              )
+            order by c.proyecto) p), '[]'::jsonb)
+  );
+$fn$;
+
+-- ------------------------------------------------------------
+--  Lo que se le pide al mensajero
 -- ------------------------------------------------------------
 create or replace function api_buscar_activo(payload jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $fn$
@@ -180,7 +255,7 @@ end;
 $fn$;
 
 -- ------------------------------------------------------------
---  4) Cumplimiento del dia
+--  Cumplimiento del dia
 -- ------------------------------------------------------------
 create or replace function api_cumplimiento_dia(payload jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -302,7 +377,7 @@ end;
 $$;
 
 -- ------------------------------------------------------------
---  5) El dashboard: no le cuenta temperatura a un mensajero
+--  El dashboard: por cargo, y sumando las jornadas del grupo
 -- ------------------------------------------------------------
 create or replace function api_dashboard(payload jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -332,6 +407,8 @@ declare
   prev_alertas bigint;
   meta_def numeric;
   v_linea text := linea_efectiva(coalesce(payload->>'linea',''));
+  -- El filtro puede traer un formulario o un grupo de jornadas.
+  v_forms text[];
 begin
   select coalesce((select valor::numeric from config where clave='META_DEFECTO'), 90) into meta_def;
   if dia_f is not null then
@@ -347,6 +424,7 @@ begin
   ndias := greatest((hasta-desde)+1,0);
 
   if form_f = '' or form_f = 'TODOS' then form_f := ''; end if;
+  v_forms := formularios_del_filtro(form_f);
 
   -- Dias realmente exigibles: respeta el calendario de cada proyecto
   -- (dias laborales y festivos) y descuenta las justificaciones.
@@ -379,7 +457,7 @@ begin
      and (f.aplica_a is null or f.aplica_a = perfil_cargo(c.cargo))
     where c.activo and c.linea = v_linea
       and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, c.cedula))
-      and (form_f='' or pf.formulario_id=form_f);
+      and (v_forms is null or pf.formulario_id = any(v_forms));
 
   -- Una fila por persona, DIA y formulario realmente exigible. De aqui
   -- salen todas las esperadas. Un formulario semanal solo aporta los dias
@@ -435,7 +513,7 @@ begin
     from registros r
     where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
       and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-      and (form_f='' or r.formulario_id=form_f)
+      and (v_forms is null or r.formulario_id = any(v_forms))
     group by 1;
 
   select count(distinct cedula) into activos from tmp_asignados;
@@ -443,7 +521,7 @@ begin
   select count(*) into realizadas from registros r
    where r.fecha between desde and hasta and coalesce(r.estado,'') <> 'ANULADO' and r.linea = v_linea
      and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-     and (form_f='' or r.formulario_id=form_f)
+     and (v_forms is null or r.formulario_id = any(v_forms))
      and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula));
 
   -- Periodo inmediatamente anterior, con la misma cantidad de dias y las
@@ -453,7 +531,7 @@ begin
   select count(*) into prev_realizadas from registros r
    where r.fecha between prev_desde and prev_hasta and coalesce(r.estado,'') <> 'ANULADO' and r.linea = v_linea
      and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-     and (form_f='' or r.formulario_id=form_f)
+     and (v_forms is null or r.formulario_id = any(v_forms))
      and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula));
   -- El periodo anterior se mide con la misma regla de frecuencia, si no la
   -- comparacion contra el periodo previo quedaria inflada.
@@ -463,14 +541,14 @@ begin
     join proyectos_formularios pf on pf.proyecto=dc.proyecto and pf.activo
     join formularios f on f.id=pf.formulario_id and f.activo
     where not dc.justificado
-      and (form_f='' or pf.formulario_id=form_f)
+      and (v_forms is null or pf.formulario_id = any(v_forms))
       and (pf.frecuencia <> 'SEMANAL'
            or extract(isodow from dc.fecha)::smallint = pf.dia_semana)
       and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, dc.cedula));
   select count(*) into prev_alertas from registros r
    where r.fecha between prev_desde and prev_hasta and coalesce(r.estado,'') <> 'ANULADO' and r.linea = v_linea
      and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-     and coalesce(r.alertas,'')<>'' and (form_f='' or r.formulario_id=form_f)
+     and coalesce(r.alertas,'')<>'' and (v_forms is null or r.formulario_id = any(v_forms))
      and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula));
 
   return jsonb_build_object(
@@ -498,7 +576,7 @@ begin
       'con_alerta',(select count(*) from registros r where r.fecha between desde and hasta
         and coalesce(r.alertas,'')<>'' and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-        and (form_f='' or r.formulario_id=form_f)
+        and (v_forms is null or r.formulario_id = any(v_forms))
         and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula)))
     ),
 
@@ -509,7 +587,7 @@ begin
       from registros r
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-        and (form_f='' or r.formulario_id=form_f)
+        and (v_forms is null or r.formulario_id = any(v_forms))
         and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by r.fecha
     ) x),'[]'::jsonb),
@@ -533,7 +611,7 @@ begin
         from registros r
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
           and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-          and (form_f='' or r.formulario_id=form_f)
+          and (v_forms is null or r.formulario_id = any(v_forms))
           and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy))
           and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
         group by r.fecha
@@ -546,7 +624,7 @@ begin
       from registros r
       where extract(year from r.fecha)=anio_f and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-        and (form_f='' or r.formulario_id=form_f)
+        and (v_forms is null or r.formulario_id = any(v_forms))
         and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by to_char(r.fecha,'YYYY-MM')
     ) x),'[]'::jsonb),
@@ -555,7 +633,7 @@ begin
       select extract(year from r.fecha)::int anio,count(*) realizadas
       from registros r where coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
        and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-       and (form_f='' or r.formulario_id=form_f)
+       and (v_forms is null or r.formulario_id = any(v_forms))
        and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by extract(year from r.fecha)
     ) x),'[]'::jsonb),
@@ -593,7 +671,7 @@ begin
         from registros r
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
           and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-          and (form_f='' or r.formulario_id=form_f)
+          and (v_forms is null or r.formulario_id = any(v_forms))
           and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
         group by coalesce(r.proyecto,'Sin proyecto')
       ) reg on reg.proyecto=p.proyecto
@@ -631,7 +709,7 @@ begin
         from registros r
         where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
           and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-          and (form_f='' or r.formulario_id=form_f)
+          and (v_forms is null or r.formulario_id = any(v_forms))
         group by regexp_replace(r.cedula,'\D','','g')
       ) reg on reg.ced = regexp_replace(c.cedula,'\D','','g')
       left join (
@@ -685,7 +763,7 @@ begin
           and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
         group by r.formulario_id
       ) reg on reg.formulario_id=f.id
-      where f.activo and (form_f='' or f.id=form_f)
+      where f.activo and (v_forms is null or f.id = any(v_forms))
     ) x),'[]'::jsonb),
 
     -- Patron semanal: en que dias se registra mas.
@@ -697,7 +775,7 @@ begin
       from registros r
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-        and (form_f='' or r.formulario_id=form_f)
+        and (v_forms is null or r.formulario_id = any(v_forms))
         and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by extract(isodow from r.fecha), to_char(r.fecha,'TMDay')
     ) x),'[]'::jsonb),
@@ -708,7 +786,7 @@ begin
       from registros r
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-        and (form_f='' or r.formulario_id=form_f)
+        and (v_forms is null or r.formulario_id = any(v_forms))
         and r.hora is not null
         and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       group by extract(hour from r.hora)
@@ -723,7 +801,7 @@ begin
         select regexp_replace(r.cedula,'\D','','g') ced, max(r.fecha) ultimo
         from registros r where coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
           and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-          and (form_f='' or r.formulario_id=form_f)
+          and (v_forms is null or r.formulario_id = any(v_forms))
         group by regexp_replace(r.cedula,'\D','','g')
       ) u on u.ced=regexp_replace(c.cedula,'\D','','g')
       where c.activo and c.linea = v_linea and (proy='' or c.proyecto_efectivo = proy or c.proyecto_efectivo = nombre_proyecto(proy) or (coalesce(c.proyecto_operativo,'') = '' and c.proyecto_id::text = proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, c.cedula))
@@ -731,7 +809,7 @@ begin
           select 1 from proyectos_formularios pf
           join formularios f on f.id=pf.formulario_id and f.activo
           where pf.proyecto=coalesce(c.proyecto_efectivo,'') and pf.activo
-            and (form_f='' or pf.formulario_id=form_f)
+            and (v_forms is null or pf.formulario_id = any(v_forms))
         )
         and (u.ultimo is null or hoy-u.ultimo >= 3)
       limit 60
@@ -744,7 +822,7 @@ begin
       from registros r
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-        and (form_f='' or r.formulario_id=form_f)
+        and (v_forms is null or r.formulario_id = any(v_forms))
         and coalesce(r.alertas,'')<>''
         and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
       limit 300
@@ -763,7 +841,7 @@ begin
       join preguntas p on p.id=rs.pregunta_id
       where r.fecha between desde and hasta and coalesce(r.estado,'')<>'ANULADO' and r.linea = v_linea
         and formulario_habilitado(coalesce(r.proyecto,''),r.formulario_id)
-        and (form_f='' or r.formulario_id=form_f)
+        and (v_forms is null or r.formulario_id = any(v_forms))
         and (proy='' or r.proyecto = coalesce(nombre_proyecto(proy), proy)) and (not enc_hay or en_alcance_enc(enc_jef, enc_lid, enc_coo, r.cedula))
         and nullif(btrim(coalesce(p.respuesta_alerta,'')),'') is not null
         and upper(btrim(coalesce(rs.valor,'')))=upper(btrim(p.respuesta_alerta))
@@ -785,7 +863,7 @@ begin
           select 1 from proyectos_formularios pf
           join formularios f on f.id=pf.formulario_id and f.activo
           where pf.proyecto=coalesce(c.proyecto_efectivo,'') and pf.activo
-            and (form_f='' or pf.formulario_id=form_f)
+            and (v_forms is null or pf.formulario_id = any(v_forms))
         )
         and (d.fecha_vencimiento is null or d.fecha_vencimiento<=hoy+15)
     ) x),'[]'::jsonb),
@@ -831,7 +909,7 @@ end;
 $$;
 
 -- ------------------------------------------------------------
---  6) La pantalla "mi cumplimiento" del mensajero
+--  La pantalla "mi cumplimiento" del mensajero
 -- ------------------------------------------------------------
 create or replace function api_mi_cumplimiento(payload jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $fn$
@@ -974,17 +1052,17 @@ select id, nombre, coalesce(aplica_a,'(todos)') as le_aplica_a,
        coalesce(grupo,'') as grupo, coalesce(etiqueta,'') as boton, activo
   from formularios order by orden;
 
--- b) Cuantos formularios se le exigen hoy a cada cargo en una bodega.
---    Cambia el nombre del proyecto por uno tuyo de Warehouse.
-select 'QUICKER - CONDUCTOR' as cargo,
-       formularios_exigibles_dia('NOMBRE DEL PROYECTO', current_date, 'VEHICULO') as formularios_hoy
-union all
-select 'QUICKER - MENSAJERO',
-       formularios_exigibles_dia('NOMBRE DEL PROYECTO', current_date, 'MOTO');
+-- b) El filtro resuelve el grupo a sus dos jornadas.
+select formularios_del_filtro('TEMP_HUM')       as grupo_temperatura,
+       formularios_del_filtro('PREOPERACIONAL') as un_formulario,
+       formularios_del_filtro('TODOS')          as sin_filtro;
 
--- c) Las cuatro funciones quedaron mirando el cargo.
+-- c) Las cinco funciones quedaron al dia.
 select proname,
-       case when prosrc like '%aplica_a%' then 'MIRA EL CARGO' else 'SIN REVISAR' end as estado
+       case when prosrc like '%aplica_a%' or prosrc like '%v_forms%'
+                 or prosrc like '%linea_efectiva%'
+            then 'ACTUALIZADA' else 'SIN ACTUALIZAR' end as estado
   from pg_proc
- where proname in ('api_buscar_activo','api_cumplimiento_dia','api_dashboard','api_mi_cumplimiento')
+ where proname in ('api_get_bootstrap','api_buscar_activo','api_cumplimiento_dia',
+                   'api_dashboard','api_mi_cumplimiento')
  order by proname;

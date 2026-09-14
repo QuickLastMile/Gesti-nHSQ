@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Exportar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=18">
+  <link rel="stylesheet" href="assets/styles.css?v=19">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -203,7 +203,7 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=28"></script>
+  <script src="assets/api.js?v=29"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -258,7 +258,10 @@
       $('cumFecha').value = today;
       try {
         const data = await HSQ_API.call('getBootstrap');
-        $('filtroFormulario').innerHTML = (data.formularios || []).map((f) =>
+        // El exportable saca una columna por pregunta, y cada jornada tiene
+        // las suyas: aqui va la lista suelta, no la agrupada del tablero.
+        const listaExport = data.formularios_detalle || data.formularios || [];
+        $('filtroFormulario').innerHTML = listaExport.map((f) =>
           `<option value="${escapeHtml(f.id_formulario)}">${escapeHtml(f.nombre_formulario)}</option>`).join('');
         proyectosMap = {};
         $('proyDatalist').innerHTML = (data.proyectos || []).map((p) => {

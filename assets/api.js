@@ -204,13 +204,13 @@
 
     if (!info.puede_cambiar || lineas.length < 2) {
       const n = (lineas.find((l) => l.id === actual) || lineas[0]).nombre;
+      // Sin tocar la clase: cada pantalla trae la suya -el dashboard usa
+      // otra- y pisarla le quitaba el formato a esa barra.
       caja.innerHTML = '<span class="header-linea__tag">Linea</span>'
         + '<span class="header-linea__fija">' + esc(n) + '</span>';
-      caja.className = 'header-linea';
       return info;
     }
 
-    caja.className = 'header-linea';
     caja.innerHTML = '<span class="header-linea__tag">Linea</span>'
       + '<select id="' + idCaja + 'Sel" aria-label="Linea de negocio">'
       + lineas.map((l) => '<option value="' + esc(l.id) + '"'
