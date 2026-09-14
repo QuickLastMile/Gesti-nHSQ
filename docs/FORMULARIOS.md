@@ -181,5 +181,6 @@ marcado no lo exige ni lo cuenta en el cumplimiento.
 | `db/frecuencia_formulario.sql` | Frecuencia diaria o semanal por proyecto y formulario. Correr **después** de `dashboard_justificados.sql`. |
 | `db/frecuencia_solo_limpieza.sql` | Deja el selector de frecuencia solo en limpieza. Correr **después** del anterior. |
 | `db/temperatura_humedad.sql` | Control de temperatura y humedad (mañana y tarde), etiquetas informativas y alerta por respuesta. |
+| `db/temperatura_avisos.sql` | Los avisos con el texto del instructivo de la operación, y el de *cuándo es una novedad* justo antes de la pregunta. |
 
 Ambos se pueden volver a ejecutar sin duplicar nada.
