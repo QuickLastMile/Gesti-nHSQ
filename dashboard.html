@@ -670,7 +670,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=31"></script>
+  <script src="assets/api.js?v=32"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
@@ -691,7 +691,10 @@
     habilitarEnfoque();
 
     initFiltros();
-    arrancar();
+    // Sin sesion no se consulta nada: una consulta anonima falla por falta
+    // de linea, y ese aviso no habla del usuario que va a entrar.
+    if (sessionStorage.getItem('hsq_coord_token')) arrancar();
+    else $('gate').classList.remove('hidden');
 
     $('btnSalir').addEventListener('click', () => {
       // Una sola sesion: salir de aqui cierra tambien Cumplimiento y

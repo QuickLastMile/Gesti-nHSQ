@@ -211,7 +211,7 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=31"></script>
+  <script src="assets/api.js?v=32"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -225,7 +225,6 @@
       $('coordPassword').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') loginCoordinador();
       });
-      $('coordPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') loginCoordinador(); });
     })();
 
     async function loginCoordinador() {
@@ -239,6 +238,8 @@
         await HSQ_API.call('getMatrizInfo');
         $('gate').classList.add('hidden');
         $('coordLoginStatus').className = 'status';
+        // La pantalla no cargo nada al abrir: ahora que hay sesion, si.
+        init();
       } catch (err) {
         HSQ_API.cerrarSesion();
         setStatusId('coordLoginStatus', err.message, 'error');
@@ -268,7 +269,9 @@
       });
     });
 
-    init();
+    // Sin sesion no se consulta nada: una consulta anonima falla por falta
+    // de linea y el aviso quedaba escondido detras de la tarjeta de ingreso.
+    if (sessionStorage.getItem('hsq_coord_token')) init();
 
     async function init() {
       const today = new Date().toISOString().slice(0, 10);
