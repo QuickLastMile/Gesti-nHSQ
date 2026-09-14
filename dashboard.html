@@ -659,6 +659,9 @@
     const DOW = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
     const C = { verde:'#12875f', oscuro:'#07382b', lima:'#7f9e1f', ok:'#0f7a4d', warn:'#b57611', bad:'#b83a33' };
     let data = null, docFiltro = 'TODOS';
+    // id de formulario -> nombre con su jornada, cuando la tiene. Va aqui
+    // y no junto a las tablas: arrancar() la escribe, y se llama mucho antes.
+    const nombreLargo = {};
     let focusedCard = null, focusReturn = null;
 
     const layout = document.querySelector('.layout');
@@ -773,6 +776,10 @@
         (b.proyectos || []).forEach((p) => $('fProject').add(new Option(p.proyecto, p.proyecto_id || p.proyecto)));
         $('fForm').length = 1;
         (b.formularios || []).forEach((f) => $('fForm').add(new Option(f.nombre_formulario, f.id_formulario)));
+        // Las dos jornadas comparten nombre: para distinguirlas en las tablas
+        // se usa el nombre largo que ya trae el bootstrap, sin inventar nada
+        // ni amarrar ids en el codigo.
+        (b.formularios_detalle || []).forEach((f) => { nombreLargo[f.id_formulario] = f.nombre_formulario; });
         // La linea manda sobre todos los filtros: al cambiarla se recarga
         // el tablero entero en vez de mezclar datos de dos operaciones.
         await HSQ_API.montarSelectorLinea('lineaBox', () => location.reload());
@@ -1453,7 +1460,7 @@
       $('formRows').innerHTML = fs.length ? fs.map((f) => `
         <div style="padding:12px 0;border-top:1px solid var(--line)">
           <div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:7px">
-            <b>${esc(f.nombre)}</b>
+            <b>${esc(nombreLargo[f.id] || f.nombre)}</b>
             <span class="tnum" style="color:var(--muted);font-size:12.5px">${fmt(f.realizadas)} de ${fmt(f.esperadas)}</span>
           </div>${barra(f.porcentaje)}
         </div>`).join('') : '<div class="empty">Sin formularios activos.</div>';
