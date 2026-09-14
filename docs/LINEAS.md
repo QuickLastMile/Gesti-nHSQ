@@ -103,18 +103,30 @@ El usuario se crea antes en **Supabase → Authentication → Add user**.
 | `db/lineas_3_lecturas.sql` | Dashboard, cumplimiento del día, exportable y lista de encargados devuelven solo la línea activa. |
 | `db/lineas_4a_administracion.sql` | Administración (Buscar, Proyectos, Calendario, Formularios, Historial) muestra solo la línea activa. |
 | `db/lineas_perfil_usuario.sql` | `api_lineas` devuelve también el rol, para decidir si se muestra el engranaje de Configuración. |
+| `db/lineas_4b_escrituras.sql` | Las escrituras de Administración validan la línea. **Correr antes de subir a HSEQ a los usuarios de línea.** |
 
-## Lo que todavía NO filtra
+## Escribir fuera de la línea: bloqueado
 
-Las **escrituras** de Administración: guardar un encargado, mover a alguien de
-proyecto, asignar un coordinador masivo o borrar un huérfano todavía no
-verifican que el destino sea de la línea activa.
+Guardar una ficha, mover a alguien de proyecto, asignar encargados o habilitar
+un formulario verifican que el destino sea de la línea activa. El mensaje dice
+**de qué línea es** lo que se intentó tocar, no solo "no autorizado".
 
-Hoy eso no es un hueco de seguridad —a Administración solo llega ADMIN/HSEQ, y
-el único que existe es el usuario universal—, pero hay que cerrarlo **antes** de
-subir a HSEQ a los usuarios de línea. Esa es la etapa 4b.
+El criterio: lo que **ya tiene línea** solo se toca desde esa línea; lo que
+todavía no tiene gente —un CECO recién cargado— se deja pasar, para no bloquear
+la configuración inicial de una línea nueva.
 
-Dos detalles de la 4a que conviene saber:
+Tres casos con regla propia:
+
+- **Borrar un CECO sin gente** solo lo puede hacer el usuario universal: no
+  tiene línea deducible, y una línea borraría lo que la otra acaba de cargar.
+- **Asignar parte o coordinador propio** a varias personas se rechaza entero si
+  alguna es de otra línea, en vez de hacer el cambio a medias.
+- **El cargue de la tabla de encargados** salta las filas de otra línea y dice
+  cuántas fueron.
+
+Con esto ya se puede subir a HSEQ a los usuarios de línea.
+
+## Detalles que conviene saber
 
 - Un **CECO huérfano** (cargado pero sin gente) no tiene línea deducible, así que
   solo lo ve el usuario universal.
