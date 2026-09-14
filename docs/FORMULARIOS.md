@@ -139,6 +139,25 @@ línea. Los teléfonos se vuelven enlaces para poder marcarlos desde el celular.
 Respeta la lógica condicional, así que un aviso puede aparecer solo cuando
 aplica. No genera columna en el exportable.
 
+## Un formulario puede ser de un solo cargo
+
+La columna `formularios.aplica_a` limita un formulario a **MOTO** o **VEHICULO**.
+Vacía = lo ve todo el proyecto, que es como siguen los demás.
+
+La temperatura está en **VEHICULO**: la mide el conductor, no el mensajero. Sin
+esto, habilitar el formulario en una bodega se lo exigía también a los
+mensajeros y el dashboard les contaba dos esperadas de más al día.
+
+## Jornadas: una fila, dos botones
+
+Los formularios que comparten `grupo` se pintan como **una sola fila con un
+botón por jornada**, no como formularios distintos. El texto del botón sale de
+`etiqueta`.
+
+Cada botón se marca en verde con un chulo y la hora al diligenciarlo, y el
+encabezado lleva la cuenta (*1 de 2*). Es el mismo mecanismo para cualquier
+formulario futuro que tenga turnos.
+
 ## Temperatura y humedad: dos formularios, no uno
 
 La medición se hace **dos veces al día**, pero la base tiene la regla de un

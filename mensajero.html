@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=17">
+  <link rel="stylesheet" href="assets/styles.css?v=18">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/icono-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -337,8 +337,54 @@
       return (state.persona && state.persona.cedula) || '';
     }
 
+    // Los formularios que comparten 'grupo' son jornadas de lo mismo
+    // (manana y tarde): se pintan en una sola fila con un boton por
+    // jornada, para que no parezcan dos formularios distintos.
+    function agruparFormularios(lista) {
+      const salida = [];
+      const indice = {};
+      lista.forEach((f) => {
+        const g = String(f.grupo || '').trim();
+        if (!g) { salida.push({ tipo: 'uno', f }); return; }
+        if (indice[g] === undefined) {
+          indice[g] = salida.length;
+          salida.push({ tipo: 'grupo', grupo: g, nombre: f.nombre_formulario, items: [] });
+        }
+        salida[indice[g]].items.push(f);
+      });
+      return salida;
+    }
+
+    function pintarGrupo(g) {
+      const hechos = g.items.filter((f) => (state.estado[f.id_formulario] || {}).hecho).length;
+      const sub = hechos === g.items.length
+        ? '\u2713 Las ' + g.items.length + ' jornadas registradas'
+        : hechos + ' de ' + g.items.length + ' · toca la jornada que vas a diligenciar';
+      const chulo = '<svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5 10 17l9-10" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const reloj = '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+      const botones = g.items.map((f) => {
+        const st = state.estado[f.id_formulario] || { hecho: false };
+        const done = !!st.hecho;
+        const active = state.currentForm === f.id_formulario && !done;
+        const hora = done && st.hora ? `<span class="jornada__hora">${escapeHtml(String(st.hora).slice(0, 5))}</span>` : '';
+        return `<button type="button" class="jornada ${done ? 'done' : ''} ${active ? 'active' : ''}"
+                  data-form="${escapeHtml(f.id_formulario)}" ${done ? 'disabled' : ''}>
+                  ${done ? chulo : reloj}
+                  <span>${escapeHtml(f.etiqueta || f.nombre_formulario)}</span>${hora}
+                </button>`;
+      }).join('');
+      return `<div class="checkgroup">
+          <div class="checkgroup__title">${escapeHtml(g.nombre)}</div>
+          <div class="checkgroup__sub">${sub}</div>
+          <div class="checkgroup__opts">${botones}</div>
+        </div>`;
+    }
+
     function renderChecklist() {
-      $('checklist').innerHTML = state.formularios.map((f) => {
+      $('checklist').innerHTML = agruparFormularios(state.formularios).map((x) => {
+        if (x.tipo === 'grupo') return pintarGrupo(x);
+        const f = x.f;
+        return (() => {
         const st = state.estado[f.id_formulario] || { hecho: false };
         const done = !!st.hecho;
         const active = state.currentForm === f.id_formulario && !done;
@@ -355,9 +401,10 @@
             </span>
             <span class="checkitem__chev"><svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </button>`;
+        })();
       }).join('');
 
-      $('checklist').querySelectorAll('.checkitem:not(.done)').forEach((btn) => {
+      $('checklist').querySelectorAll('.checkitem:not(.done), .jornada:not(.done)').forEach((btn) => {
         btn.addEventListener('click', () => seleccionarFormulario(btn.dataset.form));
       });
     }
@@ -372,7 +419,10 @@
       state.currentForm = id;
       renderChecklist();
       const f = state.formularios.find((x) => x.id_formulario === id);
-      $('formTitle').textContent = f ? f.nombre_formulario : 'Formulario';
+      // Con dos jornadas del mismo nombre, el titulo tiene que decir cual.
+      $('formTitle').textContent = f
+        ? (f.nombre_formulario + (f.etiqueta ? ' \u00b7 ' + f.etiqueta : ''))
+        : 'Formulario';
       $('bottomForm').textContent = f ? f.nombre_formulario : 'Registro';
       showStatus('Cargando preguntas…', 'info');
       try {

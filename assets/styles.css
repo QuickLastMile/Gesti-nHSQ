@@ -625,6 +625,33 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 /* Barra lateral suave en las preguntas que llegan con respuesta anterior */
 .question.pre { border-left: 3px solid #e4b458; }
 
+/* Formularios que son jornadas de lo mismo: una sola fila con un boton
+   por jornada, en vez de dos filas que parecen cosas distintas. */
+.checkgroup {
+  border: 1px solid var(--line-strong); border-radius: 12px;
+  padding: 12px 14px; background: var(--surface);
+}
+.checkgroup + .checkgroup, .checkgroup + .checkitem, .checkitem + .checkgroup { margin-top: 10px; }
+.checkgroup__title { font-weight: 800; line-height: 1.3; }
+.checkgroup__sub { margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+.checkgroup__opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.jornada {
+  flex: 1 1 130px; display: flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 46px; padding: 9px 12px; font: inherit; font-weight: 800; font-size: 14px;
+  border: 1.5px solid var(--line-strong); border-radius: 10px;
+  background: var(--surface-2); color: var(--text); cursor: pointer;
+}
+.jornada:hover { border-color: var(--accent-dark); }
+.jornada svg { width: 17px; height: 17px; flex: 0 0 auto; }
+/* Diligenciada: verde y con chulo. No se puede volver a tocar. */
+.jornada.done {
+  border-color: var(--success); background: var(--success-soft); color: var(--success);
+  cursor: default;
+}
+.jornada.done:hover { border-color: var(--success); }
+.jornada.active { border-color: var(--accent-dark); background: var(--accent-soft); }
+.jornada__hora { font-weight: 700; font-size: 11.5px; opacity: .8; }
+
 /* Etiqueta informativa: no se responde, se lee. Va sin numero, sin
    insignias y con fondo propio para que no se confunda con una pregunta. */
 .question--info { padding: 10px 16px; }
