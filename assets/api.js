@@ -128,6 +128,76 @@
     return data.result;
   }
 
+
+  // ---------- Linea de negocio ----------
+  // Se guarda por pestana: cambiar de linea no le cambia la vista a
+  // nadie mas, y al cerrar sesion se va con ella.
+  function lineaActiva() {
+    try { return sessionStorage.getItem('hsq_linea') || ''; } catch (e) { return ''; }
+  }
+
+  function fijarLinea(id) {
+    try { sessionStorage.setItem('hsq_linea', id || ''); } catch (e) { /* modo privado */ }
+  }
+
+  // api_lineas() no vive en el router: se llama directo y exige sesion.
+  async function lineasPermitidas() {
+    const token = tokenSesion();
+    if (!token) return { lineas: [], actual: '', puede_cambiar: false };
+    const res = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/api_lineas', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: CFG.SUPABASE_KEY,
+        Authorization: 'Bearer ' + token,
+      },
+      body: '{}',
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!data || data.message) throw new Error((data && data.message) || 'No se pudieron leer las lineas.');
+    return data;
+  }
+
+  // Pinta el selector en la barra. Con una sola linea muestra el nombre
+  // como etiqueta fija: no hay nada que escoger.
+  async function montarSelectorLinea(idCaja, alCambiar) {
+    const caja = document.getElementById(idCaja);
+    if (!caja) return null;
+    let info;
+    try { info = await lineasPermitidas(); } catch (e) { caja.innerHTML = ''; return null; }
+    const lineas = info.lineas || [];
+    if (!lineas.length) { caja.innerHTML = ''; return null; }
+
+    const guardada = lineaActiva();
+    const valida = lineas.some((l) => l.id === guardada);
+    const actual = valida ? guardada : (info.actual || lineas[0].id);
+    fijarLinea(actual);
+
+    const esc = (t) => String(t).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    if (!info.puede_cambiar || lineas.length < 2) {
+      const n = (lineas.find((l) => l.id === actual) || lineas[0]).nombre;
+      caja.innerHTML = '<span class="header-linea__tag">Linea</span>'
+        + '<span class="header-linea__fija">' + esc(n) + '</span>';
+      caja.className = 'header-linea';
+      return actual;
+    }
+
+    caja.className = 'header-linea';
+    caja.innerHTML = '<span class="header-linea__tag">Linea</span>'
+      + '<select id="' + idCaja + 'Sel" aria-label="Linea de negocio">'
+      + lineas.map((l) => '<option value="' + esc(l.id) + '"'
+          + (l.id === actual ? ' selected' : '') + '>' + esc(l.nombre) + '</option>').join('')
+      + '</select>';
+    document.getElementById(idCaja + 'Sel').addEventListener('change', (ev) => {
+      fijarLinea(ev.target.value);
+      if (typeof alCambiar === 'function') alCambiar(ev.target.value);
+    });
+    return actual;
+  }
+
   async function supabaseCall(action, payload = {}) {
     // Al guardar registro, primero se suben las fotos al almacenamiento y se
     // reemplazan por sus enlaces (una función SQL no puede recibir archivos).
@@ -628,5 +698,9 @@
     cerrarSesion,
     refrescarSesion,
     haySesion: () => !!tokenSesion(),
+    // Linea de negocio activa (solo pantallas con sesion).
+    montarSelectorLinea,
+    lineaActiva,
+    fijarLinea,
   };
 })();

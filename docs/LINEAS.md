@@ -1,0 +1,87 @@
+# Líneas de negocio
+
+La plataforma nació para **Last Mile**. Ahora entra **Warehouse**, y vendrán más.
+Cada línea tiene su propia matriz de activos y alimenta su propia configuración,
+y no deben verse entre ellas.
+
+## Quién ve qué
+
+| Usuario | Alcance |
+|---|---|
+| Administradora general y HSEQ | Todas las líneas, con desplegable en la barra |
+| Jefes, líderes y coordinadores | Una sola línea, sin poder salirse |
+| Mensajero | No escoge: su cédula ya dice a qué línea pertenece |
+
+Un usuario **sin línea asignada no ve nada**. Falla cerrado a propósito: es
+preferible que alguien reclame acceso a que alguien vea lo que no es suyo.
+
+El desplegable **propone**, la base **dispone**: cada llamada pasa por
+`linea_efectiva()`, que valida contra las líneas permitidas del usuario. Si
+mañana se olvida un filtro en el HTML, no se filtra información igual.
+
+## Dónde está el selector
+
+En la barra superior de **Administración**, **Cumplimiento** y **Dashboard** —
+las pantallas con sesión. En la página de inicio no va: es pública, el mensajero
+entra ahí sin sesión y no debe escoger línea.
+
+Con una sola línea permitida muestra el nombre como etiqueta fija, sin
+desplegable: no hay nada que escoger. Al cambiar de línea se recarga la
+pantalla, en vez de dejar mezclados los datos de dos operaciones.
+
+La elección se guarda **por pestaña**, así que cambiar de línea no le cambia la
+vista a nadie más y se va al cerrar sesión.
+
+`admin.html` no carga `assets/api.js` —tiene su propia capa de sesión—, así que
+allí el selector está implementado aparte, con el mismo token. Si el script de
+líneas todavía no se ha corrido, la barra se queda como estaba y no rompe nada.
+
+## El cargue de matriz es por línea
+
+Antes, actualizar la matriz inactivaba a **todo** el que no apareciera en el
+texto pegado. Con una sola línea estaba bien; con dos era una bomba: pegar la
+matriz de Warehouse habría intentado inactivar a todo Last Mile.
+
+Desde `db/lineas_2_matriz.sql` el cargue:
+
+- se hace **sobre la línea activa** en el panel;
+- solo inactiva gente de esa línea;
+- la red de seguridad del 50 % se mide **dentro** de la línea;
+- una cédula que ya pertenece a otra línea **no se mueve**: se cuenta aparte y
+  se reporta, porque un traslado entre líneas es una decisión, no el efecto
+  secundario de un pegado.
+
+## La línea de cada registro
+
+Se guarda **en el registro**, no se consulta al vuelo. Si alguien se pasa de
+línea, su historia no se muda con él — el mismo criterio que ya se usa con
+proyecto y cargo.
+
+El sello lo pone un trigger, no las funciones: hay cinco que insertan registros
+(normal, diferido, provisional, traslado) y a un trigger no se le olvida ninguna.
+
+## Cómo asignarle la línea a un usuario
+
+`app_roles` no se toca desde la app, así que se hace en el editor SQL:
+
+```sql
+-- Usuario universal (ve todas, con desplegable):
+update app_roles set todas_lineas = true, lineas = '{}'
+ where email = 'correo@quicklastmile.com';
+
+-- Usuario de una sola línea (no puede salirse de ella):
+update app_roles set todas_lineas = false, lineas = array['WAREHOUSE']
+ where email = 'warehouse@quicklastmile.com';
+```
+
+El usuario se crea antes en **Supabase → Authentication → Add user**.
+
+## Scripts
+
+| Script | Qué hace |
+|---|---|
+| `db/lineas_1_fundacion.sql` | Tabla de líneas, la línea de cada colaborador y de cada registro, y el alcance por usuario. No cambia el comportamiento de nadie. |
+| `db/lineas_2_matriz.sql` | El cargue de matriz queda amarrado a la línea activa. **Correr antes de cargar cualquier matriz nueva.** |
+
+Pendiente: filtrar por línea las lecturas del dashboard, cumplimiento,
+exportable y encargados, y la configuración por proyecto.

@@ -100,6 +100,27 @@ a { color: var(--accent-dark); }
 }
 .header-back svg { width: 16px; height: 16px; }
 
+/* Linea de negocio activa. Solo aparece en las pantallas con sesion:
+   el mensajero no escoge linea, se la dice su cedula. */
+.header-linea { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.header-linea + .header-back { margin-left: 8px; }
+.header-linea__tag {
+  font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+.header-linea select, .header-linea__fija {
+  font: inherit; font-size: 13px; font-weight: 700; color: #fff;
+  padding: 7px 11px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+}
+.header-linea select { cursor: pointer; }
+/* El desplegable nativo pinta las opciones con el fondo del sistema. */
+.header-linea select option { color: #14342a; background: #fff; }
+@media (max-width: 560px) {
+  .header-linea__tag { display: none; }
+}
+
 .container {
   max-width: var(--maxw);
   margin: 0 auto;

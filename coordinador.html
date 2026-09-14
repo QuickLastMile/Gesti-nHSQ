@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Exportar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=15">
+  <link rel="stylesheet" href="assets/styles.css?v=16">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -46,6 +46,7 @@
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 19V9m5 10V5m6 14v-7m5 7V3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
         Dashboard
       </a>
+      <div id="lineaBox" class="header-linea"></div>
       <a class="header-back" href="index.html">
         <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Inicio
@@ -196,7 +197,7 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=24"></script>
+  <script src="assets/api.js?v=26"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
@@ -263,6 +264,8 @@
         showStatus(err.message, 'error');
       }
       cargarEncargados();
+      // La linea manda sobre lo que se consulta: al cambiarla se recarga.
+      HSQ_API.montarSelectorLinea('lineaBox', () => location.reload());
     }
 
     /* ================= CUMPLIMIENTO DIARIO ================= */

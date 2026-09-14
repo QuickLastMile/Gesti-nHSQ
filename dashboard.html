@@ -78,6 +78,15 @@
     .export-btn:hover{background:var(--green-2);border-color:var(--green-2);color:#fff}
     .export-btn:disabled{opacity:.42;cursor:not-allowed;background:var(--surface);color:var(--muted)}
     .back-link{display:inline-flex;align-items:center;text-decoration:none}
+    /* Linea de negocio. Va primero en la barra porque manda sobre
+       todos los demas filtros: cambiarla recarga el tablero entero. */
+    .linea-box{display:flex;align-items:center;gap:6px;margin-right:4px}
+    .linea-box__tag{font-size:10px;font-weight:800;letter-spacing:.5px;
+      text-transform:uppercase;color:var(--muted)}
+    .linea-box select,.linea-box__fija{font:inherit;font-size:11.5px;font-weight:800;
+      color:var(--green-2);background:var(--surface);border:1px solid var(--line-2);
+      border-radius:8px;padding:7px 10px;white-space:nowrap}
+    .linea-box select{cursor:pointer}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
     .filterbar{padding:0 26px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
@@ -350,6 +359,7 @@
         <header class="topbar">
           <div><h1 id="pgTitle">Resumen ejecutivo</h1><p id="pgSub">¿Cómo estamos y dónde está el problema?</p></div>
           <div class="top-actions">
+            <div id="lineaBox" class="linea-box"></div>
             <a class="export-btn back-link" href="coordinador.html" aria-label="Volver a coordinadores">← Volver a coordinadores</a>
             <button id="btnExcel" class="export-btn" type="button" disabled>Excel</button>
             <button id="btnPdf" class="export-btn" type="button" disabled>PDF</button>
@@ -641,7 +651,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=24"></script>
+  <script src="assets/api.js?v=26"></script>
   <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
@@ -763,6 +773,9 @@
         (b.proyectos || []).forEach((p) => $('fProject').add(new Option(p.proyecto, p.proyecto_id || p.proyecto)));
         $('fForm').length = 1;
         (b.formularios || []).forEach((f) => $('fForm').add(new Option(f.nombre_formulario, f.id_formulario)));
+        // La linea manda sobre todos los filtros: al cambiarla se recarga
+        // el tablero entero en vez de mezclar datos de dos operaciones.
+        await HSQ_API.montarSelectorLinea('lineaBox', () => location.reload());
         await cargarEncargados();
         await cargar();
       } catch (e) { manejarError(e); }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=15">
+  <link rel="stylesheet" href="assets/styles.css?v=16">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -123,6 +123,7 @@
         <h1>Administración HSQ</h1>
         <p>Matriz de colaboradores</p>
       </div>
+      <div id="lineaBox" class="header-linea"></div>
       <a class="header-back" href="index.html">
         <svg viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Inicio
@@ -747,6 +748,9 @@
     function mostrarPanel() {
       $('loginCard').classList.add('hidden');
       $('panel').classList.remove('hidden');
+      // La linea manda sobre TODO lo que se ve y se carga aqui, asi que
+      // al cambiarla se recarga la pantalla en vez de mezclar datos.
+      montarSelectorLinea();
       cargarProyectos();
       // El resumen de la barra se alimenta de aquí, así que se pide de entrada.
       // Va diferido a propósito: con sesión abierta esta función corre antes de
@@ -847,6 +851,60 @@
       }
       if (!data || data.ok !== true) throw new Error((data && data.error) || 'Error del servidor.');
       return data.result;
+    }
+
+    /* ---------- Linea de negocio ---------- */
+    // Esta pagina no carga assets/api.js: tiene su propia capa de sesion,
+    // asi que el selector se implementa aqui con el mismo token.
+    function lineaActiva() {
+      try { return sessionStorage.getItem('hsq_linea') || ''; } catch (e) { return ''; }
+    }
+
+    // api_lineas no esta en el router: se llama directo, con la sesion HSQ.
+    async function montarSelectorLinea() {
+      const caja = $('lineaBox');
+      if (!caja) return;
+      let info = null;
+      try {
+        const res = await fetch(BASE + '/rest/v1/rpc/api_lineas', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: CFG.SUPABASE_KEY,
+            Authorization: 'Bearer ' + token,
+          },
+          body: '{}',
+        });
+        info = await res.json();
+      } catch (e) { info = null; }
+      // Si aun no se ha corrido el script de lineas, la barra queda como estaba.
+      if (!info || info.message || !Array.isArray(info.lineas) || !info.lineas.length) {
+        caja.innerHTML = '';
+        return;
+      }
+
+      const guardada = lineaActiva();
+      const actual = info.lineas.some((l) => l.id === guardada)
+        ? guardada : (info.actual || info.lineas[0].id);
+      try { sessionStorage.setItem('hsq_linea', actual); } catch (e) { /* modo privado */ }
+
+      if (!info.puede_cambiar || info.lineas.length < 2) {
+        const n = (info.lineas.find((l) => l.id === actual) || info.lineas[0]).nombre;
+        caja.innerHTML = '<span class="header-linea__tag">Línea</span>'
+          + `<span class="header-linea__fija">${esc(n)}</span>`;
+        return;
+      }
+
+      caja.innerHTML = '<span class="header-linea__tag">Línea</span>'
+        + '<select id="lineaBoxSel" aria-label="Línea de negocio">'
+        + info.lineas.map((l) => `<option value="${esc(l.id)}"${l.id === actual ? ' selected' : ''}>${esc(l.nombre)}</option>`).join('')
+        + '</select>';
+      $('lineaBoxSel').addEventListener('change', (ev) => {
+        try { sessionStorage.setItem('hsq_linea', ev.target.value); } catch (e) { /* modo privado */ }
+        // La línea manda sobre TODO lo que se ve y se carga aquí: se recarga
+        // la pantalla en vez de dejar mezclados los datos de dos operaciones.
+        location.reload();
+      });
     }
 
     async function buscar() {
@@ -1892,14 +1950,20 @@
     async function actualizarMatriz() {
       const data = $('matrizData').value;
       if (!data.trim()) return setStatus('matrizStatus', 'Pega los datos de la matriz primero.', 'error');
-      if (!confirm('Se actualizar\u00e1 la matriz: se inactivar\u00e1 a quien NO aparezca en estos datos y se '
-        + 'agregar\u00e1n los nuevos. Las placas, el frente y el coordinador propio se conservan.\n\n\u00bfContinuar?')) return;
+      // El cargue afecta SOLO a la linea activa: decirlo antes de confirmar,
+      // porque pegar la matriz en la linea equivocada seria costoso.
+      const linea = lineaActiva();
+      const nombreLinea = (document.querySelector('#lineaBoxSel option:checked')
+        || document.querySelector('.header-linea__fija') || {}).textContent || linea || '';
+      if (!confirm('Se actualizar\u00e1 la matriz de ' + (nombreLinea || 'la linea activa')
+        + ': se inactivar\u00e1 a quien NO aparezca en estos datos y se agregar\u00e1n los nuevos. '
+        + 'Las otras l\u00edneas no se tocan.\n\n\u00bfContinuar?')) return;
 
       $('btnMatriz').disabled = true;
       $('matrizResult').classList.add('hidden');
       setStatus('matrizStatus', 'Actualizando matriz\u2026 puede tardar unos segundos.', 'info');
       try {
-        const r = await adminCall('actualizarMatriz', { data });
+        const r = await adminCall('actualizarMatriz', { data, linea });
         $('matrizResult').classList.remove('hidden');
         $('matrizResult').innerHTML = `
           <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
@@ -1910,7 +1974,11 @@
                  <b style="display:block;font-size:20px;margin-top:5px">${v}</b>
                </div>`).join('')}
           </div>`;
-        setStatus('matrizStatus', '✓ Matriz actualizada el ' + r.fecha + '.', 'ok');
+        // Si el archivo traia gente de otra linea, hay que decirlo: se ignoro.
+        const ajenos = Number(r.otraLinea || 0);
+        setStatus('matrizStatus', '✓ Matriz de ' + (r.linea || '') + ' actualizada el ' + r.fecha + '.'
+          + (ajenos ? ' ' + ajenos + ' cédula(s) del archivo pertenecen a otra línea y se ignoraron.' : ''),
+          ajenos ? 'warn' : 'ok');
         $('matrizData').value = '';
         cargarMatrizInfo();
         // Los encargados se recalculan solos, pero el resumen hay que releerlo.
