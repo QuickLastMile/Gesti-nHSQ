@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=14">
+  <link rel="stylesheet" href="assets/styles.css?v=15">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/icono-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -152,7 +152,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=24"></script>
+  <script src="assets/api.js?v=25"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -475,8 +475,33 @@
       });
     }
 
+    // El cuerpo del aviso admite varios parrafos (separados por salto de
+    // linea) y convierte telefonos en enlaces para poder marcarlos.
+    function cuerpoInfo(texto) {
+      return String(texto || '').split(/\n+/).map((p) => p.trim()).filter(Boolean)
+        .map((p) => `<p class="info-card__text">${escapeHtml(p)
+          .replace(/(\+?\d[\d\s().-]{7,}\d)/g, (t) =>
+            `<a href="tel:${t.replace(/[^\d+]/g, '')}">${t}</a>`)}</p>`).join('');
+    }
+
     function renderQuestion(q) {
       const required = String(q.obligatorio).toUpperCase() === 'SI';
+      // Una etiqueta informativa no se responde: ni numero, ni insignias, ni campo.
+      if (q.tipo_respuesta === 'info') {
+        const cond = q.depende_de ? ' cond hidden' : '';
+        const dep = q.depende_de ? ` data-depende-de="${escapeHtml(q.depende_de)}" data-depende-valor="${escapeHtml(q.depende_valor || '')}"` : '';
+        return `
+        <div class="question question--info${cond}" data-qid="${escapeHtml(q.id_pregunta)}"${dep}>
+          <div class="info-card">
+            <span class="info-card__icon" aria-hidden="true">ℹ️</span>
+            <div class="info-card__body">
+              <p class="info-card__title">${escapeHtml(q.pregunta)}</p>
+              ${cuerpoInfo(q.ayuda)}
+            </div>
+          </div>
+          ${fotoRef(q)}
+        </div>`;
+      }
       const hint = q.ayuda ? `<div class="question__hint">${escapeHtml(q.ayuda)}</div>` : '';
       const cond = q.depende_de ? ' cond hidden' : '';
       const dep = q.depende_de ? ` data-depende-de="${escapeHtml(q.depende_de)}" data-depende-valor="${escapeHtml(q.depende_valor || '')}"` : '';
@@ -582,6 +607,8 @@
 
       const faltantes = [];
       for (const q of state.formData.preguntas) {
+        // Una etiqueta informativa no guarda respuesta ni se valida.
+        if (q.tipo_respuesta === 'info') continue;
         // Si es una pregunta condicional oculta, no se envía ni se valida.
         const cont = form.querySelector(`.question[data-qid="${cssEscape(q.id_pregunta)}"]`);
         if (cont && cont.classList.contains('cond') && cont.classList.contains('hidden')) continue;
