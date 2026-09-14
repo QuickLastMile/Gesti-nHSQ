@@ -82,6 +82,20 @@ El usuario se crea antes en **Supabase → Authentication → Add user**.
 |---|---|
 | `db/lineas_1_fundacion.sql` | Tabla de líneas, la línea de cada colaborador y de cada registro, y el alcance por usuario. No cambia el comportamiento de nadie. |
 | `db/lineas_2_matriz.sql` | El cargue de matriz queda amarrado a la línea activa. **Correr antes de cargar cualquier matriz nueva.** |
+| `db/lineas_3_lecturas.sql` | Dashboard, cumplimiento del día, exportable y lista de encargados devuelven solo la línea activa. |
 
-Pendiente: filtrar por línea las lecturas del dashboard, cumplimiento,
-exportable y encargados, y la configuración por proyecto.
+## Lo que todavía NO filtra
+
+**Administración**: Buscar y editar, Proyectos, Calendario, Formularios por
+proyecto e Historial siguen mostrando todas las líneas. Mientras eso siga así,
+no le entregues a otra línea un usuario con rol ADMIN o HSEQ — usa COORDINADOR,
+que solo llega a Cumplimiento y Dashboard.
+
+Esa es la etapa 4.
+
+## Una consulta que no pasa por el router
+
+`api_lista_encargados` se expone directo, además del router, para que la
+pantalla pueda mandarle la línea del desplegable. Cambiar el router es donde más
+caro sale equivocarse —ya pasó una vez con los permisos—, así que se evitó.
+`api_lineas` funciona igual.

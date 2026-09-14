@@ -92,6 +92,12 @@
   // Llamada base a la función hseq_api de Postgres.
   async function rpc(action, payload = {}, reintento) {
     const sessionToken = tokenSesion();
+    // La linea activa acompana a toda consulta con sesion. El servidor la
+    // valida igual: esto es comodidad, no seguridad.
+    if (sessionToken && !payload.linea) {
+      const l = lineaActiva();
+      if (l) payload = Object.assign({}, payload, { linea: l });
+    }
     let res;
     try {
       res = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/hseq_api', {
@@ -128,6 +134,25 @@
     return data.result;
   }
 
+
+  // Llama una funcion SQL sin pasar por el router. Se usa para las que
+  // necesitan la linea del desplegable y cambiar el router saldria caro.
+  async function rpcDirecto(fn, payload) {
+    const token = tokenSesion();
+    const res = await fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: CFG.SUPABASE_KEY,
+        Authorization: 'Bearer ' + (token || CFG.SUPABASE_KEY),
+      },
+      body: JSON.stringify(payload || {}),
+    });
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!data || data.message) throw new Error((data && data.message) || 'Error de la base de datos.');
+    return data;
+  }
 
   // ---------- Linea de negocio ----------
   // Se guarda por pestana: cambiar de linea no le cambia la vista a
@@ -207,6 +232,10 @@
     // El exportable se arma en el navegador a partir de los datos de la base.
     if (action === 'generarExportable') {
       return exportableSupabase(payload);
+    }
+    // Esta no pasa por el router: necesita la linea del desplegable.
+    if (action === 'listaEncargados') {
+      return rpcDirecto('api_lista_encargados', { payload: { linea: lineaActiva() } });
     }
 
     let result = await rpc(action, payload);

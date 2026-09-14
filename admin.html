@@ -840,7 +840,8 @@
             apikey: CFG.SUPABASE_KEY,
             Authorization: 'Bearer ' + token,
           },
-          body: JSON.stringify({ action, payload }),
+          // La linea activa acompana a toda llamada; el servidor la valida.
+          body: JSON.stringify({ action, payload: Object.assign({ linea: lineaActiva() }, payload) }),
         });
       } catch (e) { throw new Error('No se pudo conectar con la base de datos.'); }
       const data = await res.json();
