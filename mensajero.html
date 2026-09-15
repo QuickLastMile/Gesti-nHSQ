@@ -152,7 +152,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=35"></script>
+  <script src="assets/api.js?v=36"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -959,20 +959,16 @@
       return new File([blob], 'licencia_frente_reverso.jpg', { type: 'image/jpeg' });
     }
 
+    // Aqui solo se comprueba que la fecha este y que sea una fecha. Que
+    // este dentro del rango razonable lo decide la base, que es donde vive
+    // el tope de cada documento y donde HSEQ lo puede ajustar. Antes la
+    // regla estaba escrita en los dos lados y habia que cambiarla dos veces.
     function validarFechasDocumentos(form) {
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      const limites = { SOAT: 2, TECNOMECANICA: 2, LICENCIA: 20 };
       form.querySelectorAll('input[data-doc]').forEach((inp) => {
         const tipo = inp.dataset.doc;
         if (!inp.value) throw new Error(`Falta la fecha de vencimiento de ${tipo}.`);
-        const fecha = new Date(inp.value + 'T00:00:00');
-        const max = new Date(hoy);
-        max.setFullYear(max.getFullYear() + (limites[tipo] || 2));
-        const min = new Date(hoy);
-        min.setFullYear(min.getFullYear() - 10);
-        if (fecha < min || fecha > max) {
-          throw new Error(`La fecha de ${tipo} (${inp.value}) no parece válida. Verifica la fecha directamente en el documento.`);
+        if (Number.isNaN(new Date(inp.value + 'T00:00:00').getTime())) {
+          throw new Error(`La fecha de ${tipo} no se entiende. Revísala.`);
         }
       });
     }

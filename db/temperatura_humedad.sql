@@ -161,15 +161,12 @@ begin
     if v_soat_v is null or v_tecno_v is null or v_lic_v is null then
       raise exception 'Debes registrar las tres fechas de vencimiento.';
     end if;
-    if v_soat_v < hoy - interval '10 years' or v_soat_v > hoy + interval '2 years' then
-      raise exception 'La fecha de vencimiento del SOAT no parece valida.';
-    end if;
-    if v_tecno_v < hoy - interval '10 years' or v_tecno_v > hoy + interval '2 years' then
-      raise exception 'La fecha de vencimiento de la tecnomecanica no parece valida.';
-    end if;
-    if v_lic_v < hoy - interval '10 years' or v_lic_v > hoy + interval '20 years' then
-      raise exception 'La fecha de vencimiento de la licencia no parece valida.';
-    end if;
+    -- El tope de cada documento vive en la tabla config, no aqui. Un
+    -- vehiculo nuevo puede tener la primera tecnomecanica a varios anios,
+    -- y ese numero lo ajusta HSEQ sin tocar codigo.
+    perform revisar_vencimiento('SOAT', v_soat_v, hoy);
+    perform revisar_vencimiento('TECNOMECANICA', v_tecno_v, hoy);
+    perform revisar_vencimiento('LICENCIA', v_lic_v, hoy);
   end if;
 
   -- Quien mide la temperatura de una bodega no tiene moto: exigirle
