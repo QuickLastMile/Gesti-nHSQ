@@ -1052,13 +1052,29 @@
       const si = String(gateValue('DOC_PRIMERA_O_RENOVACION')).trim().toUpperCase() === 'SI';
       $('questions').querySelectorAll('input[data-doc]').forEach((inp) => {
         const info = (state.documentos && state.documentos[inp.dataset.doc]) || {};
+        // El aviso que acompaña al campo se pinta una sola vez al cargar el
+        // formulario. Hay que moverlo aquí también: si no, al responder SÍ
+        // sigue diciendo "responde SÍ arriba", que ya se hizo.
+        const aviso = inp.nextElementSibling
+          && inp.nextElementSibling.classList.contains('auto-tag')
+          ? inp.nextElementSibling : null;
         if (si) {
           inp.readOnly = false;
           // Limpia solo si aún tiene la fecha vieja, para que escriba la nueva.
           if (inp.value === (info.fecha || '')) inp.value = '';
+          if (aviso) {
+            aviso.className = 'auto-tag';
+            aviso.textContent = info.fecha
+              ? 'Escribe la fecha nueva y adjunta el documento'
+              : 'Escribe la fecha de vencimiento y adjunta el documento';
+          }
         } else {
           inp.readOnly = true;
           inp.value = info.fecha || '';
+          if (aviso) {
+            aviso.className = ('auto-tag ' + claseDoc(info)).trim();
+            aviso.textContent = textoDoc(info);
+          }
         }
       });
     }
