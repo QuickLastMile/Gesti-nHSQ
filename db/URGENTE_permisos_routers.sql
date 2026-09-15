@@ -42,7 +42,7 @@ begin
 
   case action
     -- Abiertas: el mensajero las usa sin iniciar sesión.
-    when 'getBootstrap'         then result := api_get_bootstrap();
+    when 'getBootstrap'         then result := api_get_bootstrap(payload);
     when 'buscarActivo'         then result := api_buscar_activo(payload);
     when 'cargarFormulario'     then result := api_cargar_formulario(payload);
     when 'guardarRegistro'      then result := api_guardar_registro(payload);
@@ -57,7 +57,7 @@ begin
     when 'actualizarMatriz'     then result := api_actualizar_matriz(payload);
     when 'getMatrizInfo'        then result := api_matriz_info();
     when 'alertasMantenimiento' then result := api_alertas_mantenimiento(payload);
-    when 'listaEncargados'      then result := api_lista_encargados();
+    when 'listaEncargados'      then result := api_lista_encargados(payload);
     else raise exception 'Accion no reconocida: %', action;
   end case;
   return jsonb_build_object('ok', true, 'result', result);
