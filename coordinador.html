@@ -170,6 +170,8 @@
           <div class="cmp-filtros">
             <div class="field"><span class="label">Fecha</span><input id="cumFecha" type="date"></div>
             <div class="field"><span class="label">Proyecto</span><input id="cumProyecto" list="proyDatalist" autocomplete="off" placeholder="Todos"></div>
+            <div class="field"><span class="label">Ciudad</span>
+              <select id="cumCiudad"><option value="">Todas</option></select></div>
             <div class="field hidden" id="cumCoordBox"><span class="label">Coordinador</span>
               <select id="cumCoordinador"><option value="">Todos</option></select></div>
             <button id="btnCumplimiento" class="btn btn--primary" type="button">
@@ -291,6 +293,9 @@
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
     $('exportar').addEventListener('click', generarExportable);
     $('btnCumplimiento').addEventListener('click', consultarCumplimiento);
+    // Los datos del dia ya estan aqui: cambiar de ciudad no vuelve a
+    // pedirlos, solo repinta.
+    $('cumCiudad').addEventListener('change', () => { if (cumData) pintarCumplimiento(); });
     $('justTipo').addEventListener('change', toggleJustRango);
     $('justGuardar').addEventListener('click', guardarJust);
     $('justCerrar').addEventListener('click', () => $('justModal').classList.remove('show'));
@@ -354,6 +359,7 @@
         cumData = await HSQ_API.call('getCumplimientoDia',
           Object.assign({ fecha, proyecto: resolverTexto($('cumProyecto').value) }, encargadoDe('cumCoordinador')));
         cumFiltro = 'todos';
+        llenarCiudades();
         pintarCumplimiento();
         const coord = encargadoDe('cumCoordinador').coordinador;
         if (!(cumData.personas || []).length && coord) {
@@ -368,8 +374,48 @@
       }
     }
 
+    // Las ciudades salen de lo que trajo la consulta, no de una lista
+    // fija: si un dia no hay nadie en una ciudad, no tiene por que
+    // aparecer. Se conserva la ciudad elegida al cambiar de fecha,
+    // siempre que ese dia todavia exista.
+    function llenarCiudades() {
+      const sel = $('cumCiudad');
+      const antes = sel.value;
+      const ciudades = [...new Set((cumData.personas || [])
+        .map((p) => String(p.ciudad || '').trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'es'));
+      sel.innerHTML = '<option value="">Todas</option>'
+        + ciudades.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      sel.value = ciudades.includes(antes) ? antes : '';
+    }
+
+    function ciudadActiva() { return String($('cumCiudad').value || '').trim(); }
+
+    function personasDeCiudad() {
+      const ciudad = ciudadActiva();
+      const todas = (cumData && cumData.personas) || [];
+      if (!ciudad) return todas;
+      return todas.filter((p) => String(p.ciudad || '').trim() === ciudad);
+    }
+
+    // Con una ciudad elegida los numeros del servidor ya no corresponden a
+    // lo que se ve: se recalculan sobre los que quedan, con la misma regla
+    // -completo manda sobre justificado- para que cuadren con la lista.
+    function resumenDeCiudad(lista) {
+      const total = lista.length;
+      const completos = lista.filter((p) => p.completo).length;
+      const justificados = lista.filter((p) => !p.completo && p.justificado).length;
+      const pendientes = Math.max(total - completos - justificados, 0);
+      const base = total - justificados;
+      const porcentaje = base > 0 ? Math.round(completos * 1000 / base) / 10 : 0;
+      return { total, completos, justificados, pendientes, porcentaje };
+    }
+
     function pintarCumplimiento() {
-      const r = cumData, res = r.resumen;
+      const r = cumData;
+      // Sin ciudad se usan los numeros del servidor tal cual, que es el
+      // comportamiento de siempre.
+      const res = ciudadActiva() ? resumenDeCiudad(personasDeCiudad()) : r.resumen;
       const color = res.porcentaje >= 90 ? 'ok' : (res.porcentaje >= 70 ? 'warn' : 'crit');
       $('cumResumen').classList.remove('hidden');
       $('cumResumen').innerHTML = `
@@ -398,7 +444,8 @@
 
     function renderLista() {
       const r = cumData;
-      const lista = r.personas.filter((p) => cumFiltro === 'todos' || estadoPersona(p) === cumFiltro);
+      const lista = personasDeCiudad()
+        .filter((p) => cumFiltro === 'todos' || estadoPersona(p) === cumFiltro);
       if (!lista.length) {
         $('cumLista').innerHTML = '<div class="card"><div class="card__body"><p class="hint-inline">Sin resultados para este filtro.</p></div></div>';
         return;
