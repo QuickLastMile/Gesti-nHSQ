@@ -428,11 +428,33 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .tab.active { background: var(--brand); color: #fff; }
 
 /* ---------- Cumplimiento (coordinador) ---------- */
-.cmp-filtros { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
-.cmp-filtros .btn { min-height: 54px; }
-@media (max-width: 640px) { .cmp-filtros { grid-template-columns: 1fr 1fr; } .cmp-filtros .btn { grid-column: 1 / -1; } }
+/* Los filtros son el medio, no el fin: entre menos alto el bloque, mas
+   arriba quedan los indicadores y la lista, que es lo que se viene a ver.
+   Las columnas se acomodan solas segun el ancho, en vez de dejar un campo
+   colgando en una segunda fila. */
+.cmp-filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 9px 10px;
+  align-items: end;
+}
+.cmp-filtros .field { margin: 0; gap: 4px; }
+.cmp-filtros .field > .label { font-size: 10px; letter-spacing: .5px; }
+/* La altura de 54px existe para el dedo del mensajero sobre la moto.
+   Esta pantalla se trabaja sentado y con raton: ahi solo roba espacio. */
+.cmp-filtros input,
+.cmp-filtros select {
+  min-height: 0; height: 38px; padding: 7px 11px; font-size: 13.5px;
+}
+.cmp-filtros .btn { min-height: 0; height: 38px; padding: 0 16px; font-size: 14px; }
+.cmp-filtros .btn svg { width: 16px; height: 16px; }
 
-.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px; }
+/* La tarjeta que los contiene tambien se aprieta. */
+.card--filtros .card__head { padding: 10px 14px; }
+.card--filtros .card__body { padding: 12px 14px; }
+.card--filtros .card__title { font-size: 13.5px; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 10px; }
 @media (max-width: 760px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 440px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
 .kpi { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--line-strong); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 3px; }
