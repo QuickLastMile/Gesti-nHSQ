@@ -930,21 +930,42 @@
       if (file.size > 12 * 1024 * 1024) throw new Error('El documento supera el máximo permitido de 12 MB.');
     }
 
-    function cargarImagen(file) {
+    // El navegador no sabe abrir HEIC/HEIF, que es como fotografia el
+    // iPhone de fabrica. Decirlo con nombre propio ahorra la llamada al
+    // coordinador: "no se pudo abrir la imagen" no le dice a nadie que
+    // hacer.
+    function pistaFormato(file) {
+      const nombre = String((file && file.name) || '').toLowerCase();
+      const tipo = String((file && file.type) || '').toLowerCase();
+      if (/heic|heif/.test(nombre) || /heic|heif/.test(tipo)) {
+        return ' Está en formato HEIC, que el navegador no abre. En el iPhone: Ajustes → Cámara → Formatos → «Más compatible», y tómala otra vez.';
+      }
+      if (/\.pdf$/.test(nombre) || tipo === 'application/pdf') {
+        return ' Es un PDF: aquí van dos fotos, no un documento.';
+      }
+      return ' Tómala de nuevo con la cámara, en vez de escogerla de la galería.';
+    }
+
+    function cargarImagen(file, cual) {
       return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo abrir la imagen.')); };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error(`No se pudo abrir la foto del ${cual} de la licencia.` + pistaFormato(file)));
+        };
         img.src = url;
       });
     }
 
     async function unirLicencia(frente, reverso) {
-      if (!/^image\//i.test(frente.type) || !/^image\//i.test(reverso.type)) {
-        throw new Error('La licencia debe adjuntarse como dos fotografías.');
+      const noEsFoto = (f) => !/^image\//i.test(String(f.type || ''));
+      if (noEsFoto(frente) || noEsFoto(reverso)) {
+        const mala = noEsFoto(frente) ? frente : reverso;
+        throw new Error('La licencia se adjunta como dos fotografías.' + pistaFormato(mala));
       }
-      const imgs = [await cargarImagen(frente), await cargarImagen(reverso)];
+      const imgs = [await cargarImagen(frente, 'frente'), await cargarImagen(reverso, 'reverso')];
       const ancho = 1400;
       const altos = imgs.map((img) => Math.round(img.height * ancho / img.width));
       const cv = document.createElement('canvas');
