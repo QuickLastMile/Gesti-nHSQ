@@ -333,7 +333,7 @@
     { id_pregunta: 'DOC_CILINDRAJE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Tipo de cilindraje (CC)', tipo_respuesta: 'numero', obligatorio: 'SI' },
     { id_pregunta: 'DOC_PROP_NOMBRE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Nombre del propietario del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI' },
     { id_pregunta: 'DOC_PROP_CEDULA', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Cédula del propietario del vehículo', tipo_respuesta: 'numero', obligatorio: 'SI' },
-    { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI' },
+    { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI', ayuda: 'Son 17 caracteres entre letras y números, sin espacios ni guiones. Está en la licencia de tránsito y grabado en el chasis.' },
   ];
 
   const AYUDA_EXIGE = {

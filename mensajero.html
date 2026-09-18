@@ -152,7 +152,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=38"></script>
+  <script src="assets/api.js?v=39"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -828,6 +828,22 @@
           const valor = nodes[0] ? nodes[0].value : '';
           respuestas[q.id_pregunta] = valor;
           if (obligatoria && !String(valor).trim()) faltantes.push(q.pregunta);
+        }
+      }
+
+      // El VIN son exactamente 17 caracteres. Venian de a 1, 5 o 6 digitos,
+      // que no identifican ningun vehiculo: sin esto el dato no sirve para
+      // nada y el error solo se descubre meses despues.
+      if (Object.prototype.hasOwnProperty.call(respuestas, 'DOC_VIN')) {
+        const vin = String(respuestas.DOC_VIN || '')
+          .toUpperCase().replace(/[\s-]/g, '');
+        respuestas.DOC_VIN = vin;          // se guarda ya limpio
+        if (vin && !/^[A-Z0-9]{17}$/.test(vin)) {
+          const campo = $('questions').querySelector(`[name="${cssEscape('DOC_VIN')}"]`);
+          if (campo) { campo.value = vin; campo.focus(); campo.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+          return showStatus(
+            'El VIN son 17 caracteres entre letras y números. Escribiste ' + vin.length
+            + '. Revísalo en la licencia de tránsito.', 'error');
         }
       }
 
