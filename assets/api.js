@@ -298,6 +298,12 @@
     if (action === 'guardarRegistro') {
       payload = await prepararRegistro(payload);
     }
+    // Actualizar documentacion suelta: mismo camino de subida, pero no
+    // hay formulario de por medio. El archivo va igual a la carpeta fija
+    // de la persona, asi que el nuevo reemplaza al anterior.
+    if (action === 'actualizarDocumentos') {
+      payload = await prepararDocumentos(payload);
+    }
     // El exportable se arma en el navegador a partir de los datos de la base.
     if (action === 'generarExportable') {
       return exportableSupabase(payload);
@@ -633,6 +639,16 @@
       respuestas: payload.respuestas,
       evidencias,
     };
+  }
+
+  // Igual que prepararRegistro, pero sin respuestas: aqui solo viajan los
+  // documentos y su fecha de vencimiento.
+  async function prepararDocumentos(payload) {
+    const evidencias = [];
+    for (const a of (payload.archivos || [])) {
+      evidencias.push(await subirEvidencia(a, payload.cedula, 'DOCUMENTOS'));
+    }
+    return { cedula: payload.cedula, evidencias, fechas: payload.fechas || {} };
   }
 
   // Sesión anónima: Storage necesita un token de usuario (no solo la llave anon)

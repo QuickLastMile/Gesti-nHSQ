@@ -95,6 +95,29 @@
       <div class="card__body">
         <p id="checklistNote" class="field-note">Toca un formulario para diligenciarlo.</p>
         <div id="checklist" class="checklist"></div>
+        <!-- No hay que esperar a que se venza: si ya tiene el documento
+             nuevo en la mano, lo sube cuando quiera. -->
+        <button id="btnDocs" class="btn btn--ghost" type="button"
+                style="margin-top:14px;width:100%">Actualizar documentación</button>
+      </div>
+    </section>
+
+    <!-- Actualizar documentos por iniciativa propia -->
+    <section id="cardDocs" class="card hidden">
+      <div class="card__head">
+        <div>
+          <p class="card__title">Actualizar documentación</p>
+          <p class="card__sub">Sube el documento cuando lo tengas, sin esperar a que se venza</p>
+        </div>
+      </div>
+      <div class="card__body">
+        <p class="field-note">Actualiza solo el que necesites. Los demás se quedan como están.</p>
+        <div id="docsLista" style="margin-top:12px"></div>
+        <div id="docsStatus" class="status" aria-live="polite"></div>
+        <div style="display:flex;gap:10px;margin-top:14px">
+          <button id="docsVolver" class="btn btn--ghost" type="button" style="flex:1">Volver</button>
+          <button id="docsGuardar" class="btn btn--primary" type="button" style="flex:2">Guardar</button>
+        </div>
       </div>
     </section>
 
@@ -152,7 +175,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=44"></script>
+  <script src="assets/api.js?v=45"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -165,6 +188,9 @@
     $('cancelarPlaca').addEventListener('click', cancelarPlaca);
     $('placa').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); guardarPlaca(); } });
     $('registroForm').addEventListener('submit', guardarRegistro);
+    $('btnDocs').addEventListener('click', abrirDocs);
+    $('docsVolver').addEventListener('click', cerrarDocs);
+    $('docsGuardar').addEventListener('click', guardarDocs);
     $('descargar').addEventListener('click', () => descargarComprobante(state.ultimoComprobante));
     $('cerrarModal').addEventListener('click', () => $('modal').classList.remove('show'));
 
@@ -1316,9 +1342,144 @@
       return sec.indexOf('DATOS DEL REGISTRO') !== -1 || /FECHA DE (LA )?(INSPECCION|LIMPIEZA|REGISTRO)/.test(txt);
     }
 
+    /* ---------- Actualizar documentacion por iniciativa propia ----------
+       Antes solo se podian subir documentos cuando la app los pedia, y
+       solo dentro del preoperacional. El que renovaba el SOAT antes de
+       tiempo no tenia donde adjuntarlo, y el que ya habia hecho el
+       preoperacional de hoy tenia que esperar a manana. */
+    const DOCS_PANEL = [
+      { k: 'SOAT',          id: 'DOC_SOAT',              nombre: 'SOAT', pdf: true },
+      { k: 'TECNOMECANICA', id: 'DOC_TECNOMECANICA',     nombre: 'Revisión Tecnomecánica', pdf: true },
+      { k: 'LICENCIA',      id: 'DOC_LICENCIA_TRANSITO', nombre: 'Licencia de Tránsito (Tarjeta de Propiedad)', pdf: false },
+    ];
+
+    function estadoDocPanel(info) {
+      if (!info || !info.fecha) return ['Sin registrar', 'auto-tag--err'];
+      if (info.rechazado) {
+        return ['❌ Rechazado por HSEQ' + (info.motivo ? ' · ' + info.motivo : ''), 'auto-tag--err'];
+      }
+      if (info.estado === 'vencido') return ['❌ Vencido el ' + fechaLarga(info.fecha), 'auto-tag--err'];
+      if (info.estado === 'por_vencer') {
+        return ['⚠️ Vence el ' + fechaLarga(info.fecha) + ' · faltan ' + info.dias + ' día(s)', 'auto-tag--warn'];
+      }
+      return ['✓ Vigente hasta el ' + fechaLarga(info.fecha), ''];
+    }
+
+    function abrirDocs() {
+      if (!state.persona) return showStatus('Busca tu cédula primero.', 'error');
+      pintarDocs();
+      $('cardChecklist').classList.add('hidden');
+      $('registroForm').classList.add('hidden');
+      $('bottombar').classList.add('hidden');
+      $('cardDocs').classList.remove('hidden');
+      $('cardDocs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function cerrarDocs() {
+      $('cardDocs').classList.add('hidden');
+      $('docsStatus').className = 'status';
+      $('cardChecklist').classList.remove('hidden');
+      $('cardChecklist').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function pintarDocs() {
+      $('docsLista').innerHTML = DOCS_PANEL.map((d) => {
+        const info = (state.documentos && state.documentos[d.k]) || {};
+        const [texto, tono] = estadoDocPanel(info);
+        // El SOAT y la tecnomecanica son el PDF que entregan al expedirlos.
+        // La licencia son dos caras, asi que van dos fotos.
+        const campo = d.pdf
+          ? `<input type="file" accept="application/pdf" data-doc-file="${d.k}">
+             <span class="auto-tag">Solo PDF, el archivo que te entregan al expedirlo.</span>`
+          : `<input type="file" accept="image/*" multiple data-doc-file="${d.k}">
+             <span class="auto-tag">Dos fotos claras: frente y reverso.</span>`;
+        return `
+          <div class="doc-fila" style="border:1px solid var(--linea,#d8e0da);border-radius:12px;padding:12px;margin-bottom:12px">
+            <p style="margin:0 0 4px"><b>${escapeHtml(d.nombre)}</b></p>
+            <span class="auto-tag ${tono}">${escapeHtml(texto)}</span>
+            <div style="margin-top:10px">${campo}</div>
+            <div class="field" style="margin-top:10px">
+              <span class="label">Fecha de vencimiento del documento nuevo</span>
+              <input type="date" data-doc-fecha="${d.k}">
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    async function guardarDocs() {
+      const archivos = [];
+      const fechas = {};
+      for (const d of DOCS_PANEL) {
+        const inp = $('docsLista').querySelector(`[data-doc-file="${d.k}"]`);
+        const files = inp ? Array.from(inp.files || []) : [];
+        if (!files.length) continue;
+
+        const fechaInp = $('docsLista').querySelector(`[data-doc-fecha="${d.k}"]`);
+        const fecha = fechaInp ? String(fechaInp.value || '').trim() : '';
+        if (!fecha) {
+          fechaInp && fechaInp.focus();
+          return setDocsStatus('Adjuntaste ' + d.nombre + ' pero falta su fecha de vencimiento.', 'error');
+        }
+        fechas[d.k] = fecha;
+
+        try {
+          if (d.k === 'LICENCIA') {
+            if (files.length !== 2) {
+              return setDocsStatus('La licencia requiere exactamente dos fotos: frente y reverso.', 'error');
+            }
+            const unida = await unirLicencia(files[0], files[1]);
+            archivos.push(await fileToPayload(d.id, unida));
+          } else {
+            await validarArchivoDocumento(d.id, files[0]);
+            archivos.push(await fileToPayload(d.id, files[0]));
+          }
+        } catch (err) {
+          return setDocsStatus(d.nombre + ': ' + err.message, 'error');
+        }
+      }
+
+      if (!archivos.length) {
+        return setDocsStatus('No adjuntaste ningún documento. Elige al menos uno.', 'error');
+      }
+
+      setLoading($('docsGuardar'), true);
+      setDocsStatus('Subiendo documentos…', 'info');
+      try {
+        const resp = await HSQ_API.call('actualizarDocumentos', {
+          cedula: state.persona.cedula, archivos, fechas,
+        });
+        // El servidor devuelve el estado nuevo: la pantalla se repinta con
+        // el, sin volver a preguntar.
+        const est = resp.documentosEstado || {};
+        state.documentos = est.documentos || state.documentos;
+        if (state.formData) {
+          state.formData.documentosEstado = est;
+          state.formData = null;      // el formulario se recarga con lo nuevo
+          state.currentForm = null;
+          $('registroForm').classList.add('hidden');
+        }
+        pintarDocs();
+        document.dispatchEvent(new CustomEvent('hseq:persona'));
+        setDocsStatus('✓ Listo. Actualizaste ' + resp.actualizados
+          + (resp.actualizados === 1 ? ' documento.' : ' documentos.'), 'ok');
+      } catch (err) {
+        setDocsStatus(err.message, 'error');
+      } finally {
+        setLoading($('docsGuardar'), false);
+      }
+    }
+
+    function setDocsStatus(mensaje, tipo) {
+      const n = $('docsStatus');
+      n.className = `status show status--${tipo}`;
+      n.textContent = mensaje;
+    }
+
     function textoDoc(info) {
-      if (!info || !info.fecha) return 'Sin registrar · responde SÍ arriba para cargarlo';
-      if (info.estado === 'vencido') return `❌ Vencido el ${info.fecha} · responde SÍ arriba para actualizar`;
+      // Ya no hay una pregunta que abrir: el documento que hay que
+      // actualizar aparece solo, con su campo para adjuntarlo.
+      if (!info || !info.fecha) return 'Sin registrar · adjúntalo arriba';
+      if (info.estado === 'vencido') return `❌ Venció el ${info.fecha} · adjunta el nuevo arriba`;
       if (info.estado === 'por_vencer') return `⚠️ Vence el ${info.fecha} · faltan ${info.dias} día(s)`;
       return `Vence el ${info.fecha} · faltan ${info.dias} día(s)`;
     }
