@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=30">
+  <link rel="stylesheet" href="assets/styles.css?v=31">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/icono-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -152,7 +152,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=37"></script>
+  <script src="assets/api.js?v=38"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -446,7 +446,88 @@
       $('questions').innerHTML = data.preguntas.map(renderQuestion).join('');
       pintarAvisoPrecarga();
       wireConditionals();
+      separarBloques(data.bloqueDocumentos || 0);
       revisarDocumentos();
+    }
+
+    /* ---------- El formulario en dos bloques ----------
+       Cuando hay documentos pendientes, primero se resuelven esos y el
+       resto del formulario ni se muestra: no tiene sentido responder
+       cuarenta preguntas para que al final lo rebote el servidor. */
+    const NOMBRE_DOC = { SOAT: 'SOAT', TECNOMECANICA: 'Tecnomecánica', LICENCIA: 'Licencia de tránsito' };
+
+    // "a", "a y b", "a, b y c". Tres elementos unidos con "y" dos veces
+    // se leen mal.
+    function listar(arr) {
+      if (arr.length <= 1) return arr.join('');
+      return arr.slice(0, -1).join(', ') + ' y ' + arr[arr.length - 1];
+    }
+
+    function separarBloques(cuantas) {
+      const cont = $('questions');
+      // El aviso vive FUERA de #questions, asi que no lo borra el repintado:
+      // hay que quitarlo a mano o se queda del formulario anterior.
+      const viejo = $('avisoBloque');
+      if (viejo) viejo.remove();
+
+      const tarjetas = [...cont.querySelectorAll('.question')];
+      if (!cuantas || cuantas >= tarjetas.length) return;   // nada que separar
+
+      const uno = document.createElement('div');
+      uno.id = 'bloqueDocs';
+      const dos = document.createElement('div');
+      dos.id = 'bloqueResto';
+      dos.classList.add('hidden');
+
+      const aviso = document.createElement('div');
+      aviso.className = 'aviso-bloque';
+      aviso.id = 'avisoBloque';
+      cont.before(aviso);
+
+      cont.append(uno, dos);
+      tarjetas.forEach((t, i) => (i < cuantas ? uno : dos).appendChild(t));
+
+      // Cada vez que adjunte algo se revisa si ya puede continuar.
+      uno.querySelectorAll('input[type="file"]').forEach((inp) =>
+        inp.addEventListener('change', revisarBloqueUno));
+      revisarBloqueUno();
+    }
+
+    // Los documentos que el servidor pidio y todavia no tienen archivo.
+    function docsSinAdjuntar() {
+      const pend = (state.formData && state.formData.documentosPendientes) || [];
+      const falta = [];
+      pend.forEach((k) => {
+        const id = k === 'LICENCIA' ? 'DOC_LICENCIA_TRANSITO' : 'DOC_' + k;
+        const inp = $('questions').querySelector(`input[type="file"][name="${cssEscape(id)}"]`);
+        if (inp && !(inp.files && inp.files.length)) falta.push(NOMBRE_DOC[k] || k);
+      });
+      return falta;
+    }
+
+    function revisarBloqueUno() {
+      const dos = $('bloqueResto');
+      if (!dos) return;
+      const falta = docsSinAdjuntar();
+      const aviso = $('avisoBloque');
+      // El boton de guardar no se toca: su estado lo maneja otro codigo y
+      // pelearse por el atributo termina en que nadie sabe quien manda.
+      // Con el bloque dos oculto no se puede completar, y si insiste, la
+      // validacion del envio se lo dice con nombre propio.
+      if (falta.length) {
+        dos.classList.add('hidden');
+        if (aviso) {
+          aviso.className = 'aviso-bloque aviso-bloque--pendiente';
+          aviso.textContent = 'Primero la documentación: adjunta ' + listar(falta)
+            + '. Al hacerlo aparece el resto del formulario.';
+        }
+      } else {
+        dos.classList.remove('hidden');
+        if (aviso) {
+          aviso.className = 'aviso-bloque aviso-bloque--listo';
+          aviso.textContent = '✓ Documentación lista. Continúa con el formulario.';
+        }
+      }
     }
 
     /* ---------- Precarga: respuestas del último registro ----------
@@ -644,15 +725,12 @@
       const respuestas = {};
       const archivos = [];
 
-      // Si no está actualizando documentos, deben existir los tres archivos.
-      // El vencimiento genera alerta, pero no bloquea el registro.
-      const faltanDocs = documentosPendientes();
-      const gateSel = String(gateValue('DOC_PRIMERA_O_RENOVACION')).trim().toUpperCase();
-      if (faltanDocs.length && gateSel !== 'SI') {
-        const sel = $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
-        if (sel) { sel.value = 'SI'; sel.dispatchEvent(new Event('change')); }
+      // Los documentos que el servidor pidio tienen que venir. Si falta
+      // alguno ni se intenta: el servidor lo rebotaria igual.
+      const faltanDocs = docsSinAdjuntar();
+      if (faltanDocs.length) {
         $('questions').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return showStatus('Falta adjuntar: ' + faltanDocs.join(', ') + '. Responde SÍ en la primera pregunta y carga los documentos.', 'error');
+        return showStatus('Falta adjuntar: ' + faltanDocs.join(', ') + '.', 'error');
       }
 
       const faltantes = [];
@@ -1070,12 +1148,14 @@
     // Al marcar "primera vez / renovación" se habilitan las fechas de vigencia
     // para que el mensajero las escriba. En el día a día van bloqueadas.
     function toggleDocFechas() {
-      const si = String(gateValue('DOC_PRIMERA_O_RENOVACION')).trim().toUpperCase() === 'SI';
+      // Ya no hay una pregunta que abra el bloque: se edita la fecha del
+      // documento que se esta pidiendo, y solo esa.
+      const pend = (state.formData && state.formData.documentosPendientes) || [];
       $('questions').querySelectorAll('input[data-doc]').forEach((inp) => {
         const info = (state.documentos && state.documentos[inp.dataset.doc]) || {};
+        const si = pend.includes(inp.dataset.doc);
         // El aviso que acompaña al campo se pinta una sola vez al cargar el
-        // formulario. Hay que moverlo aquí también: si no, al responder SÍ
-        // sigue diciendo "responde SÍ arriba", que ya se hizo.
+        // formulario, así que hay que reescribirlo aquí.
         const aviso = inp.nextElementSibling
           && inp.nextElementSibling.classList.contains('auto-tag')
           ? inp.nextElementSibling : null;
@@ -1086,8 +1166,8 @@
           if (aviso) {
             aviso.className = 'auto-tag';
             aviso.textContent = info.fecha
-              ? 'Escribe la fecha nueva y adjunta el documento'
-              : 'Escribe la fecha de vencimiento y adjunta el documento';
+              ? 'Escribe la fecha del documento nuevo'
+              : 'Escribe la fecha de vencimiento';
           }
         } else {
           inp.readOnly = true;
@@ -1100,36 +1180,33 @@
       });
     }
 
-    // Solo documentos sin archivo. Los vencidos no bloquean.
-    function documentosPendientes() {
-      if (!state.documentos) return [];
-      const hayGate = $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
-      if (!hayGate) return [];
-      const nombres = { SOAT: 'SOAT', TECNOMECANICA: 'Tecnomecánica', LICENCIA: 'Licencia de tránsito' };
-      return Object.keys(state.documentos)
-        .filter((k) => !String(state.documentos[k].url || '').trim())
-        .map((k) => nombres[k] || k);
-    }
-
-    // Si falta el archivo se obliga a adjuntar. Si está vencido, solo alerta.
+    // Lo que hay que contarle apenas abre el formulario.
     function revisarDocumentos() {
-      if (!state.documentos) return;
-      // Solo aplica en formularios que piden documentos (preoperacional).
-      const hayDocs = $('questions').querySelector('input[data-doc]')
-        || $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
-      if (!hayDocs) return;
-      const criticos = Object.keys(state.documentos).filter((k) => !String(state.documentos[k].url || '').trim());
-      const vencidos = Object.keys(state.documentos).filter((k) => state.documentos[k].estado === 'vencido');
-      const porVencer = Object.keys(state.documentos).filter((k) => state.documentos[k].estado === 'por_vencer');
+      const est = (state.formData && state.formData.documentosEstado) || {};
+      const docs = est.documentos || {};
+      if (!Object.keys(docs).length) return;
 
-      if (criticos.length) {
-        const sel = $('questions').querySelector(`[name="${cssEscape('DOC_PRIMERA_O_RENOVACION')}"]`);
-        if (sel) { sel.value = 'SI'; sel.dispatchEvent(new Event('change')); }
-        showStatus('Falta adjuntar: ' + criticos.join(', ') + '. Carga los documentos para continuar.', 'error');
-      } else if (vencidos.length) {
-        showStatus('⚠️ Documento(s) vencido(s): ' + vencidos.map((k) => `${k} (${state.documentos[k].fecha || 'sin fecha'})`).join(', ') + '. Puedes continuar; el registro quedará con alerta.', 'warn');
+      const bloquean = Object.keys(docs).filter((k) => docs[k].bloquea);
+      const piden    = Object.keys(docs).filter((k) => docs[k].exige && !docs[k].bloquea);
+      const porVencer = Object.keys(docs).filter((k) => docs[k].estado === 'por_vencer');
+      const nombre = (k) => NOMBRE_DOC[k] || k;
+
+      if (bloquean.length) {
+        showStatus('Para registrar hay que actualizar: '
+          + bloquean.map((k) => {
+              const d = docs[k];
+              if (d.rechazado) return nombre(k) + ' (rechazado' + (d.motivo ? ': ' + d.motivo : '') + ')';
+              if (d.estado === 'vencido') return nombre(k) + ' (vencido el ' + (d.fecha || '') + ')';
+              return nombre(k) + ' (sin cargar)';
+            }).join(', ') + '.', 'error');
+      } else if (piden.length) {
+        // Dentro de los dias de gracia: se le pide, pero puede seguir.
+        showStatus('⚠️ Actualiza pronto: '
+          + piden.map((k) => nombre(k) + ' (' + (docs[k].fecha || 'sin fecha') + ')').join(', ')
+          + '. Puedes registrar hoy, pero en unos días no.', 'warn');
       } else if (porVencer.length) {
-        showStatus('⚠️ Próximo(s) a vencer: ' + porVencer.map((k) => `${k} (${state.documentos[k].dias} días)`).join(', ') + '.', 'warn');
+        showStatus('⚠️ Próximo(s) a vencer: '
+          + porVencer.map((k) => nombre(k) + ' (' + docs[k].dias + ' días)').join(', ') + '.', 'warn');
       }
     }
 

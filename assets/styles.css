@@ -665,6 +665,14 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .field-note { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
 /* Un filtro que no aplica a lo que se escogio: se ve apagado en vez de
    desaparecer, para que no parezca que la pantalla cambio de sitio. */
+/* El aviso que separa los dos bloques del preoperacional. */
+.aviso-bloque {
+  border-radius: var(--radius-sm); padding: 12px 14px; margin: 0 0 12px;
+  font-weight: 700; font-size: 14px; line-height: 1.45;
+}
+.aviso-bloque--pendiente { background: var(--warning-soft); color: var(--warning); border: 1px solid #e6cf9a; }
+.aviso-bloque--listo     { background: var(--success-soft); color: var(--success); border: 1px solid #bfe6cd; }
+
 .field--off { opacity: .45; }
 .field--off input, .field--off select { cursor: not-allowed; }
 

@@ -314,18 +314,34 @@
     return result;
   }
 
-  // Bloque de documentación que se antepone al preoperacional (igual que el backend).
-  const DOCS_PREOP = [
-    { id_pregunta: 'DOC_PRIMERA_O_RENOVACION', orden: 0, seccion: 'Documentación del vehículo', pregunta: '¿Es la primera inspección del vehículo, o renovaste el SOAT o la Tecnomecánica?', tipo_respuesta: 'si_no', obligatorio: 'SI', ayuda: 'Si respondes SÍ, debes adjuntar la documentación del vehículo.' },
-    { id_pregunta: 'DOC_LICENCIA_TRANSITO', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Licencia de Tránsito (Tarjeta de Propiedad)', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI', documento: 'LICENCIA' },
-    { id_pregunta: 'DOC_SOAT', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'SOAT', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI', documento: 'SOAT' },
-    { id_pregunta: 'DOC_TECNOMECANICA', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Revisión Tecnomecánica', tipo_respuesta: 'archivo', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI', documento: 'TECNOMECANICA' },
-    { id_pregunta: 'DOC_MARCA_VEHICULO', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Marca del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
-    { id_pregunta: 'DOC_CILINDRAJE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Tipo de cilindraje (CC)', tipo_respuesta: 'numero', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
-    { id_pregunta: 'DOC_PROP_NOMBRE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Nombre del propietario del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
-    { id_pregunta: 'DOC_PROP_CEDULA', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Cédula del propietario del vehículo', tipo_respuesta: 'numero', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
-    { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI', depende_de: 'DOC_PRIMERA_O_RENOVACION', depende_valor: 'SI' },
+  // Bloque de documentacion que se antepone al preoperacional.
+  //
+  // Ya no se le pregunta al mensajero si es la primera vez: el servidor
+  // lo sabe y manda, en 'documentosEstado', que documento hay que pedirle
+  // y por que. Aqui solo se arman las preguntas de los que falten.
+  const DOC_PREGUNTA = {
+    SOAT:          { id: 'DOC_SOAT',              label: 'SOAT' },
+    TECNOMECANICA: { id: 'DOC_TECNOMECANICA',     label: 'Revisi\u00f3n Tecnomec\u00e1nica' },
+    LICENCIA:      { id: 'DOC_LICENCIA_TRANSITO', label: 'Licencia de Tr\u00e1nsito (Tarjeta de Propiedad)' },
+  };
+
+  // Datos del vehiculo: se piden UNA vez, cuando no hay ningun documento
+  // cargado todavia. En una renovacion no tiene sentido volver a pedir la
+  // marca o el VIN, que no cambian.
+  const DATOS_VEHICULO = [
+    { id_pregunta: 'DOC_MARCA_VEHICULO', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Marca del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI' },
+    { id_pregunta: 'DOC_CILINDRAJE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Tipo de cilindraje (CC)', tipo_respuesta: 'numero', obligatorio: 'SI' },
+    { id_pregunta: 'DOC_PROP_NOMBRE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Nombre del propietario del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI' },
+    { id_pregunta: 'DOC_PROP_CEDULA', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Cédula del propietario del vehículo', tipo_respuesta: 'numero', obligatorio: 'SI' },
+    { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI' },
   ];
+
+  const AYUDA_EXIGE = {
+    falta:     'Todavía no lo tenemos. Adjúntalo para poder registrar.',
+    vencido:   'Está vencido. Adjunta el documento renovado.',
+    rechazado: 'Fue revisado y no sirvió.',
+  };
+
   function sinT(s) {
     return String(s == null ? '' : s)
       .replace(/[áàäâÁÀÄÂ]/g, 'A').replace(/[éèëêÉÈËÊ]/g, 'E').replace(/[íìïîÍÌÏÎ]/g, 'I')
@@ -343,16 +359,49 @@
   }
   function inyectarDocsPreoperacional(data) {
     const pregs = (data && data.preguntas) || [];
+    const estado = (data && data.documentosEstado) || {};
+    const docs = estado.documentos || {};
+
+    // Las preguntas de fecha de cada documento viven en la hoja: se
+    // separan para poder ponerlas junto a su archivo.
     const fechasHoja = {}, resto = [];
-    pregs.forEach((q) => { const k = docKeyApi(q); if (k && !fechasHoja[k]) fechasHoja[k] = q; else resto.push(q); });
-    const bloque = [];
-    DOCS_PREOP.forEach((d) => {
-      bloque.push(d);
-      const k = sinT(d.documento).trim();
-      if (k && fechasHoja[k]) { bloque.push(fechasHoja[k]); delete fechasHoja[k]; }
+    pregs.forEach((q) => {
+      const k = docKeyApi(q);
+      if (k && !fechasHoja[k]) fechasHoja[k] = q; else resto.push(q);
     });
-    Object.keys(fechasHoja).forEach((k) => bloque.push(fechasHoja[k]));
+
+    const pendientes = Object.keys(DOC_PREGUNTA).filter((k) => docs[k] && docs[k].exige);
+    const bloque = [];
+
+    pendientes.forEach((k) => {
+      const d = docs[k];
+      const meta = DOC_PREGUNTA[k];
+      const porque = d.motivo_exige === 'rechazado' && d.motivo
+        ? 'Fue revisado y no sirvió: ' + d.motivo
+        : (AYUDA_EXIGE[d.motivo_exige] || '');
+      bloque.push({
+        id_pregunta: meta.id, orden: 0, seccion: 'Documentación del vehículo',
+        pregunta: meta.label, tipo_respuesta: 'archivo', obligatorio: 'SI',
+        documento: k, ayuda: porque,
+      });
+      // Su fecha de vencimiento, al lado y editable.
+      if (fechasHoja[k]) { bloque.push(fechasHoja[k]); delete fechasHoja[k]; }
+    });
+
+    // Primera vez de verdad: ningun documento cargado. Ahi si se piden
+    // los datos del vehiculo.
+    const primeraVez = Object.keys(DOC_PREGUNTA)
+      .every((k) => !(docs[k] && String(docs[k].url || '').trim()));
+    if (pendientes.length && primeraVez) DATOS_VEHICULO.forEach((q) => bloque.push(q));
+
+    // Las fechas de los documentos que NO se estan pidiendo se dejan
+    // igual que siempre: se pintan bloqueadas con lo que ya hay.
+    Object.keys(fechasHoja).forEach((k) => resto.unshift(fechasHoja[k]));
+
     data.preguntas = bloque.concat(resto);
+    // La pantalla necesita saber cuantas preguntas son del bloque 1.
+    data.bloqueDocumentos = bloque.length;
+    data.documentosPendientes = pendientes;
     return data;
   }
 
