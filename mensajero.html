@@ -416,6 +416,14 @@
         </div>`;
     }
 
+    function ajustarBotonDocs() {
+      const form = $('registroForm');
+      const abierto = form && !form.classList.contains('hidden');
+      // El del formulario ya esta a la vista: dejar tambien el del
+      // checklist seria mostrar el mismo boton dos veces.
+      $('btnDocs').classList.toggle('hidden', !!abierto);
+    }
+
     function renderChecklist() {
       $('checklist').innerHTML = agruparFormularios(state.formularios).map((x) => {
         if (x.tipo === 'grupo') return pintarGrupo(x);
@@ -443,6 +451,7 @@
       $('checklist').querySelectorAll('.checkitem:not(.done), .jornada:not(.done)').forEach((btn) => {
         btn.addEventListener('click', () => seleccionarFormulario(btn.dataset.form));
       });
+      ajustarBotonDocs();
     }
 
     function todoCompleto() {
@@ -467,6 +476,7 @@
         renderQuestions();
         $('registroForm').classList.remove('hidden');
         $('bottombar').classList.remove('hidden');
+        ajustarBotonDocs();
         $('guardar').disabled = false;
         clearStatus();
         $('registroForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -487,6 +497,7 @@
       pintarAvisoPrecarga();
       wireConditionals();
       wireRangos();
+      ajustarBotonDocs();
       separarBloques(data.bloqueDocumentos || 0);
       revisarDocumentos();
     }
@@ -1097,6 +1108,7 @@
         showStatus(err.message, 'error');
         $('bottombar').classList.remove('hidden');
         $('registroForm').classList.remove('hidden');
+        ajustarBotonDocs();
       } finally {
         setLoading($('guardar'), false);
       }
@@ -1431,6 +1443,7 @@
       $('registroForm').classList.add('hidden');
       $('bottombar').classList.add('hidden');
       $('cardDocs').classList.remove('hidden');
+      ajustarBotonDocs();
       $('cardDocs').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -1438,6 +1451,7 @@
       $('cardDocs').classList.add('hidden');
       $('docsStatus').className = 'status';
       $('cardChecklist').classList.remove('hidden');
+      setTimeout(ajustarBotonDocs, 0);
       // Si venia de un formulario a medio llenar, se vuelve a el.
       if (state.currentForm && state.formData) {
         $('registroForm').classList.remove('hidden');
@@ -1730,7 +1744,7 @@
   </script>
   <script src="assets/offline.js?v=1"></script>
   <script src="assets/instalar.js?v=3"></script>
-  <script src="assets/asistente.js?v=6"></script>
+  <script src="assets/asistente.js?v=7"></script>
   <script>
     /* Guarda la aplicación en el celular para que abra sin señal. */
     if ('serviceWorker' in navigator) {

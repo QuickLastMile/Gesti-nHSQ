@@ -133,6 +133,8 @@
     'apoya cabezas': 'El <b>apoyacabezas</b> es el respaldo de la cabeza en la silla. Debe estar puesto y a la altura de tus orejas: evita lesiones de cuello en un choque.',
     'air bag': 'El <b>airbag</b> es la bolsa de aire. Revisa que el testigo del tablero no quede encendido, porque eso significa que está averiado.',
     'freno de servicio': 'El <b>freno de servicio</b> es el pedal que usas normalmente. El <b>de emergencia</b> o de mano es el que deja el vehículo quieto al parquear.',
+    'desviacion': 'Una <b>desviaci\u00f3n</b> es cuando la temperatura o la humedad se salen de lo permitido <b>dos lecturas seguidas</b>, o sea 24 horas. Ah\u00ed hay que avisar al coordinador HSEQ y no mover el material hasta que te indiquen. El sistema la detecta solo: t\u00fa solo escribes la medici\u00f3n.',
+    'vin': 'El <b>VIN</b> es el n\u00famero que identifica tu veh\u00edculo: 17 caracteres entre letras y n\u00fameros. Se lee m\u00e1s claro en el <b>SOAT</b>.',
     'no aplica': 'Marca <b>No aplica</b> cuando tu vehículo no tiene ese elemento. No lo uses para saltarte una revisión: si lo tiene y está malo, va <b>No cumple</b>.'
   };
 
@@ -272,6 +274,75 @@
       k: ['no puedo entrar', 'contraseña', 'clave', 'usuario', 'login', 'iniciar sesion', 'me pide contraseña', 'no me deja ingresar'],
       r: 'Para registrar <b>no necesitas usuario ni contraseña</b>: solo digitas tu cédula y presionas buscar.<br><br>Si te aparece una pantalla pidiendo correo y contraseña, es porque entraste a un panel que no te corresponde. Vuelve al inicio y entra en <b>Registrar</b>.',
       c: ['No aparece mi cédula', '¿Cómo registro?'] },
+
+    /* ---------- temperatura y humedad ----------
+       El formulario mas nuevo, y el que mas dudas genera: que escribir,
+       que significa el aviso naranja y cuando hay que tomar la foto. */
+    { id: 'temperatura_como', solo: 'mensajero', peso: 1.4,
+      k: ['temperatura', 'humedad', 'termometro', 'termohigrometro', 'grados', 'como mido',
+          'que escribo en temperatura', 'medicion'],
+      r: 'Mira el equipo y escribe el n\u00famero <b>tal como lo ves</b>, sin redondear.<br><br>'
+       + '\u2022 La <b>temperatura</b> va en grados cent\u00edgrados (\u00b0C)<br>'
+       + '\u2022 La <b>humedad</b> va en porcentaje (%)<br><br>'
+       + 'Puedes usar <b>coma o punto</b> para los decimales: 20,5 y 20.5 son lo mismo.<br><br>'
+       + 'Si el valor se sale de lo permitido te aparece un aviso naranja. <b>No lo cambies para que quepa</b>: '
+       + 'reg\u00edstralo como est\u00e1, que para eso es el control.',
+      c: ['\u00bfQu\u00e9 pasa si se sale del rango?', '\u00bfCon coma o con punto?'] },
+
+    { id: 'fuera_de_rango', solo: 'mensajero', peso: 1.4,
+      k: ['fuera de rango', 'fuera de parametros', 'se salio', 'aviso naranja', 'me sale alerta',
+          'supera el maximo', 'desviacion', 'me paso del limite'],
+      r: 'Que salga el aviso naranja <b>no te impide guardar</b>. Registra la medici\u00f3n real y guarda: '
+       + 'el registro queda marcado para que HSEQ lo revise.<br><br>'
+       + 'Si adem\u00e1s la lectura <b>anterior</b> tambi\u00e9n se hab\u00eda salido, son 24 horas seguidas y eso ya es '
+       + 'una <b>desviaci\u00f3n</b>: te aparecen las instrucciones y te pide la <b>foto</b> del equipo.<br><br>'
+       + 'En ese caso avisa de una al coordinador HSEQ y <b>no muevas el material</b> hasta que te indiquen.',
+      c: ['\u00bfC\u00f3mo mido la temperatura?', '\u00bfCu\u00e1nto me falta?'] },
+
+    { id: 'valor_imposible', solo: 'mensajero', peso: 1.3,
+      k: ['no me deja el numero', 'revisa el dato', 'fuera de lo posible', 'no me acepta el valor',
+          'me dice que revise', 'solo puede estar entre'],
+      r: 'Es un n\u00famero que no puede ser: por ejemplo 181 \u00b0C o 150 % de humedad. '
+       + 'Casi siempre es un dedo que se resbal\u00f3 o un cero de m\u00e1s.<br><br>'
+       + 'Vuelve a mirar el equipo y escr\u00edbelo otra vez. Si el equipo de verdad marca eso, '
+       + 'est\u00e1 da\u00f1ado: rep\u00f3rtalo a tu coordinador.',
+      c: ['\u00bfC\u00f3mo mido la temperatura?'] },
+
+    { id: 'coma_decimal', solo: 'mensajero', peso: 1.2,
+      k: ['con coma o con punto', 'coma', 'punto', 'decimal', 'decimales', 'como escribo 20 5'],
+      r: 'Como te salga: <b>20,5</b> y <b>20.5</b> son lo mismo, el sistema entiende los dos.<br><br>'
+       + 'Al salir del campo vas a ver el n\u00famero con punto. No es que te lo cambie: '
+       + 'es para que confirmes que qued\u00f3 bien entendido.',
+      c: ['\u00bfC\u00f3mo mido la temperatura?'] },
+
+    /* ---------- datos del vehiculo ---------- */
+    { id: 'vin', peso: 1.3,
+      k: ['vin', 'numero de identificacion vehicular', 'no encuentro el vin', 'donde esta el vin',
+          '17 caracteres', 'me pide el vin otra vez'],
+      r: 'El <b>VIN</b> son <b>17 caracteres</b> entre letras y n\u00fameros, y es el que identifica tu veh\u00edculo.<br><br>'
+       + 'B\u00fascalo en el <b>SOAT</b>, que es donde se lee m\u00e1s claro. Tambi\u00e9n est\u00e1 en la licencia de '
+       + 'tr\u00e1nsito y grabado en el chasis.<br><br>'
+       + 'No lo confundas con el n\u00famero de motor, que es m\u00e1s corto. Puedes escribirlo con espacios o '
+       + 'guiones: se limpian solos.<br><br>'
+       + 'Si te lo vuelve a pedir es porque el que est\u00e1 guardado no tiene los 17 caracteres.',
+      c: ['\u00bfC\u00f3mo actualizo un documento?'] },
+
+    { id: 'solo_un_documento', peso: 1.7,
+      k: ['solo me pide uno', 'por que solo el soat', 'por que solo me pide',
+          'no me pide todos los documentos', 'solo me pide el soat',
+          'actualizar uno solo', 'me pide solo el vencido', 'y los otros documentos'],
+      r: 'Solo se te pide el que est\u00e1 <b>vencido o rechazado</b>. Los que est\u00e1n al d\u00eda no se vuelven a pedir.<br><br>'
+       + 'Y si quieres adelantarte y subir uno <b>antes</b> de que se venza, toca <b>Actualizar documentaci\u00f3n</b>: '
+       + 'ah\u00ed eliges cu\u00e1l actualizar y los dem\u00e1s se quedan como est\u00e1n.',
+      c: ['\u00bfC\u00f3mo actualizo un documento?', '\u00bfC\u00f3mo van mis documentos?'] },
+
+    { id: 'me_rechazaron', solo: 'mensajero', peso: 1.3,
+      k: ['me rechazaron', 'documento rechazado', 'por que me rechazaron', 'rechazo'],
+      r: 'Cuando HSEQ rechaza un documento te escribe el <b>motivo</b>, y lo vas a ver en la pantalla '
+       + 'cuando te lo vuelvan a pedir (por ejemplo: la foto est\u00e1 borrosa, o no corresponde a tu placa).<br><br>'
+       + 'Corrige eso y vuelve a subirlo. Al adjuntar el nuevo, el rechazo se levanta solo y '
+       + 'queda otra vez en revisi\u00f3n.',
+      c: ['\u00bfC\u00f3mo actualizo un documento?', '\u00bfPuedo trabajar as\u00ed?'] },
 
     /* ---------- saludo y generales ---------- */
     { id: 'saludo', peso: 0.9,
@@ -623,11 +694,34 @@
       if (pistas[i].re.test(t)) fuera = fuera.concat(pistas[i].c);
     }
     if (PERFIL === 'mensajero') {
-      fuera = ['¿Cómo van mis documentos?', '¿Cómo registro?', 'No me deja adjuntar', 'Ya registré hoy'];
+      fuera = chipsMensajero();
     } else if (!fuera.length) {
       fuera = ['¿Dónde está el dashboard?', '¿Quién no ha marcado?', 'Justificar una ausencia', 'Descargar la información'];
     }
     return fuera.slice(0, 4);
+  }
+
+  /* ---------- sugerencias segun el momento ----------
+     Cuatro botones fijos sirven poco: el que tiene un formulario a medias
+     necesita otra cosa que el que acaba de entrar. Se arman con lo que la
+     pantalla ya sabe de el. */
+  function chipsMensajero() {
+    var out = [];
+    var prog = progresoFormulario();
+    if (prog && prog.faltan.length) out.push('\u00bfCu\u00e1nto me falta?');
+    var d = estadoDocs();
+    if (d && d.urgentes) out.push('\u00bfC\u00f3mo actualizo un documento?');
+    // Si esta en el formulario de temperatura, lo que pregunta es eso.
+    var s = estadoPagina();
+    var fid = s && s.currentForm ? String(s.currentForm) : '';
+    if (fid.indexOf('TEMP') === 0) {
+      out.push('\u00bfC\u00f3mo mido la temperatura?');
+      out.push('\u00bfQu\u00e9 pasa si se sale del rango?');
+    } else {
+      out.push('\u00bfC\u00f3mo van mis documentos?');
+      out.push('No me deja guardar');
+    }
+    return out.slice(0, 4);
   }
 
   /* ---------- interfaz ---------- */
@@ -890,7 +984,7 @@
         saludado = true;
         if (PERFIL === 'mensajero') {
           decir('¡Hola! Soy <b>EVA</b> 👋<br>Te acompaño en tu registro diario. Pregúntame con tus palabras.');
-          chips(['¿Cómo van mis documentos?', '¿Cómo registro?', 'No me deja adjuntar', 'Cambiar mi placa']);
+          chips(chipsMensajero());
         } else {
           decir('¡Hola! Soy <b>EVA</b> 👋<br>Te ayudo a encontrar cualquier cosa en la plataforma. Pregúntame con tus palabras.');
           chips(['¿Dónde está el dashboard?', '¿Quién no ha marcado hoy?', 'Registrar una incapacidad', 'Descargar la información']);
