@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=29">
+  <link rel="stylesheet" href="assets/styles.css?v=30">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -166,6 +166,7 @@
           <div class="adm-group">
             <p class="adm-group__title">Configuración</p>
           <button class="adm-link" type="button" data-v="calendario" aria-label="Calendario y metas"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/></svg></span><span>Calendario y metas</span></button>
+          <button class="adm-link" type="button" data-v="documentos" aria-label="Documentos"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5"/><path d="m9 14 2 2 4-4"/></svg></span><span>Documentos</span><span class="cuenta" id="docPendientes"></span></button>
           <button class="adm-link" type="button" data-v="historial" aria-label="Historial"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/><path d="M12 8v4.5l3 1.8"/></svg></span><span>Historial</span></button>
           <button id="lnkSeguridad" class="adm-link hidden" type="button" data-v="seguridad" aria-label="Seguridad"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6z"/><path d="M12 10v4"/></svg></span><span>Seguridad</span></button>
           <button class="adm-link" type="button" data-v="formularios" aria-label="Formularios por proyecto"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h4"/></svg></span><span>Formularios por proyecto</span></button>
@@ -532,6 +533,32 @@
       </div>
 
       <!-- ============ HISTORIAL ============ -->
+      <div id="v-documentos" class="view hidden">
+        <section class="card">
+          <div class="card__head"><p class="card__title">Revisar documentos</p></div>
+          <div class="card__body">
+            <p class="hint-inline">Aquí está la gente de la línea con algún documento por resolver:
+               sin cargar, vencido o rechazado. Al rechazar uno, el sistema se lo vuelve a pedir
+               al colaborador en su próximo preoperacional, con el motivo que escribas.</p>
+            <div class="cmp-filtros" style="margin-top:12px">
+              <div class="field"><span class="label">Proyecto</span>
+                <input id="docProyecto" list="docProyLista" autocomplete="off" placeholder="Todos">
+                <datalist id="docProyLista"></datalist></div>
+              <div class="field"><span class="label">Cédula</span>
+                <input id="docCedula" inputmode="numeric" autocomplete="off" placeholder="Todas"></div>
+              <div class="field"><span class="label">Mostrar</span>
+                <select id="docAlcance">
+                  <option value="pendientes">Solo con algo pendiente</option>
+                  <option value="todos">Todos los activos</option>
+                </select></div>
+              <button id="btnDocumentos" class="btn btn--primary" type="button">Consultar</button>
+            </div>
+            <div id="docStatus" class="status" aria-live="polite"></div>
+          </div>
+        </section>
+        <div id="docLista" style="margin-top:14px"></div>
+      </div>
+
       <div id="v-historial" class="view hidden">
         <section class="card">
           <div class="card__head">
@@ -671,6 +698,8 @@
     $('btnCalendario').addEventListener('click', cargarCalendario);
     $('calBuscar').addEventListener('input', () => pintarCalendario());
     $('calLimpiar').addEventListener('click', () => { $('calBuscar').value = ''; pintarCalendario(); });
+    $('btnDocumentos').addEventListener('click', consultarDocumentos);
+    $('docCedula').addEventListener('keydown', (e) => { if (e.key === 'Enter') consultarDocumentos(); });
     $('btnVerPin').addEventListener('click', verPin);
     $('btnGuardarPin').addEventListener('click', guardarPin);
     $('btnFormularios').addEventListener('click', cargarFormulariosProyecto);
@@ -687,6 +716,7 @@
       calendario: ['Calendario y metas', 'Qué días opera cada proyecto y su meta'],
       formularios: ['Formularios por proyecto', 'Qué debe diligenciar cada operación'],
       historial: ['Historial de cambios', 'Qué se movió, cuándo y a quién'],
+      documentos: ['Documentos', 'Revisar, rechazar y hacer seguimiento'],
       seguridad: ['Seguridad', 'El PIN que autoriza eliminar registros'],
     };
 
@@ -709,6 +739,7 @@
       if (clave === 'calendario' && !calData) cargarCalendario();
       if (clave === 'formularios' && !frmData) cargarFormulariosProyecto();
       if (clave === 'seguridad' && !segData) cargarSeguridad();
+      if (clave === 'documentos' && !docData) consultarDocumentos();
       if ((clave === 'encargados' || clave === 'encargados-carga') && !encData) cargarEncargados();
     }
 
@@ -758,6 +789,130 @@
         clearStatus('segPinStatus');
       } catch (err) {
         setStatus('segPinStatus', err.message, 'error');
+      }
+    }
+
+    /* ---------- Documentos: revisar y rechazar ---------- */
+    let docData = null;
+
+    const DOCS = [
+      ['SOAT', 'SOAT'],
+      ['TECNOMECANICA', 'Tecnomec\u00e1nica'],
+      ['LICENCIA', 'Licencia de tr\u00e1nsito'],
+    ];
+
+    // Por que se le esta pidiendo. El orden importa: un documento
+    // rechazado puede ademas estar vencido, y lo que hay que contarle
+    // al coordinador es que alguien lo reviso y no sirvio.
+    function motivoDoc(d) {
+      if (d.rechazado) return ['Rechazado', 'aviso'];
+      if (d.estado === 'sin_dato' || !d.url) return ['Sin cargar', 'aviso'];
+      if (d.estado === 'vencido') return ['Vencido ' + (d.fecha || ''), 'aviso'];
+      if (d.estado === 'por_vencer') return ['Vence ' + (d.fecha || ''), ''];
+      return ['Vigente hasta ' + (d.fecha || ''), ''];
+    }
+
+    async function consultarDocumentos() {
+      setStatus('docStatus', 'Consultando\u2026', 'info');
+      $('docLista').innerHTML = '';
+      try {
+        docData = await adminCall('documentos', {
+          proyecto: $('docProyecto').value.trim(),
+          cedula: $('docCedula').value.trim(),
+          soloPendientes: $('docAlcance').value !== 'todos',
+        });
+        pintarDocumentos();
+        const n = (docData.filas || []).length;
+        if (n >= (docData.tope || 300)) {
+          setStatus('docStatus', 'Se muestran los primeros ' + n + '. Filtra por proyecto para ver el resto.', 'warn');
+        } else {
+          clearStatus('docStatus');
+        }
+        $('docPendientes').textContent = n || '';
+      } catch (err) {
+        setStatus('docStatus', err.message, 'error');
+      }
+    }
+
+    function pintarDocumentos() {
+      const filas = (docData && docData.filas) || [];
+      if (!filas.length) {
+        $('docLista').innerHTML = '<div class="card"><div class="card__body">'
+          + '<p class="hint-inline">Nadie con documentos pendientes en esta l\u00ednea. \u2713</p></div></div>';
+        return;
+      }
+      $('docLista').innerHTML = '<div class="card"><div class="card__body">'
+        + filas.map((f) => filaDocumento(f)).join('') + '</div></div>';
+
+      $('docLista').querySelectorAll('[data-ver]').forEach((b) =>
+        b.addEventListener('click', () => verDoc(b.dataset.ver, b)));
+      $('docLista').querySelectorAll('[data-rechazar]').forEach((b) =>
+        b.addEventListener('click', () => rechazarDoc(b.dataset.rechazar, b.dataset.doc, b.dataset.nombre)));
+      $('docLista').querySelectorAll('[data-levantar]').forEach((b) =>
+        b.addEventListener('click', () => levantarDoc(b.dataset.levantar, b.dataset.doc)));
+    }
+
+    function filaDocumento(f) {
+      const docs = f.documentos || {};
+      const cuerpo = DOCS.map(([k, label]) => {
+        const d = docs[k] || {};
+        const [texto, tono] = motivoDoc(d);
+        const ver = d.url
+          ? `<button type="button" class="btn btn--ghost" style="min-height:34px;padding:6px 10px" data-ver="${esc(d.url)}">Ver</button>` : '';
+        const rechazar = (d.url && !d.rechazado)
+          ? `<button type="button" class="btn btn--ghost" style="min-height:34px;padding:6px 10px" data-rechazar="${esc(f.cedula)}" data-doc="${k}" data-nombre="${esc(label)}">Rechazar</button>` : '';
+        const levantar = d.rechazado
+          ? `<button type="button" class="btn btn--ghost" style="min-height:34px;padding:6px 10px" data-levantar="${esc(f.cedula)}" data-doc="${k}">Levantar rechazo</button>` : '';
+        const motivo = (d.rechazado && d.motivo)
+          ? `<div class="hint-inline" style="margin:4px 0 0">Motivo: ${esc(d.motivo)}</div>` : '';
+        return `
+          <div class="cmp-row" style="border-left-color:${d.exige ? 'var(--danger)' : 'var(--success)'}">
+            <span class="cmp-main">
+              <span class="cmp-nombre" style="font-size:14px">${esc(label)}</span>
+              <span class="cmp-sub"><span class="rowchip ${tono}">${esc(texto)}</span></span>
+              ${motivo}
+            </span>
+            <span class="cmp-dots">${ver}${rechazar}${levantar}</span>
+          </div>`;
+      }).join('');
+
+      return `
+        <div style="margin-bottom:16px">
+          <p class="card__title" style="margin-bottom:2px">${esc(f.nombre)}
+            ${f.bloquea ? '<span class="rowchip aviso">No puede registrar</span>' : ''}</p>
+          <p class="hint-inline" style="margin:0 0 6px">CC ${esc(f.cedula)} \u00b7 ${esc(f.proyecto)}
+            ${f.placa ? '\u00b7 ' + esc(f.placa) : ''}</p>
+          <div class="cmp-list">${cuerpo}</div>
+        </div>`;
+    }
+
+    async function rechazarDoc(cedula, doc, label) {
+      const motivo = prompt('\u00bfPor qu\u00e9 se rechaza ' + label + '?\n\n'
+        + 'El colaborador va a leer este texto cuando le pidan el documento otra vez.\n'
+        + 'Ejemplo: "la foto est\u00e1 borrosa" o "el documento no corresponde a la placa".');
+      if (motivo === null) return;
+      if (motivo.trim().length < 5) {
+        return setStatus('docStatus', 'Escribe un motivo: el colaborador lo va a leer.', 'error');
+      }
+      setStatus('docStatus', 'Rechazando\u2026', 'info');
+      try {
+        const r = await adminCall('rechazarDocumento', { cedula, documento: doc, motivo: motivo.trim() });
+        setStatus('docStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        await consultarDocumentos();
+      } catch (err) {
+        setStatus('docStatus', err.message, 'error');
+      }
+    }
+
+    async function levantarDoc(cedula, doc) {
+      if (!confirm('\u00bfSe levanta el rechazo? El documento vuelve a darse por v\u00e1lido.')) return;
+      setStatus('docStatus', 'Levantando\u2026', 'info');
+      try {
+        const r = await adminCall('levantarRechazo', { cedula, documento: doc });
+        setStatus('docStatus', '\u2713 ' + (r.mensaje || 'Listo.'), 'ok');
+        await consultarDocumentos();
+      } catch (err) {
+        setStatus('docStatus', err.message, 'error');
       }
     }
 
