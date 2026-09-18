@@ -334,16 +334,16 @@
     // en cuatro sitios distintos.
     { id_pregunta: 'DOC_INFO_VEHICULO', orden: 0, seccion: 'Documentación del vehículo',
       pregunta: 'Dónde encontrar estos datos', tipo_respuesta: 'info', obligatorio: 'NO',
-      ayuda: 'Todo lo que sigue está en la LICENCIA DE TRÁNSITO (tarjeta de propiedad), la misma que acabas de adjuntar. Tenla a la mano y cópialos tal como aparecen ahí.\n'
-           + '• Marca y cilindraje: vienen impresos en esa licencia.\n'
-           + '• Propietario: es quien figura como dueño en la licencia. Si el vehículo no está a tu nombre, escribe el nombre y la cédula de esa persona, no los tuyos.\n'
-           + '• VIN: son 17 caracteres entre letras y números. Aparece en la licencia y además va grabado en el chasis. No lo confundas con el número de motor ni con el de chasis, que son más cortos.\n'
+      ayuda: 'Todos estos datos están en los documentos que acabas de adjuntar. Tenlos a la mano y cópialos tal como aparecen ahí.\n'
+           + '• VIN: búscalo en el SOAT, que es donde se lee más claro. También está en la licencia de tránsito y grabado en el chasis. Son 17 caracteres entre letras y números; no lo confundas con el número de motor, que es más corto.\n'
+           + '• Marca y cilindraje: vienen impresos en la licencia de tránsito y también en el SOAT.\n'
+           + '• Propietario: es quien figura como dueño en la licencia de tránsito. Si el vehículo no está a tu nombre, escribe el nombre y la cédula de esa persona, no los tuyos.\n'
            + 'Si algo no coincide con el documento, el registro puede ser rechazado por HSEQ y te lo van a pedir otra vez.' },
     { id_pregunta: 'DOC_MARCA_VEHICULO', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Marca del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI', ayuda: 'Como aparece en la licencia de tránsito. Ejemplo: BAJAJ, YAMAHA, AKT.' },
     { id_pregunta: 'DOC_CILINDRAJE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Tipo de cilindraje (CC)', tipo_respuesta: 'numero', obligatorio: 'SI', ayuda: 'Solo el número, sin la sigla CC. Ejemplo: 125.' },
     { id_pregunta: 'DOC_PROP_NOMBRE', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Nombre del propietario del vehículo', tipo_respuesta: 'texto', obligatorio: 'SI', ayuda: 'Quien figura como dueño en la licencia de tránsito. Puede no ser tu nombre.' },
     { id_pregunta: 'DOC_PROP_CEDULA', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'Cédula del propietario del vehículo', tipo_respuesta: 'numero', obligatorio: 'SI', ayuda: 'La del propietario que escribiste arriba, no la tuya si el vehículo es de otra persona.' },
-    { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI', ayuda: 'Son 17 caracteres entre letras y números. Está en la licencia de tránsito y grabado en el chasis. Puedes escribirlo con espacios o guiones: se limpian solos.' },
+    { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI', ayuda: 'Son 17 caracteres entre letras y números. Búscalo en el SOAT, que es donde se lee más claro; también está en la licencia de tránsito. Puedes escribirlo con espacios o guiones: se limpian solos.' },
   ];
 
   const AYUDA_EXIGE = {
