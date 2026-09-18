@@ -494,15 +494,63 @@
     }
 
     // Los documentos que el servidor pidio y todavia no tienen archivo.
+    // Devuelve las claves (SOAT, TECNOMECANICA, LICENCIA) para poder
+    // consultarle al estado que le paso a cada uno.
     function docsSinAdjuntar() {
       const pend = (state.formData && state.formData.documentosPendientes) || [];
-      const falta = [];
-      pend.forEach((k) => {
+      return pend.filter((k) => {
         const id = k === 'LICENCIA' ? 'DOC_LICENCIA_TRANSITO' : 'DOC_' + k;
         const inp = $('questions').querySelector(`input[type="file"][name="${cssEscape(id)}"]`);
-        if (inp && !(inp.files && inp.files.length)) falta.push(NOMBRE_DOC[k] || k);
+        return inp && !(inp.files && inp.files.length);
       });
-      return falta;
+    }
+
+    // El genero importa: "actualízala" para la tecnomecánica y la licencia,
+    // "actualízalo" para el SOAT. Decirlo mal suena a mensaje de máquina.
+    const DOC_GENERO = { SOAT: 'o', TECNOMECANICA: 'a', LICENCIA: 'a' };
+    const DOC_MIO = { SOAT: 'tu SOAT', TECNOMECANICA: 'tu tecnomecánica', LICENCIA: 'tu licencia de tránsito' };
+
+    function mayus(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+
+    function estadoDe(k) {
+      return ((state.formData && state.formData.documentosEstado
+               && state.formData.documentosEstado.documentos) || {})[k] || {};
+    }
+
+    // Que le paso a ese documento, dicho como se lo diria una persona.
+    function novedadDoc(k) {
+      const d = estadoDe(k);
+      const mio = DOC_MIO[k] || ('tu ' + (NOMBRE_DOC[k] || k));
+      if (d.rechazado) {
+        return mayus(mio) + ' fue revisad' + (DOC_GENERO[k] || 'o') + ' y no sirvió'
+          + (d.motivo ? ': ' + d.motivo : '') + '.';
+      }
+      if (d.estado === 'vencido') {
+        const f = fechaLarga(d.fecha);
+        return mayus(mio) + ' se venció' + (f ? ' el ' + f : '') + '.';
+      }
+      return 'Todavía no tenemos ' + mio + '.';
+    }
+
+    // El texto completo del aviso, segun si bloquea o solo avisa.
+    function textoAviso(faltan) {
+      const bloquean = faltan.filter((k) => estadoDe(k).bloquea);
+      const sinCargar = faltan.filter((k) => !String(estadoDe(k).url || '').trim());
+
+      // Primera vez: repetir "todavía no tenemos" tres veces es pesado.
+      if (sinCargar.length === faltan.length && faltan.length > 1) {
+        return 'Antes de tu primer registro necesitamos la documentación del vehículo: '
+          + listar(faltan.map((k) => DOC_MIO[k].replace(/^tu /, ''))) + '.';
+      }
+      const frases = faltan.map(novedadDoc).join(' ');
+      if (!bloquean.length) {
+        // Dentro de los días de gracia: puede seguir, pero que lo sepa.
+        return frases + ' Puedes registrar hoy, pero en unos días ya no: adjúntal'
+          + (faltan.length > 1 ? 'os' : (DOC_GENERO[faltan[0]] || 'o')) + ' aquí abajo.';
+      }
+      return frases + ' Actualízal'
+        + (faltan.length > 1 ? 'os' : (DOC_GENERO[faltan[0]] || 'o'))
+        + ' aquí abajo para poder continuar.';
     }
 
     function revisarBloqueUno() {
@@ -514,12 +562,17 @@
       // pelearse por el atributo termina en que nadie sabe quien manda.
       // Con el bloque dos oculto no se puede completar, y si insiste, la
       // validacion del envio se lo dice con nombre propio.
+      const bloquean = falta.filter((k) => estadoDe(k).bloquea);
       if (falta.length) {
-        dos.classList.add('hidden');
+        // Se esconde el resto SOLO si de verdad no puede registrar. Dentro
+        // de los dias de gracia el servidor lo deja pasar: esconderselo
+        // aqui seria bloquearlo por la puerta de atras.
+        dos.classList.toggle('hidden', bloquean.length > 0);
         if (aviso) {
           aviso.className = 'aviso-bloque aviso-bloque--pendiente';
-          aviso.textContent = 'Primero la documentación: adjunta ' + listar(falta)
-            + '. Al hacerlo aparece el resto del formulario.';
+          // Primero que paso, y despues que hacer. En ese orden: si no
+          // sabe por que se lo piden, la instruccion suena arbitraria.
+          aviso.textContent = textoAviso(falta);
         }
       } else {
         dos.classList.remove('hidden');
@@ -566,7 +619,8 @@
       if (p.length !== 3) return iso;
       const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
         'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-      return Number(p[2]) + ' de ' + (meses[Number(p[1]) - 1] || p[1]);
+      // Con año: un vencimiento sin año es ambiguo, puede ser del año pasado.
+      return Number(p[2]) + ' de ' + (meses[Number(p[1]) - 1] || p[1]) + ' de ' + p[0];
     }
 
     // Preguntas condicionales: se muestran solo cuando la pregunta "madre" tiene el valor esperado.
@@ -727,10 +781,12 @@
 
       // Los documentos que el servidor pidio tienen que venir. Si falta
       // alguno ni se intenta: el servidor lo rebotaria igual.
-      const faltanDocs = docsSinAdjuntar();
+      // Solo frena lo que bloquea; lo que esta dentro de la gracia pasa.
+      const faltanDocs = docsSinAdjuntar().filter((k) => estadoDe(k).bloquea);
       if (faltanDocs.length) {
         $('questions').scrollIntoView({ behavior: 'smooth', block: 'start' });
-        return showStatus('Falta adjuntar: ' + faltanDocs.join(', ') + '.', 'error');
+        return showStatus('Falta adjuntar: '
+          + listar(faltanDocs.map((k) => NOMBRE_DOC[k] || k)) + '.', 'error');
       }
 
       const faltantes = [];
@@ -1191,19 +1247,17 @@
       const porVencer = Object.keys(docs).filter((k) => docs[k].estado === 'por_vencer');
       const nombre = (k) => NOMBRE_DOC[k] || k;
 
+      // Si el bloque de documentos esta en pantalla, el aviso de arriba ya
+      // lo explica: repetirlo abajo solo agrega ruido.
       if (bloquean.length) {
-        showStatus('Para registrar hay que actualizar: '
-          + bloquean.map((k) => {
-              const d = docs[k];
-              if (d.rechazado) return nombre(k) + ' (rechazado' + (d.motivo ? ': ' + d.motivo : '') + ')';
-              if (d.estado === 'vencido') return nombre(k) + ' (vencido el ' + (d.fecha || '') + ')';
-              return nombre(k) + ' (sin cargar)';
-            }).join(', ') + '.', 'error');
+        if (!$('avisoBloque')) {
+          showStatus(bloquean.map(novedadDoc).join(' ')
+            + ' Actualíza' + (bloquean.length > 1 ? 'los' : 'lo') + ' para poder registrar.', 'error');
+        }
       } else if (piden.length) {
         // Dentro de los dias de gracia: se le pide, pero puede seguir.
-        showStatus('⚠️ Actualiza pronto: '
-          + piden.map((k) => nombre(k) + ' (' + (docs[k].fecha || 'sin fecha') + ')').join(', ')
-          + '. Puedes registrar hoy, pero en unos días no.', 'warn');
+        showStatus('⚠️ ' + piden.map(novedadDoc).join(' ')
+          + ' Puedes registrar hoy, pero en unos días ya no.', 'warn');
       } else if (porVencer.length) {
         showStatus('⚠️ Próximo(s) a vencer: '
           + porVencer.map((k) => nombre(k) + ' (' + docs[k].dias + ' días)').join(', ') + '.', 'warn');
