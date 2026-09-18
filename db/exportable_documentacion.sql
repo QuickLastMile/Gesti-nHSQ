@@ -85,8 +85,11 @@ $fn$;
 -- ------------------------------------------------------------
 --  3) La consulta
 -- ------------------------------------------------------------
+-- Va como VOLATILE (sin 'stable') a proposito: adentro crea una tabla
+-- temporal, y eso es escribir. Declararla estable seria prometerle al
+-- motor algo que no cumple.
 create or replace function api_exportable_documentacion(payload jsonb default '{}'::jsonb)
-returns jsonb language plpgsql stable security definer set search_path = public as $fn$
+returns jsonb language plpgsql security definer set search_path = public as $fn$
 declare
   v_linea     text := linea_efectiva(coalesce(payload->>'linea', ''));
   filtro_proy text := btrim(coalesce(payload->>'proyecto', ''));
