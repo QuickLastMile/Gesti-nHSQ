@@ -903,13 +903,39 @@
     // se le esta pidiendo. Sin decirlo, su ficha vacia se lee como falta.
     function insignia(f) {
       if (f.activo === false) return ' <span class="rowchip inactivo">Inactivo</span>';
+      if (f.justificacion) {
+        return ' <span class="rowchip inactivo">' + esc(tipoJustificacion(f.justificacion.tipo)) + '</span>';
+      }
       if (f.aplica === false) return ' <span class="rowchip inactivo">No diligencia formularios</span>';
       if (f.bloquea) return ' <span class="rowchip aviso">No puede registrar</span>';
       return '';
     }
 
+    const JUSTIF = {
+      VACACIONES: 'En vacaciones', INCAPACIDAD: 'Incapacitado',
+      PERMISO: 'Con permiso', DESCANSO: 'En descanso', SUSPENSION: 'Suspendido',
+    };
+    function tipoJustificacion(t) {
+      return JUSTIF[String(t || '').toUpperCase()] || 'Justificado';
+    }
+
+    // Una ausencia larga explica por si sola que no este registrando ni
+    // actualizando documentos. Decirlo evita perseguir a quien no esta.
+    function avisoJustificacion(j) {
+      if (!j) return '';
+      const dias = Number(j.dias);
+      const hasta = j.hasta === j.desde
+        ? 'hoy'
+        : 'hasta el ' + fechaLarga(j.hasta) + (isFinite(dias) && dias > 0
+            ? ' (faltan ' + dias + ' día' + (dias === 1 ? '' : 's') + ')' : '');
+      return `<div class="doc-inactivo">
+          <b>${esc(tipoJustificacion(j.tipo))} ${esc(hasta)}.</b>
+          <span>Justificado desde el ${esc(fechaLarga(j.desde))}${j.motivo ? ' · ' + esc(j.motivo) : ''}</span>
+        </div>`;
+    }
+
     function porQueSinDocumentos(f) {
-      if (f.activo !== false && f.aplica !== false) return '';
+      if (f.activo !== false && f.aplica !== false) return avisoJustificacion(f.justificacion);
       // Para quien esta inactivo, el motivo es lo que explica todo. Para
       // quien simplemente tiene un cargo que no diligencia, el titulo ya
       // lo dice y el motivo guardado solo lo repetiria.
@@ -2522,6 +2548,14 @@
     // Para meter un valor dentro de un selector CSS sin romperlo.
     function cssSel(v) {
       return String(v == null ? '' : v).replace(/[^A-Za-z0-9_-]/g, '\\$&');
+    }
+
+    function fechaLarga(iso) {
+      const p = String(iso || '').split('-');
+      if (p.length !== 3) return iso || '';
+      const meses = ['enero','febrero','marzo','abril','mayo','junio',
+        'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      return Number(p[2]) + ' de ' + (meses[Number(p[1]) - 1] || p[1]) + ' de ' + p[0];
     }
 
     function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }

@@ -84,6 +84,68 @@ end
 $do$;
 
 -- ------------------------------------------------------------
+--  Y la justificacion que este corriendo
+--  ------------------------------------------------------------
+--  Inactivo no es el unico motivo para no tener papeles al dia.
+--  Quien esta en vacaciones o incapacitado sigue activo, pero no
+--  esta trabajando: perseguirlo es perder el tiempo, y no saberlo
+--  hace que parezca que no responde.
+--
+--  Se toma la justificacion que cubre HOY y, si hay varias, la que
+--  termina mas tarde.
+-- ------------------------------------------------------------
+do $do$
+declare src text; nuevo text; nl text := chr(13) || chr(10);
+begin
+  select prosrc into src from pg_proc where proname = 'admin_documentos';
+  if position('justificacion' in src) > 0 then
+    raise notice 'Ya estaba arreglada: no se toca.';
+    return;
+  end if;
+
+  nuevo := replace(src,
+    '  tope        int := 300;',
+    '  tope        int := 300;' || nl
+ || '  hoy         date := (now() at time zone ''America/Bogota'')::date;');
+
+  nuevo := replace(nuevo,
+    '    cross join lateral (select estado_documentos(c.cedula) as est) e',
+    '    cross join lateral (select estado_documentos(c.cedula) as est) e' || nl
+ || '    -- Vacaciones, incapacidad o permiso explican por que no esta' || nl
+ || '    -- registrando ni actualizando nada.' || nl
+ || '    left join lateral (' || nl
+ || '      select j.tipo,' || nl
+ || '             coalesce(j.fecha_inicio, j.fecha) as desde,' || nl
+ || '             coalesce(j.fecha_fin, j.fecha)    as hasta,' || nl
+ || '             coalesce(j.motivo, '''')            as motivo' || nl
+ || '        from justificaciones j' || nl
+ || '       where regexp_replace(j.cedula, ''\D'', '''', ''g'')' || nl
+ || '           = regexp_replace(c.cedula, ''\D'', '''', ''g'')' || nl
+ || '         and hoy between coalesce(j.fecha_inicio, j.fecha)' || nl
+ || '                     and coalesce(j.fecha_fin, j.fecha)' || nl
+ || '       order by coalesce(j.fecha_fin, j.fecha) desc' || nl
+ || '       limit 1) ju on true');
+
+  nuevo := replace(nuevo,
+    '           c.observaciones_hsq, '''')),',
+    '           c.observaciones_hsq, '''')),' || nl
+ || '        ''justificacion'', case when ju.tipo is null then null else' || nl
+ || '           jsonb_build_object(' || nl
+ || '             ''tipo'',   ju.tipo,' || nl
+ || '             ''desde'',  to_char(ju.desde, ''YYYY-MM-DD''),' || nl
+ || '             ''hasta'',  to_char(ju.hasta, ''YYYY-MM-DD''),' || nl
+ || '             ''dias'',   (ju.hasta - hoy),' || nl
+ || '             ''motivo'', ju.motivo) end,');
+
+  if nuevo = src then raise exception 'No encontre donde tocar'; end if;
+
+  execute 'create or replace function admin_documentos(payload jsonb default ''{}''::jsonb)'
+       || ' returns jsonb language plpgsql security definer set search_path = public as '
+       || quote_literal(nuevo);
+end
+$do$;
+
+-- ------------------------------------------------------------
 --  Verificacion
 -- ------------------------------------------------------------
 -- a) La funcion ya trae las cinco piezas.
