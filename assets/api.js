@@ -429,7 +429,7 @@
       ['placa_registrada', 'Placa registrada'], ['tipo_vehiculo', 'Tipo de vehiculo'],
       ['marca_vehiculo', 'Marca del vehiculo'], ['cilindraje', 'Cilindraje'],
       ['propietario_nombre', 'Propietario - nombre'], ['propietario_cedula', 'Propietario - cedula'],
-      ['vin', 'VIN'],
+      ['vin', 'VIN'], ['vin_valido', 'VIN completo'],
       ['soat_vence', 'SOAT vence'], ['soat_adjunto', 'SOAT adjunto'],
       ['tecnomecanica_vence', 'Tecnomecanica vence'], ['tecnomecanica_adjunta', 'Tecnomecanica adjunta'],
       ['licencia_vence', 'Licencia vence'], ['licencia_adjunta', 'Licencia adjunta'],

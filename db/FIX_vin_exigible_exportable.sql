@@ -1,90 +1,20 @@
 -- ============================================================
---  Exportable de DOCUMENTACION de colaboradores
+--  El exportable de documentacion exige el VIN completo
 --  ------------------------------------------------------------
---  Hasta ahora Exportar sacaba respuestas de formularios: una
---  fila por registro diligenciado, dentro de un rango de fechas.
+--  Hasta ahora 'datos_vehiculo_completos' decia SI con cualquier
+--  VIN escrito, aunque fueran 6 digitos. Tener el dato escrito
+--  no es tenerlo: un VIN incompleto no identifica ningun
+--  vehiculo.
 --
---  Esto es otra cosa. Es el estado de HOY de la matriz: una fila
---  por colaborador ACTIVO, con sus datos basicos, los del
---  vehiculo y el estado de su documentacion. Por eso NO recibe
---  fechas: no es un historico, es una foto del momento. Se acota
---  por proyecto o por cedula.
+--  Ahora exige los 17 caracteres, y ademas se agrega una columna
+--  'vin_valido' para poder ver de un vistazo a quien hay que
+--  perseguir.
 --
---  Sirve para lo que se pidio: ver de un vistazo quien tiene la
---  informacion completa y quien no.
---
---  Reservado a la CUENTA GENERAL. La guarda esta aqui, no en la
---  pantalla.
---
---  DE DONDE SALE CADA DATO
---  -----------------------
---  Hay dos origenes y conviene tenerlo claro:
---
---   - De la tabla colaboradores: nombre, cedula, cargo, proyecto,
---     ciudad, placa registrada, tipo de vehiculo, marca,
---     cilindraje, vencimientos y enlaces de los documentos.
---
---   - De las RESPUESTAS del preoperacional: propietario del
---     vehiculo (nombre y cedula) y VIN. Esas tres se preguntan al
---     registrar por primera vez, pero no se guardan como columna
---     de la matriz: viven como respuestas. Se toma la ultima
---     respuesta no vacia de cada persona, que es el valor vigente.
---
---  Ojo con esas tres: no son filas de la tabla preguntas. El bloque
---  de documentacion lo antepone la pantalla con ids fijos, y en la
---  base solo quedan las respuestas. Ver la nota del punto 2.
+--  Requiere db/exportable_documentacion.sql ya corrido.
 --
 --  Supabase -> SQL Editor -> New query -> pegar todo -> Run
 -- ============================================================
 
--- ------------------------------------------------------------
---  0) Por si acaso: quien es la cuenta general
---  ------------------------------------------------------------
---  Va aqui tambien para que este script no dependa de haber
---  corrido antes db/seguridad_cuentas.sql.
--- ------------------------------------------------------------
-create or replace function es_cuenta_general()
-returns boolean language sql stable security definer set search_path = public as $fn$
-  select coalesce((select r.todas_lineas from app_roles r
-                    where r.user_id = auth.uid() and r.activo), false);
-$fn$;
-
-revoke all on function es_cuenta_general() from public, anon;
-grant execute on function es_cuenta_general() to authenticated;
-
--- ------------------------------------------------------------
---  1) Para que buscar la ultima respuesta no cueste un rastreo
---     completo de la tabla.
--- ------------------------------------------------------------
-create index if not exists idx_resp_pregunta on respuestas (pregunta_id);
-
--- ------------------------------------------------------------
---  2) Que pregunta corresponde a que dato
---  ------------------------------------------------------------
---  OJO: estas preguntas NO estan en la tabla preguntas. El bloque
---  de "Documentacion del vehiculo" lo antepone la pantalla
---  (assets/api.js, constante DOCS_PREOP) con ids fijos, y lo
---  unico que queda en la base son las RESPUESTAS. Por eso aqui
---  van los ids escritos: no hay texto que buscar.
---
---  Si algun dia se cambia un id en api.js, hay que cambiarlo
---  tambien aqui o esa columna sale vacia.
--- ------------------------------------------------------------
-create or replace function preguntas_del_vehiculo()
-returns table (id text, campo text)
-language sql immutable set search_path = public as $fn$
-  select * from (values
-    ('DOC_VIN',           'vin'),
-    ('DOC_PROP_NOMBRE',   'propietario_nombre'),
-    ('DOC_PROP_CEDULA',   'propietario_cedula'),
-    ('DOC_MARCA_VEHICULO','marca_vehiculo'),
-    ('DOC_CILINDRAJE',    'cilindraje')
-  ) as v(id, campo);
-$fn$;
-
--- ------------------------------------------------------------
---  3) La consulta
--- ------------------------------------------------------------
 -- Va como VOLATILE (sin 'stable') a proposito: adentro crea una tabla
 -- temporal, y eso es escribir. Declararla estable seria prometerle al
 -- motor algo que no cumple.
@@ -236,82 +166,31 @@ end;
 $fn$;
 
 -- ------------------------------------------------------------
---  4) El router
--- ------------------------------------------------------------
-create or replace function hseq_api(action text, payload jsonb default '{}'::jsonb)
-returns jsonb language plpgsql security definer set search_path = public as $fn$
-declare result jsonb;
-begin
-  -- Lo que ve o mueve datos de toda la operación exige sesión de
-  -- coordinador. El resto queda abierto: es lo que usa el mensajero
-  -- desde su celular, sin login.
-  if action in ('getCumplimientoDia','guardarJustificacion','getDashboard',
-                'generarExportable','anularRegistro','actualizarMatriz',
-                'getMatrizInfo','listaEncargados','alertasMantenimiento',
-                'exportarDocumentacion')
-     and not hseq_tiene_rol(array['ADMIN','HSEQ','COORDINADOR']) then
-    return jsonb_build_object('ok', false, 'error', 'Debes iniciar sesion como coordinador autorizado.');
-  end if;
-
-  case action
-    -- Abiertas: el mensajero las usa sin iniciar sesión.
-    when 'getBootstrap'         then result := api_get_bootstrap(payload);
-    when 'buscarActivo'         then result := api_buscar_activo(payload);
-    when 'cargarFormulario'     then result := api_cargar_formulario(payload);
-    when 'guardarRegistro'      then result := api_guardar_registro(payload);
-    when 'registrarPlaca'       then result := api_registrar_placa(payload);
-    when 'miCumplimiento'       then result := api_mi_cumplimiento(payload);
-    -- Protegidas por el filtro de arriba.
-    when 'getCumplimientoDia'   then result := api_cumplimiento_dia(payload);
-    when 'guardarJustificacion' then result := api_guardar_justificacion(payload);
-    when 'getDashboard'         then result := api_dashboard(payload);
-    when 'generarExportable'    then result := api_exportable(payload);
-    when 'anularRegistro'       then result := api_anular_registro(payload);
-    when 'actualizarMatriz'     then result := api_actualizar_matriz(payload);
-    -- Esta no depende de la linea: lee una sola fila de config.
-    when 'getMatrizInfo'        then result := api_matriz_info();
-    when 'alertasMantenimiento' then result := api_alertas_mantenimiento(payload);
-    when 'listaEncargados'      then result := api_lista_encargados(payload);
-    -- Solo cuenta general (la guarda esta dentro de la funcion).
-    when 'exportarDocumentacion' then result := api_exportable_documentacion(payload);
-    else raise exception 'Accion no reconocida: %', action;
-  end case;
-  return jsonb_build_object('ok', true, 'result', result);
-exception when others then
-  return jsonb_build_object('ok', false, 'error', sqlerrm);
-end;
-$fn$;
-
--- ------------------------------------------------------------
 --  Verificacion
 -- ------------------------------------------------------------
--- a) Cuanta gente tiene ya cada dato guardado. Si alguna fila sale
---    en cero, es que nadie ha respondido esa pregunta todavia: el
---    bloque solo aparece al responder SI a "primera vez o renovacion".
-select pv.campo,
-       count(distinct regexp_replace(rg.cedula, '\D', '', 'g')) as personas_con_dato
-  from preguntas_del_vehiculo() pv
-  left join respuestas r2 on r2.pregunta_id = pv.id
-                         and coalesce(btrim(r2.valor), '') <> ''
-  left join registros  rg on rg.id = r2.registro_id
-                         and coalesce(rg.estado, '') <> 'ANULADO'
- group by pv.campo
- order by pv.campo;
-
--- b) El router ya la conoce.
-select case when prosrc like '%exportarDocumentacion%' then 'ARREGLADO'
+-- a) La funcion ya exige los 17.
+select case when prosrc like '%[A-Z0-9]{17}%' then 'ARREGLADA'
             else 'SIN ARREGLAR' end as estado
-  from pg_proc where proname = 'hseq_api';
+  from pg_proc where proname = 'api_exportable_documentacion';
 
--- c) Cuantos activos hay por linea y cuantos estan completos.
+-- b) Cuantos VIN guardados no cumplen, por linea. Estos son los que
+--    van a cambiar de SI a NO en el exportable.
 select c.linea,
-       count(*) as activos,
+       count(*) as con_vin,
        count(*) filter (
-         where coalesce(btrim(c.soat_url),'') <> ''
-           and coalesce(btrim(c.tecnomecanica_url),'') <> ''
-           and coalesce(btrim(c.licencia_url),'') <> ''
-       ) as con_los_tres_documentos
+         where upper(regexp_replace(x.valor, '[[:space:]-]', '', 'g')) !~ '^[A-Z0-9]{17}$'
+       ) as vin_incompleto
   from colaboradores c
+  join lateral (
+    select r.valor
+      from respuestas r
+      join registros rg on rg.id = r.registro_id
+     where r.pregunta_id = 'DOC_VIN'
+       and coalesce(btrim(coalesce(r.valor,'')), '') <> ''
+       and coalesce(rg.estado,'') <> 'ANULADO'
+       and regexp_replace(rg.cedula, '\D', '', 'g') = regexp_replace(c.cedula, '\D', '', 'g')
+     order by rg.fecha desc, rg.hora desc
+     limit 1) x on true
  where c.activo
  group by c.linea
  order by c.linea;
