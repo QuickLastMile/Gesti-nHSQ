@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=32">
+  <link rel="stylesheet" href="assets/styles.css?v=33">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/icono-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -97,8 +97,9 @@
         <div id="checklist" class="checklist"></div>
         <!-- No hay que esperar a que se venza: si ya tiene el documento
              nuevo en la mano, lo sube cuando quiera. -->
-        <button id="btnDocs" class="btn btn--ghost" type="button"
-                style="margin-top:14px;width:100%">Actualizar documentación</button>
+        <button id="btnDocs" class="btn-docs" type="button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Actualizar documentación</button>
       </div>
     </section>
 
@@ -130,6 +131,11 @@
           <p class="card__sub">Completa y guarda</p>
         </div>
         <span id="questionCount" class="counter">0</span>
+      </div>
+      <div class="form-docs">
+        <button id="btnDocsForm" class="btn-docs" type="button">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Actualizar documentación</button>
       </div>
       <div id="precargaAviso" class="precarga hidden"></div>
       <div id="questions" class="questions"></div>
@@ -189,6 +195,7 @@
     $('placa').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); guardarPlaca(); } });
     $('registroForm').addEventListener('submit', guardarRegistro);
     $('btnDocs').addEventListener('click', abrirDocs);
+    $('btnDocsForm').addEventListener('click', abrirDocs);
     $('docsVolver').addEventListener('click', cerrarDocs);
     $('docsGuardar').addEventListener('click', guardarDocs);
     $('descargar').addEventListener('click', () => descargarComprobante(state.ultimoComprobante));
@@ -1431,6 +1438,13 @@
       $('cardDocs').classList.add('hidden');
       $('docsStatus').className = 'status';
       $('cardChecklist').classList.remove('hidden');
+      // Si venia de un formulario a medio llenar, se vuelve a el.
+      if (state.currentForm && state.formData) {
+        $('registroForm').classList.remove('hidden');
+        $('bottombar').classList.remove('hidden');
+        $('registroForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
       $('cardChecklist').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 

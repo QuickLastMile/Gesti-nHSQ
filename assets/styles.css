@@ -869,3 +869,78 @@ input.fuera-de-rango {
   border-color: #e08b2e;
   background: #fffaf3;
 }
+
+/* ---------- Documentos: ficha plegada ----------
+   La lista puede traer trescientas personas; abierta de par en par no
+   se puede barrer. Se ve quien es, y se abre lo que se va a revisar. */
+.doc-ficha {
+  border: 1px solid var(--linea, #d8e0da);
+  border-radius: 14px;
+  background: #fff;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.doc-cab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.doc-cab:hover { background: #f4f8f5; }
+.doc-cab__txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.doc-cab__nombre { font-weight: 700; font-size: 15px; color: var(--titulo-color, #14301f); }
+.doc-cab__sub { font-size: 13px; color: var(--muted); }
+.doc-cab__chev {
+  flex: none; width: 22px; height: 22px; color: var(--muted);
+  transition: transform .15s ease;
+}
+.doc-cab__chev svg { width: 100%; height: 100%; }
+.doc-cab.abierta .doc-cab__chev { transform: rotate(180deg); }
+.doc-cuerpo { padding: 0 14px 14px; }
+.doc-cuerpo.hidden { display: none; }
+
+/* Los datos que escribe el mensajero, para revisarlos de un vistazo. */
+.doc-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.doc-dato {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 10px; border-radius: 10px; background: #f4f8f5;
+}
+.doc-dato__k { font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted); }
+.doc-dato__v { font-size: 14px; font-weight: 600; word-break: break-all; }
+.doc-dato__v--malo { color: var(--danger); }
+
+/* ---------- Actualizar documentacion ----------
+   Es una salida, no la accion principal de la pantalla: va discreta.
+   Aparece en el checklist y dentro del formulario, porque el momento
+   en que uno se acuerda del documento nuevo es cuando ya lo abrio. */
+.btn-docs {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--linea, #d8e0da);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--accent-dark, #14301f);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.btn-docs:hover { background: #f4f8f5; }
+.btn-docs svg { width: 15px; height: 15px; flex: none; }
+#btnDocs { margin-top: 12px; }
+.form-docs {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 16px 0;
+}

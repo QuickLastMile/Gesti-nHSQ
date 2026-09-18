@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=32">
+  <link rel="stylesheet" href="assets/styles.css?v=33">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -768,7 +768,10 @@
       if (clave === 'formularios' && !frmData) cargarFormulariosProyecto();
       if (clave === 'rangos' && !rngData) cargarRangos();
       if (clave === 'seguridad' && !segData) cargarSeguridad();
-      if (clave === 'documentos' && !docData) consultarDocumentos();
+      if (clave === 'documentos') {
+        if (!$('docProyLista').children.length) cargarProyectos();
+        if (!docData) consultarDocumentos();
+      }
       if ((clave === 'encargados' || clave === 'encargados-carga') && !encData) cargarEncargados();
     }
 
@@ -873,6 +876,14 @@
       $('docLista').innerHTML = '<div class="card"><div class="card__body">'
         + filas.map((f) => filaDocumento(f)).join('') + '</div></div>';
 
+      $('docLista').querySelectorAll('[data-abrir]').forEach((b) => {
+        b.addEventListener('click', () => {
+          const cuerpo = $('docLista').querySelector(`[data-cuerpo="${cssSel(b.dataset.abrir)}"]`);
+          if (!cuerpo) return;
+          const abierto = !cuerpo.classList.toggle('hidden');
+          b.classList.toggle('abierta', abierto);
+        });
+      });
       $('docLista').querySelectorAll('[data-ver]').forEach((b) =>
         b.addEventListener('click', () => verDoc(b.dataset.ver, b)));
       $('docLista').querySelectorAll('[data-rechazar]').forEach((b) =>
@@ -905,13 +916,47 @@
           </div>`;
       }).join('');
 
+      // Los datos que el mensajero escribio a mano. Se revisan aqui
+      // mismo: un VIN corto o un propietario en blanco se ve de una,
+      // sin tener que abrir el exportable.
+      const v = f.vehiculo || {};
+      const dato = (etiqueta, valor, malo) => `
+        <div class="doc-dato">
+          <span class="doc-dato__k">${esc(etiqueta)}</span>
+          <span class="doc-dato__v ${malo ? 'doc-dato__v--malo' : ''}">${valor ? esc(valor) : '\u2014 sin registrar'}</span>
+        </div>`;
+      const vehiculo = `
+        <p class="hint-inline" style="margin:12px 0 6px"><b>Datos del veh\u00edculo</b>
+           <span style="font-weight:400">\u00b7 los escribe el mensajero</span></p>
+        <div class="doc-datos">
+          ${dato('VIN', v.vin, f.vin_valido === false)}
+          ${dato('Marca', v.marca_vehiculo, !v.marca_vehiculo)}
+          ${dato('Cilindraje', v.cilindraje, !v.cilindraje)}
+          ${dato('Propietario', v.propietario_nombre, !v.propietario_nombre)}
+          ${dato('CC propietario', v.propietario_cedula, !v.propietario_cedula)}
+        </div>
+        ${f.vin_valido === false && v.vin
+          ? '<p class="hint-inline" style="margin:6px 0 0;color:var(--danger)">El VIN no tiene 17 caracteres. El sistema se lo va a volver a pedir.</p>'
+          : ''}`;
+
+      // Plegada: solo quien es. Se abre para revisar, para que la lista
+      // completa quepa en pantalla y se pueda barrer de un vistazo.
       return `
-        <div style="margin-bottom:16px">
-          <p class="card__title" style="margin-bottom:2px">${esc(f.nombre)}
-            ${f.bloquea ? '<span class="rowchip aviso">No puede registrar</span>' : ''}</p>
-          <p class="hint-inline" style="margin:0 0 6px">CC ${esc(f.cedula)} \u00b7 ${esc(f.proyecto)}
-            ${f.placa ? '\u00b7 ' + esc(f.placa) : ''}</p>
-          <div class="cmp-list">${cuerpo}</div>
+        <div class="doc-ficha">
+          <button type="button" class="doc-cab" data-abrir="${esc(f.cedula)}">
+            <span class="doc-cab__txt">
+              <span class="doc-cab__nombre">${esc(f.nombre)}
+                ${f.bloquea ? '<span class="rowchip aviso">No puede registrar</span>' : ''}</span>
+              <span class="doc-cab__sub">CC ${esc(f.cedula)} \u00b7 ${esc(f.proyecto)}${f.placa ? ' \u00b7 ' + esc(f.placa) : ''}</span>
+            </span>
+            <span class="doc-cab__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="doc-cuerpo hidden" data-cuerpo="${esc(f.cedula)}">
+            <div class="cmp-list">${cuerpo}</div>
+            ${vehiculo}
+          </div>
         </div>`;
     }
 
@@ -1044,6 +1089,10 @@
         const opciones = (proys || []).map((p) => `<option value="${esc(p.proyecto)}">${esc(p.proyecto)}</option>`).join('');
         $('filProyecto').innerHTML = '<option value="">Todos los proyectos</option>' + opciones;
         $('proyLista').innerHTML = opciones;
+        // El filtro de Documentos usa la misma lista: se puede elegir
+        // del desplegable o escribir a mano.
+        const doc = $('docProyLista');
+        if (doc) doc.innerHTML = opciones;
       } catch (e) { /* si falla, queda solo "Todos" */ }
     }
 
@@ -2392,6 +2441,11 @@
 
     function setStatus(id, msg, type) { const n = $(id); n.className = `status show status--${type}`; n.textContent = msg; }
     function clearStatus(id) { $(id).className = 'status'; }
+    // Para meter un valor dentro de un selector CSS sin romperlo.
+    function cssSel(v) {
+      return String(v == null ? '' : v).replace(/[^A-Za-z0-9_-]/g, '\\$&');
+    }
+
     function esc(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
   </script>
   <script src="assets/asistente.js?v=5"></script>
