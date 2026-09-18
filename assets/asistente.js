@@ -219,7 +219,7 @@
         if (!d.lineas.length) return 'No tengo la información de tus documentos en este momento.';
         var txt = 'Así van tus documentos:<br><br>' + d.lineas.join('<br>');
         if (d.urgentes) {
-          txt += '<br><br><b>Actualízalo cuanto antes.</b> Al abrir el preoperacional responde <b>SÍ</b> en la primera pregunta, adjunta el documento y escribe la nueva fecha de vencimiento.';
+          txt += '<br><br><b>Actualízalo cuanto antes.</b> En la pantalla de registro toca <b>Actualizar documentación</b>, adjunta el documento y escribe la nueva fecha. Si ya se venció, también te aparece solo al abrir el preoperacional.';
         } else {
           txt += '<br><br>Todo en orden. Yo te aviso cuando falten 15 días para algún vencimiento.';
         }
@@ -429,7 +429,7 @@
 
     { id: 'actualizar_doc', peso: 1.3,
       k: ['actualizar soat', 'actualizo el soat', 'como actualizo', 'actualizar el soat', 'renovar', 'renovacion', 'subir el soat', 'cambiar la fecha del soat', 'actualizar tecnomecanica', 'nuevo soat', 'como subo el documento', 'cargar documento'],
-      r: 'Lo hace el propio mensajero desde su registro:<br><br>1. Entra a <b>Registrar</b> y abre el <b>preoperacional</b><br>2. En la primera pregunta responde <b>SÍ</b> a «¿Es la primera inspección o realizó renovación?»<br>3. Se abre el bloque de documentos: adjunta el archivo y escribe la <b>nueva fecha de vencimiento</b><br>4. Guarda<br><br>La matriz se actualiza sola y el documento anterior se reemplaza.<br><br><b>Importante:</b> el SOAT y la tecnomecánica se adjuntan en <b>PDF</b>.',
+      r: 'Lo hace el propio mensajero desde su registro, sin esperar a que se venza:<br><br>1. Entra a <b>Registrar</b> y busca su cédula<br>2. Toca <b>Actualizar documentación</b><br>3. Adjunta el archivo y escribe la <b>nueva fecha de vencimiento</b>. Puede actualizar uno solo; los demás se quedan como están<br>4. Guarda<br><br>Si el documento ya está vencido, también le aparece solo al abrir el preoperacional, y ahí solo se le pide el vencido.<br><br>La matriz se actualiza sola y el documento anterior se reemplaza.<br><br><b>Importante:</b> el SOAT y la tecnomecánica se adjuntan en <b>PDF</b>; la licencia son dos fotos, frente y reverso.',
       c: ['¿Por qué solo PDF?', '¿Un vencido bloquea el registro?'] },
 
     { id: 'solo_pdf', peso: 1.2,
@@ -1017,7 +1017,7 @@
     if (!abierto) alternar();
     setTimeout(function () {
       decir('Antes de que sigas, revisa esto:<br><br>' + d.lineas.join('<br>') +
-        '<br><br>Al abrir el <b>preoperacional</b>, responde <b>SÍ</b> en la primera pregunta para adjuntar el documento al día y su nueva fecha.');
+        '<br><br>Toca <b>Actualizar documentación</b> en la pantalla de registro y adjunta el documento al día con su nueva fecha.');
       chips(['¿Cómo actualizo el SOAT?', '¿Puedo trabajar así?', 'Gracias']);
     }, 700);
   }
