@@ -354,17 +354,55 @@
 
   // Cuando lo unico que falta es corregir el VIN. No se repite el bloque
   // entero de datos del vehiculo: lo demas ya esta bien.
-  const SOLO_VIN = [
-    { id_pregunta: 'DOC_INFO_VIN', orden: 0, seccion: 'Documentación del vehículo',
-      pregunta: 'Necesitamos corregir el VIN de tu vehículo', tipo_respuesta: 'info', obligatorio: 'NO',
-      ayuda: 'El VIN que tenemos guardado está incompleto, así que no identifica tu vehículo.\n'
-           + 'Búscalo en el SOAT, que es donde se lee más claro, y escríbelo completo abajo. '
-           + 'Son 17 caracteres entre letras y números.\n'
-           + 'Es una sola vez: al guardarlo bien, no te lo volvemos a pedir.' },
-    { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo',
-      pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI',
-      ayuda: 'Son 17 caracteres entre letras y números. Búscalo en el SOAT. Puedes escribirlo con espacios o guiones: se limpian solos.' },
-  ];
+  // Un dato del vehiculo se vuelve a pedir por tres razones: falta, no
+  // sirve (un VIN de 6 digitos) o HSEQ lo devolvio para corregir. Cada
+  // una se explica distinto, porque para el mensajero son cosas distintas.
+  const CAMPO_PREGUNTA = {
+    vin:                { id: 'DOC_VIN',             pregunta: 'VIN (Número de Identificación Vehicular)', tipo: 'texto',
+                          ayuda: 'Son 17 caracteres entre letras y números. Búscalo en el SOAT, que es donde se lee más claro. Puedes escribirlo con espacios o guiones: se limpian solos.' },
+    marca_vehiculo:     { id: 'DOC_MARCA_VEHICULO',  pregunta: 'Marca del vehículo', tipo: 'texto',
+                          ayuda: 'Como aparece en la licencia de tránsito. Ejemplo: BAJAJ, YAMAHA, AKT.' },
+    cilindraje:         { id: 'DOC_CILINDRAJE',      pregunta: 'Cilindraje (CC)', tipo: 'numero',
+                          ayuda: 'Solo el número, sin la sigla CC. Ejemplo: 125.' },
+    propietario_nombre: { id: 'DOC_PROP_NOMBRE',     pregunta: 'Nombre del propietario del vehículo', tipo: 'texto',
+                          ayuda: 'Quien figura como dueño en la licencia de tránsito. Puede no ser tu nombre.' },
+    propietario_cedula: { id: 'DOC_PROP_CEDULA',     pregunta: 'Cédula del propietario del vehículo', tipo: 'numero',
+                          ayuda: 'La del propietario que escribiste arriba.' },
+  };
+
+  function bloqueDatos(estado) {
+    const pend = (estado && estado.datos_pendientes) || [];
+    const datos = (estado && estado.datos) || {};
+    if (!pend.length) return [];
+
+    const devueltos = pend.filter((k) => datos[k] && datos[k].rechazado);
+    const otros = pend.filter((k) => !(datos[k] && datos[k].rechazado));
+
+    let titulo, ayuda;
+    if (devueltos.length) {
+      titulo = 'HSEQ te devolvió un dato para corregir';
+      ayuda = devueltos.map((k) => '• ' + (datos[k].etiqueta || k) + ': '
+        + (datos[k].motivo || 'revísalo con HSEQ')).join('\n')
+        + '\nCorrígelo abajo y guarda. Tiene que quedar distinto a lo que había.';
+      if (otros.length) ayuda += '\nDe paso completa lo demás que te pedimos.';
+    } else {
+      titulo = 'Necesitamos un dato de tu vehículo';
+      ayuda = 'Esto se pregunta una sola vez: al guardarlo bien no te lo volvemos a pedir.\n'
+            + 'El VIN búscalo en el SOAT, que es donde se lee más claro.';
+    }
+
+    const salida = [{ id_pregunta: 'DOC_INFO_DATOS', orden: 0, seccion: 'Documentación del vehículo',
+                      pregunta: titulo, tipo_respuesta: 'info', obligatorio: 'NO', ayuda: ayuda }];
+    pend.forEach((k) => {
+      const c = CAMPO_PREGUNTA[k];
+      if (!c) return;
+      const d = datos[k] || {};
+      salida.push({ id_pregunta: c.id, orden: 0, seccion: 'Documentación del vehículo',
+        pregunta: c.pregunta + (d.rechazado ? ' · corregir' : ''),
+        tipo_respuesta: c.tipo, obligatorio: 'SI', ayuda: c.ayuda });
+    });
+    return salida;
+  }
 
   const AYUDA_EXIGE = {
     falta:     'Todavía no lo tenemos. Adjúntalo para poder registrar.',
@@ -424,11 +462,11 @@
       .every((k) => !(docs[k] && String(docs[k].url || '').trim()));
     if (pendientes.length && primeraVez) {
       DATOS_VEHICULO.forEach((q) => bloque.push(q));
-    } else if (estado.pide_vin) {
-      // Ya tiene documentos, pero el VIN guardado no sirve. Se pide solo
-      // ese: repetirle marca, cilindraje y propietario seria castigarlo
-      // por un dato que si esta bien.
-      SOLO_VIN.forEach((q) => bloque.push(q));
+    } else {
+      // Ya tiene documentos: se le piden solo los datos pendientes, no el
+      // bloque entero. Repetirle lo que esta bien seria castigarlo por un
+      // dato que no es el que falla.
+      bloqueDatos(estado).forEach((q) => bloque.push(q));
     }
 
     // Las fechas de los documentos que NO se estan pidiendo se dejan
@@ -648,7 +686,10 @@
     for (const a of (payload.archivos || [])) {
       evidencias.push(await subirEvidencia(a, payload.cedula, 'DOCUMENTOS'));
     }
-    return { cedula: payload.cedula, evidencias, fechas: payload.fechas || {} };
+    // El vehiculo viaja tal cual: sin esto los datos escritos no llegaban
+    // al servidor y el panel parecia guardar sin guardar nada.
+    return { cedula: payload.cedula, evidencias,
+             fechas: payload.fechas || {}, vehiculo: payload.vehiculo || {} };
   }
 
   // Sesión anónima: Storage necesita un token de usuario (no solo la llave anon)

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=33">
+  <link rel="stylesheet" href="assets/styles.css?v=34">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -890,6 +890,10 @@
         b.addEventListener('click', () => rechazarDoc(b.dataset.rechazar, b.dataset.doc, b.dataset.nombre)));
       $('docLista').querySelectorAll('[data-levantar]').forEach((b) =>
         b.addEventListener('click', () => levantarDoc(b.dataset.levantar, b.dataset.doc)));
+      $('docLista').querySelectorAll('[data-rechdato]').forEach((b) =>
+        b.addEventListener('click', () => rechazarDato(b.dataset.rechdato, b.dataset.campo, b.dataset.etq)));
+      $('docLista').querySelectorAll('[data-levdato]').forEach((b) =>
+        b.addEventListener('click', () => levantarDato(b.dataset.levdato, b.dataset.campo)));
     }
 
     function filaDocumento(f) {
@@ -920,23 +924,37 @@
       // mismo: un VIN corto o un propietario en blanco se ve de una,
       // sin tener que abrir el exportable.
       const v = f.vehiculo || {};
-      const dato = (etiqueta, valor, malo) => `
+      const est = f.datos || {};
+      const CAMPOS = [
+        ['vin', 'VIN'], ['marca_vehiculo', 'Marca'], ['cilindraje', 'Cilindraje'],
+        ['propietario_nombre', 'Propietario'], ['propietario_cedula', 'CC propietario'],
+      ];
+      // Un dato se devuelve igual que un documento: con motivo, y al
+      // mensajero se le vuelve a pedir en su proximo registro.
+      const dato = (campo, etiqueta) => {
+        const d = est[campo] || {};
+        const valor = v[campo];
+        const malo = d.rechazado || d.valido === false || !valor;
+        const boton = d.rechazado
+          ? `<button type="button" class="btn btn--ghost doc-dato__btn"
+                data-levdato="${esc(f.cedula)}" data-campo="${campo}">Quitar correcci\u00f3n</button>`
+          : `<button type="button" class="btn btn--ghost doc-dato__btn"
+                data-rechdato="${esc(f.cedula)}" data-campo="${campo}"
+                data-etq="${esc(etiqueta)}">Pedir correcci\u00f3n</button>`;
+        return `
         <div class="doc-dato">
           <span class="doc-dato__k">${esc(etiqueta)}</span>
           <span class="doc-dato__v ${malo ? 'doc-dato__v--malo' : ''}">${valor ? esc(valor) : '\u2014 sin registrar'}</span>
+          ${d.rechazado ? `<span class="doc-dato__motivo">\u21a9\ufe0f Devuelto: ${esc(d.motivo || '')}</span>` : ''}
+          ${boton}
         </div>`;
+      };
       const vehiculo = `
         <p class="hint-inline" style="margin:12px 0 6px"><b>Datos del veh\u00edculo</b>
            <span style="font-weight:400">\u00b7 los escribe el mensajero</span></p>
-        <div class="doc-datos">
-          ${dato('VIN', v.vin, f.vin_valido === false)}
-          ${dato('Marca', v.marca_vehiculo, !v.marca_vehiculo)}
-          ${dato('Cilindraje', v.cilindraje, !v.cilindraje)}
-          ${dato('Propietario', v.propietario_nombre, !v.propietario_nombre)}
-          ${dato('CC propietario', v.propietario_cedula, !v.propietario_cedula)}
-        </div>
+        <div class="doc-datos">${CAMPOS.map((c) => dato(c[0], c[1])).join('')}</div>
         ${f.vin_valido === false && v.vin
-          ? '<p class="hint-inline" style="margin:6px 0 0;color:var(--danger)">El VIN no tiene 17 caracteres. El sistema se lo va a volver a pedir.</p>'
+          ? '<p class="hint-inline" style="margin:6px 0 0;color:var(--danger)">El VIN no tiene 17 caracteres. El sistema se lo va a volver a pedir solo.</p>'
           : ''}`;
 
       // Plegada: solo quien es. Se abre para revisar, para que la lista
@@ -958,6 +976,37 @@
             ${vehiculo}
           </div>
         </div>`;
+    }
+
+    /* ---------- devolver un dato escrito ----------
+       El documento se rechaza porque la foto esta mal; el dato, porque lo
+       escribieron mal. Es el mismo ciclo: se devuelve con motivo, se le
+       vuelve a pedir, y al corregirlo se levanta solo. */
+    async function rechazarDato(cedula, campo, etiqueta) {
+      const motivo = prompt('\u00bfPor qu\u00e9 se devuelve ' + etiqueta + '?\n\n'
+        + 'El mensajero va a leer este texto cuando se lo pidan otra vez.\n'
+        + 'Ejemplo: "no corresponde a la placa registrada" o "faltan d\u00edgitos".');
+      if (motivo === null) return;
+      if (motivo.trim().length < 5) {
+        return setStatus('docStatus', 'Escribe un motivo: el mensajero lo va a leer.', 'error');
+      }
+      setStatus('docStatus', 'Devolviendo\u2026', 'info');
+      try {
+        const r = await adminCall('rechazarDato', { cedula, campo, motivo: motivo.trim() });
+        setStatus('docStatus', '\u2713 ' + r.campo + ' devuelto. Se lo vamos a pedir en su pr\u00f3ximo registro.', 'ok');
+        docData = null;
+        consultarDocumentos();
+      } catch (e) { setStatus('docStatus', e.message, 'error'); }
+    }
+
+    async function levantarDato(cedula, campo) {
+      setStatus('docStatus', 'Quitando\u2026', 'info');
+      try {
+        await adminCall('levantarRechazoDato', { cedula, campo });
+        setStatus('docStatus', '\u2713 Listo, ya no se lo vamos a pedir.', 'ok');
+        docData = null;
+        consultarDocumentos();
+      } catch (e) { setStatus('docStatus', e.message, 'error'); }
     }
 
     async function rechazarDoc(cedula, doc, label) {

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=33">
+  <link rel="stylesheet" href="assets/styles.css?v=34">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/icono-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -181,7 +181,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=47"></script>
+  <script src="assets/api.js?v=48"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -231,6 +231,9 @@
       // Los datos del vehiculo se piden una sola vez; se guardan aqui
       // para poder precargarlos y no volver a preguntarlos.
       state.vehiculo = (resp.documentosEstado && resp.documentosEstado.vehiculo) || {};
+      // Que datos hay que corregir y por que se lo estan pidiendo.
+      state.datos = (resp.documentosEstado && resp.documentosEstado.datos) || {};
+      state.datosPendientes = (resp.documentosEstado && resp.documentosEstado.datos_pendientes) || [];
       pintarPersona();
       // EVA avisa si algún documento está vencido o próximo a vencer.
       document.dispatchEvent(new CustomEvent('hseq:persona'));
@@ -1479,6 +1482,9 @@
     ];
 
     function vehiculoCompleto() {
+      // Si HSEQ devolvio algo para corregir, el bloque no esta completo
+      // por mas que todos los campos tengan algo escrito.
+      if ((state.datosPendientes || []).length) return false;
       const v = state.vehiculo || {};
       const vin = String(v.vin || '').toUpperCase().replace(/[\s-]/g, '');
       if (!/^[A-Z0-9]{17}$/.test(vin)) return false;
@@ -1488,12 +1494,21 @@
     function pintarVehiculo() {
       const v = state.vehiculo || {};
       const completo = vehiculoCompleto();
-      const campos = CAMPOS_VEHICULO.map((c) => `
+      const estado = state.datos || {};
+      const campos = CAMPOS_VEHICULO.map((c) => {
+        const d = estado[c.k] || {};
+        // Lo devuelto va marcado y con el motivo: sin saber que estuvo mal
+        // el mensajero vuelve a escribir lo mismo.
+        const aviso = d.rechazado
+          ? `<span class="auto-tag auto-tag--err">↩️ HSEQ te lo devolvió: ${escapeHtml(d.motivo || 'revísalo con HSEQ')}</span>`
+          : `<span class="auto-tag">${escapeHtml(c.ayuda)}</span>`;
+        return `
         <div class="field" style="margin-top:10px">
           <span class="label">${escapeHtml(c.etiqueta)}</span>
-          <input type="${c.tipo}" data-veh="${c.k}" value="${escapeHtml(v[c.k] || '')}"${c.modo ? ` inputmode="${c.modo}"` : ''}>
-          <span class="auto-tag">${escapeHtml(c.ayuda)}</span>
-        </div>`).join('');
+          <input type="${c.tipo}" data-veh="${c.k}" value="${escapeHtml(v[c.k] || '')}"${c.modo ? ` inputmode="${c.modo}"` : ''}${d.rechazado ? ' class="fuera-de-rango"' : ''}>
+          ${aviso}
+        </div>`;
+      }).join('');
 
       // Si ya estan todos, el bloque va cerrado: no tiene sentido hacerle
       // leer cinco campos llenos a quien solo viene a subir un PDF.
@@ -1506,7 +1521,10 @@
                <button id="vehEditar" class="btn btn--ghost" type="button"
                        style="min-height:36px;margin-top:10px">Corregir estos datos</button>
                <div id="vehCampos" class="hidden">${campos}</div>`
-            : `<span class="auto-tag auto-tag--err">Faltan datos · se piden una sola vez</span>
+            : `<span class="auto-tag auto-tag--err">${
+                 (state.datosPendientes || []).some((k) => (state.datos || {})[k] && state.datos[k].rechazado)
+                   ? '↩️ HSEQ te devolvió un dato para corregir'
+                   : 'Faltan datos · se piden una sola vez'}</span>
                <div id="vehCampos">${campos}</div>`}
         </div>`;
     }
@@ -1622,6 +1640,8 @@
         const est = resp.documentosEstado || {};
         state.documentos = est.documentos || state.documentos;
         state.vehiculo = est.vehiculo || state.vehiculo;
+        state.datos = est.datos || {};
+        state.datosPendientes = est.datos_pendientes || [];
         if (state.formData) {
           state.formData.documentosEstado = est;
           state.formData = null;      // el formulario se recarga con lo nuevo
