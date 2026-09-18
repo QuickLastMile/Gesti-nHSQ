@@ -346,6 +346,20 @@
     { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo', pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI', ayuda: 'Son 17 caracteres entre letras y números. Búscalo en el SOAT, que es donde se lee más claro; también está en la licencia de tránsito. Puedes escribirlo con espacios o guiones: se limpian solos.' },
   ];
 
+  // Cuando lo unico que falta es corregir el VIN. No se repite el bloque
+  // entero de datos del vehiculo: lo demas ya esta bien.
+  const SOLO_VIN = [
+    { id_pregunta: 'DOC_INFO_VIN', orden: 0, seccion: 'Documentación del vehículo',
+      pregunta: 'Necesitamos corregir el VIN de tu vehículo', tipo_respuesta: 'info', obligatorio: 'NO',
+      ayuda: 'El VIN que tenemos guardado está incompleto, así que no identifica tu vehículo.\n'
+           + 'Búscalo en el SOAT, que es donde se lee más claro, y escríbelo completo abajo. '
+           + 'Son 17 caracteres entre letras y números.\n'
+           + 'Es una sola vez: al guardarlo bien, no te lo volvemos a pedir.' },
+    { id_pregunta: 'DOC_VIN', orden: 0, seccion: 'Documentación del vehículo',
+      pregunta: 'VIN (Número de Identificación Vehicular)', tipo_respuesta: 'texto', obligatorio: 'SI',
+      ayuda: 'Son 17 caracteres entre letras y números. Búscalo en el SOAT. Puedes escribirlo con espacios o guiones: se limpian solos.' },
+  ];
+
   const AYUDA_EXIGE = {
     falta:     'Todavía no lo tenemos. Adjúntalo para poder registrar.',
     vencido:   'Está vencido. Adjunta el documento renovado.',
@@ -402,7 +416,14 @@
     // los datos del vehiculo.
     const primeraVez = Object.keys(DOC_PREGUNTA)
       .every((k) => !(docs[k] && String(docs[k].url || '').trim()));
-    if (pendientes.length && primeraVez) DATOS_VEHICULO.forEach((q) => bloque.push(q));
+    if (pendientes.length && primeraVez) {
+      DATOS_VEHICULO.forEach((q) => bloque.push(q));
+    } else if (estado.pide_vin) {
+      // Ya tiene documentos, pero el VIN guardado no sirve. Se pide solo
+      // ese: repetirle marca, cilindraje y propietario seria castigarlo
+      // por un dato que si esta bien.
+      SOLO_VIN.forEach((q) => bloque.push(q));
+    }
 
     // Las fechas de los documentos que NO se estan pidiendo se dejan
     // igual que siempre: se pintan bloqueadas con lo que ya hay.

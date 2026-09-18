@@ -152,7 +152,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=42"></script>
+  <script src="assets/api.js?v=43"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -843,7 +843,7 @@
           if (campo) { campo.value = vin; campo.focus(); campo.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
           return showStatus(
             'El VIN son 17 caracteres entre letras y números. Escribiste ' + vin.length
-            + '. Revísalo en la licencia de tránsito.', 'error');
+            + '. Búscalo en el SOAT, que es donde se lee más claro.', 'error');
         }
       }
 
