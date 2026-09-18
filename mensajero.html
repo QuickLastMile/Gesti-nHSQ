@@ -175,7 +175,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=45"></script>
+  <script src="assets/api.js?v=46"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -221,6 +221,9 @@
       state.formularios = resp.formulariosRequeridos || [];
       state.estado = resp.estadoDiario || {};
       state.documentos = resp.documentos || {};
+      // Los datos del vehiculo se piden una sola vez; se guardan aqui
+      // para poder precargarlos y no volver a preguntarlos.
+      state.vehiculo = (resp.documentosEstado && resp.documentosEstado.vehiculo) || {};
       pintarPersona();
       // EVA avisa si algún documento está vencido o próximo a vencer.
       document.dispatchEvent(new CustomEvent('hseq:persona'));
@@ -1382,8 +1385,57 @@
       $('cardChecklist').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // Los mismos datos que se piden en el primer registro. Aqui van
+    // precargados: quien solo viene a cambiar el SOAT no tiene que
+    // volver a escribirlos, y quien nunca los dio los da ahora.
+    const CAMPOS_VEHICULO = [
+      { k: 'vin', etiqueta: 'VIN (Número de Identificación Vehicular)', tipo: 'text',
+        ayuda: 'Son 17 caracteres entre letras y números. Búscalo en el SOAT, que es donde se lee más claro.' },
+      { k: 'marca_vehiculo', etiqueta: 'Marca del vehículo', tipo: 'text',
+        ayuda: 'Como aparece en la licencia de tránsito. Ejemplo: BAJAJ, YAMAHA, AKT.' },
+      { k: 'cilindraje', etiqueta: 'Cilindraje (CC)', tipo: 'number',
+        ayuda: 'Solo el número, sin la sigla CC. Ejemplo: 125.' },
+      { k: 'propietario_nombre', etiqueta: 'Nombre del propietario', tipo: 'text',
+        ayuda: 'Quien figura como dueño en la licencia de tránsito. Puede no ser tu nombre.' },
+      { k: 'propietario_cedula', etiqueta: 'Cédula del propietario', tipo: 'number',
+        ayuda: 'La del propietario que escribiste arriba.' },
+    ];
+
+    function vehiculoCompleto() {
+      const v = state.vehiculo || {};
+      const vin = String(v.vin || '').toUpperCase().replace(/[\s-]/g, '');
+      if (!/^[A-Z0-9]{17}$/.test(vin)) return false;
+      return CAMPOS_VEHICULO.every((c) => String(v[c.k] || '').trim() !== '');
+    }
+
+    function pintarVehiculo() {
+      const v = state.vehiculo || {};
+      const completo = vehiculoCompleto();
+      const campos = CAMPOS_VEHICULO.map((c) => `
+        <div class="field" style="margin-top:10px">
+          <span class="label">${escapeHtml(c.etiqueta)}</span>
+          <input type="${c.tipo}" data-veh="${c.k}" value="${escapeHtml(v[c.k] || '')}">
+          <span class="auto-tag">${escapeHtml(c.ayuda)}</span>
+        </div>`).join('');
+
+      // Si ya estan todos, el bloque va cerrado: no tiene sentido hacerle
+      // leer cinco campos llenos a quien solo viene a subir un PDF.
+      return `
+        <div style="border:1px solid var(--linea,#d8e0da);border-radius:12px;padding:12px;margin-bottom:12px">
+          <p style="margin:0 0 4px"><b>Datos del vehículo</b></p>
+          ${completo
+            ? `<span class="auto-tag">✓ Ya registrados · ${escapeHtml(String(v.marca_vehiculo || ''))}
+                 ${escapeHtml(String(v.cilindraje || ''))}cc · VIN ${escapeHtml(String(v.vin || ''))}</span>
+               <button id="vehEditar" class="btn btn--ghost" type="button"
+                       style="min-height:36px;margin-top:10px">Corregir estos datos</button>
+               <div id="vehCampos" class="hidden">${campos}</div>`
+            : `<span class="auto-tag auto-tag--err">Faltan datos · se piden una sola vez</span>
+               <div id="vehCampos">${campos}</div>`}
+        </div>`;
+    }
+
     function pintarDocs() {
-      $('docsLista').innerHTML = DOCS_PANEL.map((d) => {
+      $('docsLista').innerHTML = pintarVehiculo() + DOCS_PANEL.map((d) => {
         const info = (state.documentos && state.documentos[d.k]) || {};
         const [texto, tono] = estadoDocPanel(info);
         // El SOAT y la tecnomecanica son el PDF que entregan al expedirlos.
@@ -1404,6 +1456,14 @@
             </div>
           </div>`;
       }).join('');
+
+      const editar = $('docsLista').querySelector('#vehEditar');
+      if (editar) {
+        editar.addEventListener('click', () => {
+          $('docsLista').querySelector('#vehCampos').classList.remove('hidden');
+          editar.remove();
+        });
+      }
     }
 
     async function guardarDocs() {
@@ -1438,20 +1498,44 @@
         }
       }
 
-      if (!archivos.length) {
-        return setDocsStatus('No adjuntaste ningún documento. Elige al menos uno.', 'error');
+      // Los datos del vehiculo van siempre: si el bloque esta cerrado
+      // se mandan tal como estaban, y el servidor no los toca.
+      const vehiculo = {};
+      CAMPOS_VEHICULO.forEach((c) => {
+        const n = $('docsLista').querySelector(`[data-veh="${c.k}"]`);
+        vehiculo[c.k] = n ? String(n.value || '').trim() : '';
+      });
+      const vin = String(vehiculo.vin || '').toUpperCase().replace(/[\s-]/g, '');
+      vehiculo.vin = vin;
+      if (vin && !/^[A-Z0-9]{17}$/.test(vin)) {
+        const n = $('docsLista').querySelector('[data-veh="vin"]');
+        if (n) { n.value = vin; n.focus(); n.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        return setDocsStatus('El VIN son 17 caracteres entre letras y números. Escribiste '
+          + vin.length + '. Búscalo en el SOAT, que es donde se lee más claro.', 'error');
+      }
+      const faltan = CAMPOS_VEHICULO.filter((c) => !vehiculo[c.k]).map((c) => c.etiqueta);
+      if (faltan.length) {
+        const campos = $('docsLista').querySelector('#vehCampos');
+        if (campos) campos.classList.remove('hidden');
+        return setDocsStatus('Faltan datos del vehículo: ' + faltan.join(' · ')
+          + '. Se piden una sola vez.', 'error');
+      }
+
+      if (!archivos.length && !cambioElVehiculo(vehiculo)) {
+        return setDocsStatus('No adjuntaste ningún documento ni cambiaste ningún dato.', 'error');
       }
 
       setLoading($('docsGuardar'), true);
       setDocsStatus('Subiendo documentos…', 'info');
       try {
         const resp = await HSQ_API.call('actualizarDocumentos', {
-          cedula: state.persona.cedula, archivos, fechas,
+          cedula: state.persona.cedula, archivos, fechas, vehiculo,
         });
         // El servidor devuelve el estado nuevo: la pantalla se repinta con
         // el, sin volver a preguntar.
         const est = resp.documentosEstado || {};
         state.documentos = est.documentos || state.documentos;
+        state.vehiculo = est.vehiculo || state.vehiculo;
         if (state.formData) {
           state.formData.documentosEstado = est;
           state.formData = null;      // el formulario se recarga con lo nuevo
@@ -1460,13 +1544,24 @@
         }
         pintarDocs();
         document.dispatchEvent(new CustomEvent('hseq:persona'));
-        setDocsStatus('✓ Listo. Actualizaste ' + resp.actualizados
-          + (resp.actualizados === 1 ? ' documento.' : ' documentos.'), 'ok');
+        // Puede haber guardado solo datos del vehiculo, sin documento.
+        setDocsStatus(resp.actualizados
+          ? '✓ Listo. Actualizaste ' + resp.actualizados
+            + (resp.actualizados === 1 ? ' documento.' : ' documentos.')
+          : '✓ Listo. Guardamos los datos de tu vehículo.', 'ok');
       } catch (err) {
         setDocsStatus(err.message, 'error');
       } finally {
         setLoading($('docsGuardar'), false);
       }
+    }
+
+    // Solo datos del vehiculo, sin documento nuevo, es un guardado
+    // valido: puede estar corrigiendo un VIN mal escrito.
+    function cambioElVehiculo(v) {
+      const antes = state.vehiculo || {};
+      return CAMPOS_VEHICULO.some((c) =>
+        String(v[c.k] || '').trim() !== String(antes[c.k] || '').trim());
     }
 
     function setDocsStatus(mensaje, tipo) {
