@@ -357,7 +357,66 @@
   }
 
   // Pide los datos a la base y arma el CSV en el navegador (sin Drive).
+  // Clave que la pantalla pone en el desplegable de formularios para
+  // pedir la documentacion en vez de las respuestas de un formulario.
+  const DOCUMENTACION = '__DOCUMENTACION__';
+
+  // Una fila por colaborador activo, con su documentacion. No lleva
+  // fechas: es el estado de hoy, no un historico.
+  async function exportableDocumentacion(filtros) {
+    const p = {
+      proyecto: (filtros.proyectos && filtros.proyectos[0]) || filtros.proyecto || '',
+      cedula: filtros.cedula || '',
+    };
+    const r = await rpc('exportarDocumentacion', p);
+    // Los enlaces vienen como 'evidencias', asi que se firman con el
+    // mismo camino del exportable normal.
+    const sinFirmar = await firmarEvidenciasExportable(r.filas || []);
+
+    const cols = [
+      ['cedula', 'Cedula'], ['nombre', 'Nombre'], ['cargo', 'Cargo'], ['tipo', 'Tipo'],
+      ['proyecto_id', 'Codigo proyecto'], ['proyecto', 'Proyecto'], ['ciudad', 'Ciudad'],
+      ['linea', 'Linea'], ['jefatura', 'Jefatura'], ['lider', 'Lider'], ['coordinador', 'Coordinador'],
+      ['placa_registrada', 'Placa registrada'], ['tipo_vehiculo', 'Tipo de vehiculo'],
+      ['marca_vehiculo', 'Marca del vehiculo'], ['cilindraje', 'Cilindraje'],
+      ['propietario_nombre', 'Propietario - nombre'], ['propietario_cedula', 'Propietario - cedula'],
+      ['vin', 'VIN'],
+      ['soat_vence', 'SOAT vence'], ['soat_adjunto', 'SOAT adjunto'],
+      ['tecnomecanica_vence', 'Tecnomecanica vence'], ['tecnomecanica_adjunta', 'Tecnomecanica adjunta'],
+      ['licencia_vence', 'Licencia vence'], ['licencia_adjunta', 'Licencia adjunta'],
+      ['documentacion_completa', 'Documentacion completa'],
+      ['datos_vehiculo_completos', 'Datos del vehiculo completos'],
+      ['estado_documental', 'Estado documental'],
+      ['documentos_cargados_el', 'Documentos cargados el'],
+      ['ultima_actualizacion', 'Ultima actualizacion'],
+    ];
+    const evIds = ['SOAT', 'TECNOMECANICA', 'LICENCIA'];
+    const encabezados = cols.map((c) => c[1]).concat(evIds.map((id) => 'Enlace ' + id));
+
+    const esc = (v) => '"' + String(v === null || v === undefined ? '' : v).replace(/"/g, '""') + '"';
+    const lineas = [encabezados.map(esc).join(';')];
+    (r.filas || []).forEach((f) => {
+      lineas.push(cols.map((c) => f[c[0]])
+        .concat(evIds.map((id) => (f.evidencias || {})[id] || ''))
+        .map(esc).join(';'));
+    });
+
+    const csv = '\ufeffsep=;\r\n' + lineas.join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '').slice(0, 15);
+    const sufijo = (p.cedula ? '_CC' + p.cedula : '');
+    return {
+      ok: true, filas: r.total || 0, columnas: encabezados.length,
+      evidenciasSinFirmar: sinFirmar || 0,
+      nombre: 'Documentacion' + sufijo + '_' + stamp + '.csv',
+      url: url, downloadUrl: url, esArchivoLocal: true,
+    };
+  }
+
   async function exportableSupabase(filtros) {
+    // La documentacion no es un formulario: sale por otro camino.
+    const cual = (filtros.formularios && filtros.formularios[0]) || filtros.formulario || '';
+    if (cual === DOCUMENTACION) return exportableDocumentacion(filtros);
     const p = {
       formulario: (filtros.formularios && filtros.formularios[0]) || filtros.formulario || '',
       fechaInicio: filtros.fechaInicio,
@@ -802,5 +861,6 @@
     fijarLinea,
     ojoClave,
     pedirRestablecer,
+    DOCUMENTACION,
   };
 })();

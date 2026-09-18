@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/styles.css?v=28">
+  <link rel="stylesheet" href="assets/styles.css?v=29">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -150,6 +150,11 @@
             Genera un archivo CSV con los registros del formulario y rango seleccionados,
             listo para descargar y abrir en Excel.
           </p>
+          <p id="avisoDocumentacion" class="hint-inline hidden" style="margin-top:0">
+            <b>Documentación:</b> un renglón por colaborador activo de la línea, con sus datos,
+            los del vehículo y el estado de sus documentos. Es la foto de hoy, no un histórico:
+            por eso no pide fechas. Puedes acotarla por proyecto o por cédula.
+          </p>
           <div id="result" class="hidden" style="margin:16px 0"></div>
           <button id="exportar" class="btn btn--primary btn--block" type="button">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -230,10 +235,11 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=36"></script>
+  <script src="assets/api.js?v=37"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
+    let esCuentaGeneral = false;
 
     /* ---------- Acceso coordinador ---------- */
     (function gate() {
@@ -292,6 +298,7 @@
 
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
     $('exportar').addEventListener('click', generarExportable);
+    $('filtroFormulario').addEventListener('change', ajustarFiltrosExportar);
     $('btnCumplimiento').addEventListener('click', consultarCumplimiento);
     // Los datos del dia ya estan aqui: cambiar de ciudad no vuelve a
     // pedirlos, solo repinta.
@@ -326,6 +333,9 @@
         const listaExport = data.formularios_detalle || data.formularios || [];
         $('filtroFormulario').innerHTML = listaExport.map((f) =>
           `<option value="${escapeHtml(f.id_formulario)}">${escapeHtml(f.nombre_formulario)}</option>`).join('');
+        // El desplegable se acaba de rellenar: si ya se sabe que la cuenta
+        // es general, se le vuelve a poner la opcion.
+        agregarOpcionDocumentacion();
         proyectosMap = {};
         $('proyDatalist').innerHTML = (data.proyectos || []).map((p) => {
           proyectosMap[String(p.proyecto).toLowerCase()] = p.proyecto_id;
@@ -340,7 +350,13 @@
       // El acceso a configuracion solo existe para quien puede entrar:
       // si no es ADMIN/HSEQ, el boton ni se muestra.
       HSQ_API.montarSelectorLinea('lineaBox', () => location.reload())
-        .then((info) => { if (info && info.admin) $('btnConfig').classList.remove('hidden'); })
+        .then((info) => {
+          if (info && info.admin) $('btnConfig').classList.remove('hidden');
+          if (info && info.general) {
+            esCuentaGeneral = true;
+            agregarOpcionDocumentacion();
+          }
+        })
         .catch(() => { /* sin sesion todavia */ });
     }
 
@@ -673,9 +689,59 @@
       return id ? [String(id)] : [txt]; // si no coincide exacto, se envía el texto tal cual
     }
 
+    // La documentacion no es un formulario, pero se pide desde el mismo
+    // sitio. Solo la cuenta general la ve; la base tambien lo exige, asi
+    // que esto ordena la vista, no protege el dato.
+    //
+    // Se llama desde dos lados porque no hay forma de saber cual termina
+    // primero: la consulta del bootstrap o la del perfil de la cuenta.
+    function agregarOpcionDocumentacion() {
+      if (!esCuentaGeneral) return;
+      const sel = $('filtroFormulario');
+      if (!sel || sel.querySelector(`[value="${HSQ_API.DOCUMENTACION}"]`)) return;
+      const op = document.createElement('option');
+      op.value = HSQ_API.DOCUMENTACION;
+      op.textContent = 'Documentación de colaboradores';
+      sel.appendChild(op);
+    }
+
+    // La documentacion es una foto de hoy: no tiene rango de fechas ni
+    // filtros de formulario. Se apagan para no prometer lo que no hace.
+    function ajustarFiltrosExportar() {
+      const doc = $('filtroFormulario').value === HSQ_API.DOCUMENTACION;
+      [['fechaInicio', 1], ['fechaFin', 1], ['filtroPerfil', 1], ['filtroEncargado', 1]]
+        .forEach(([id]) => {
+          const campo = $(id);
+          campo.disabled = doc;
+          campo.closest('.field').classList.toggle('field--off', doc);
+        });
+      $('avisoDocumentacion').classList.toggle('hidden', !doc);
+    }
+
     async function generarExportable() {
       const formId = $('filtroFormulario').value;
       if (!formId) return showStatus('Selecciona un formulario.', 'error');
+
+      if (formId === HSQ_API.DOCUMENTACION) {
+        $('result').classList.add('hidden');
+        setLoading(true);
+        showStatus('Generando documentación…', 'info');
+        try {
+          const resp = await HSQ_API.call('generarExportable', {
+            formularios: [formId],
+            proyectos: resolverProyecto(),
+            cedula: $('filtroCedula').value.trim(),
+          });
+          showResult(resp);
+          showStatus(`✓ Documentación generada: ${resp.filas} colaborador(es) activo(s), `
+            + `${resp.columnas} columna(s).`, resp.filas ? 'ok' : 'warn');
+        } catch (err) {
+          showStatus(err.message, 'error');
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
       const filtros = {
         fechaInicio: $('fechaInicio').value,
         fechaFin: $('fechaFin').value,

@@ -663,6 +663,10 @@ input[type="file"] { padding: 10px; background: var(--surface-2); }
 .checkitem__chev svg { width: 20px; height: 20px; }
 .checkitem.done .checkitem__chev { display: none; }
 .field-note { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+/* Un filtro que no aplica a lo que se escogio: se ve apagado en vez de
+   desaparecer, para que no parezca que la pantalla cambio de sitio. */
+.field--off { opacity: .45; }
+.field--off input, .field--off select { cursor: not-allowed; }
 
 /* ---------- Aviso de respuestas precargadas ---------- */
 .precarga {
