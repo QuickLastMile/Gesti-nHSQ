@@ -798,6 +798,21 @@
             `<a href="tel:${t.replace(/[^\d+]/g, '')}">${t}</a>`)}</p>`).join('');
     }
 
+    // El limite vive en el rango que HSEQ configura, no en el texto.
+    // La ayuda lo referencia con {max} / {min} (o {max:OTRA_PREGUNTA} para
+    // citar el de otra) y se resuelve al pintar. Sin esto el numero queda
+    // escrito a mano en seis sitios y se desincroniza al primer cambio.
+    function conRangos(texto, q) {
+      const t = String(texto == null ? '' : texto);
+      if (t.indexOf('{') === -1) return t;
+      const todas = (state.formData && state.formData.preguntas) || [];
+      return t.replace(/\{(max|min)(?::([A-Za-z0-9_]+))?\}/g, (_, cual, id) => {
+        const duena = id ? todas.find((x) => x.id_pregunta === id) : q;
+        const v = duena ? duena[cual === 'max' ? 'max_normal' : 'min_normal'] : null;
+        return (v === null || v === undefined || v === '') ? 'sin límite' : String(v);
+      });
+    }
+
     function renderQuestion(q) {
       const required = String(q.obligatorio).toUpperCase() === 'SI';
       // Una etiqueta informativa no se responde: ni numero, ni insignias, ni campo.
@@ -810,13 +825,13 @@
             <span class="info-card__icon" aria-hidden="true">ℹ️</span>
             <div class="info-card__body">
               <p class="info-card__title">${escapeHtml(q.pregunta)}</p>
-              ${cuerpoInfo(q.ayuda)}
+              ${cuerpoInfo(conRangos(q.ayuda, q))}
             </div>
           </div>
           ${fotoRef(q)}
         </div>`;
       }
-      const hint = q.ayuda ? `<div class="question__hint">${escapeHtml(q.ayuda)}</div>` : '';
+      const hint = q.ayuda ? `<div class="question__hint">${escapeHtml(conRangos(q.ayuda, q))}</div>` : '';
       const cond = q.depende_de ? ' cond hidden' : '';
       const dep = q.depende_de ? ` data-depende-de="${escapeHtml(q.depende_de)}" data-depende-valor="${escapeHtml(q.depende_valor || '')}"` : '';
       const pre = valorPrevio(q) !== '' ? ' pre' : '';
