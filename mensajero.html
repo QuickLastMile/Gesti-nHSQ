@@ -960,10 +960,11 @@
         return showStatus(`Faltan ${faltantes.length} pregunta(s) obligatoria(s): ${lista}`, 'error');
       }
 
-      if (gateSel === 'SI') {
-        try { validarFechasDocumentos(form); }
-        catch (err) { return showStatus(err.message, 'error'); }
-      }
+      // Antes esto dependia de la pregunta "primera vez o renovacion",
+      // que ya no existe: ahora se pide documento por documento. La
+      // validacion se hace siempre y ella sola sabe a que campos aplica.
+      try { validarFechasDocumentos(form); }
+      catch (err) { return showStatus(err.message, 'error'); }
 
       const payload = { cedula: state.persona.cedula, id_formulario: state.currentForm, respuestas, archivos };
       setLoading($('guardar'), true);
@@ -1243,7 +1244,10 @@
     // el tope de cada documento y donde HSEQ lo puede ajustar. Antes la
     // regla estaba escrita en los dos lados y habia que cambiarla dos veces.
     function validarFechasDocumentos(form) {
-      form.querySelectorAll('input[data-doc]').forEach((inp) => {
+      // Solo los campos habilitados: el documento que se esta pidiendo.
+      // Los demas llegan precargados de la matriz y en solo lectura,
+      // asi que exigirselos seria frenarlo por algo que no puede tocar.
+      form.querySelectorAll('input[data-doc]:not([readonly])').forEach((inp) => {
         const tipo = inp.dataset.doc;
         if (!inp.value) throw new Error(`Falta la fecha de vencimiento de ${tipo}.`);
         if (Number.isNaN(new Date(inp.value + 'T00:00:00').getTime())) {
