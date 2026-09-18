@@ -979,3 +979,16 @@ input.fuera-de-rango {
   line-height: 1.4;
   color: #44554c;
 }
+
+/* El visto bueno: verde, discreto, y siempre con fecha y con quien. */
+.btn--ok { color: var(--success, #1f7a4d); border-color: #bfe0cd; }
+.btn--ok:hover { background: #eaf5ee; }
+.doc-visto {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success, #1f7a4d);
+  line-height: 1.3;
+  margin-top: 3px;
+}
+.rowchip.revisar { background: #fff4e5; color: #8a4b08; border: 1px solid #f0c48a; }
+.rowchip.ok { background: #eaf5ee; color: #1f7a4d; border: 1px solid #bfe0cd; }

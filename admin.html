@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=35">
+  <link rel="stylesheet" href="assets/styles.css?v=36">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -551,6 +551,7 @@
                 <select id="docAlcance">
                   <option value="pendientes">Solo con algo pendiente</option>
                   <option value="todos">Todos los activos</option>
+                  <option value="sinrevisar">Solo sin revisar</option>
                   <option value="inactivos">Incluir inactivos</option>
                 </select></div>
               <button id="btnDocumentos" class="btn btn--primary" type="button">Consultar</button>
@@ -853,6 +854,7 @@
           proyecto: $('docProyecto').value.trim(),
           cedula: $('docCedula').value.trim(),
           soloPendientes: $('docAlcance').value === 'pendientes',
+          soloSinRevisar: $('docAlcance').value === 'sinrevisar',
           incluirInactivos: $('docAlcance').value === 'inactivos',
         });
         pintarDocumentos();
@@ -896,6 +898,12 @@
         b.addEventListener('click', () => rechazarDato(b.dataset.rechdato, b.dataset.campo, b.dataset.etq)));
       $('docLista').querySelectorAll('[data-levdato]').forEach((b) =>
         b.addEventListener('click', () => levantarDato(b.dataset.levdato, b.dataset.campo)));
+      $('docLista').querySelectorAll('[data-aprobar]').forEach((b) =>
+        b.addEventListener('click', () => aprobar(b.dataset.aprobar, { clave: b.dataset.clave })));
+      $('docLista').querySelectorAll('[data-aprobartodo]').forEach((b) =>
+        b.addEventListener('click', () => aprobar(b.dataset.aprobartodo, { todo: true })));
+      $('docLista').querySelectorAll('[data-quitarok]').forEach((b) =>
+        b.addEventListener('click', () => quitarAprobacion(b.dataset.quitarok, b.dataset.clave)));
     }
 
     // Por que esta persona no tiene documentacion. Un inactivo o alguien
@@ -908,7 +916,10 @@
       }
       if (f.aplica === false) return ' <span class="rowchip inactivo">No diligencia formularios</span>';
       if (f.bloquea) return ' <span class="rowchip aviso">No puede registrar</span>';
-      return '';
+      if (f.sin_revisar > 0) {
+        return ' <span class="rowchip revisar">' + f.sin_revisar + ' sin revisar</span>';
+      }
+      return ' <span class="rowchip ok">\u2713 Revisado</span>';
     }
 
     const JUSTIF = {
@@ -962,6 +973,14 @@
           ? `<button type="button" class="btn btn--ghost" style="min-height:34px;padding:6px 10px" data-rechazar="${esc(f.cedula)}" data-doc="${k}" data-nombre="${esc(label)}">Rechazar</button>` : '';
         const levantar = d.rechazado
           ? `<button type="button" class="btn btn--ghost" style="min-height:34px;padding:6px 10px" data-levantar="${esc(f.cedula)}" data-doc="${k}">Levantar rechazo</button>` : '';
+        // El visto bueno solo tiene sentido sobre algo que esta en orden:
+        // avalar lo que el sistema esta reclamando seria contradecirse.
+        const aprobar = (!d.exige && !d.revisado)
+          ? `<button type="button" class="btn btn--ghost btn--ok" style="min-height:34px;padding:6px 10px" data-aprobar="${esc(f.cedula)}" data-clave="${k}">\u2713 Aprobar</button>` : '';
+        const quitar = d.revisado
+          ? `<button type="button" class="btn btn--ghost" style="min-height:34px;padding:6px 10px" data-quitarok="${esc(f.cedula)}" data-clave="${k}">Quitar visto bueno</button>` : '';
+        const visto = d.revisado
+          ? `<div class="doc-visto">\u2713 Revisado el ${esc(fechaLarga(d.revisado_en))}${d.revisado_por ? ' por ' + esc(d.revisado_por) : ''}</div>` : '';
         const motivo = (d.rechazado && d.motivo)
           ? `<div class="hint-inline" style="margin:4px 0 0">Motivo: ${esc(d.motivo)}</div>` : '';
         return `
@@ -970,8 +989,9 @@
               <span class="cmp-nombre" style="font-size:14px">${esc(label)}</span>
               <span class="cmp-sub"><span class="rowchip ${tono}">${esc(texto)}</span></span>
               ${motivo}
+              ${visto}
             </span>
-            <span class="cmp-dots">${ver}${rechazar}${levantar}</span>
+            <span class="cmp-dots">${ver}${aprobar}${rechazar}${levantar}${quitar}</span>
           </div>`;
       }).join('');
 
@@ -996,11 +1016,19 @@
           : `<button type="button" class="btn btn--ghost doc-dato__btn"
                 data-rechdato="${esc(f.cedula)}" data-campo="${campo}"
                 data-etq="${esc(etiqueta)}">Pedir correcci\u00f3n</button>`;
+        const ok = d.revisado
+          ? `<span class="doc-visto">\u2713 Revisado el ${esc(fechaLarga(d.revisado_en))}</span>
+             <button type="button" class="btn btn--ghost doc-dato__btn"
+                data-quitarok="${esc(f.cedula)}" data-clave="${campo}">Quitar visto bueno</button>`
+          : ((!d.pide && valor)
+              ? `<button type="button" class="btn btn--ghost btn--ok doc-dato__btn"
+                    data-aprobar="${esc(f.cedula)}" data-clave="${campo}">\u2713 Aprobar</button>` : '');
         return `
         <div class="doc-dato">
           <span class="doc-dato__k">${esc(etiqueta)}</span>
           <span class="doc-dato__v ${malo ? 'doc-dato__v--malo' : ''}">${valor ? esc(valor) : '\u2014 sin registrar'}</span>
           ${d.rechazado ? `<span class="doc-dato__motivo">\u21a9\ufe0f Devuelto: ${esc(d.motivo || '')}</span>` : ''}
+          ${ok}
           ${boton}
         </div>`;
       };
@@ -1027,10 +1055,37 @@
           </button>
           <div class="doc-cuerpo hidden" data-cuerpo="${esc(f.cedula)}">
             ${porQueSinDocumentos(f)}
+            ${f.sin_revisar > 0 && f.activo !== false ? `
+              <button type="button" class="btn btn--ghost btn--ok" style="margin-bottom:12px;min-height:36px"
+                data-aprobartodo="${esc(f.cedula)}">\u2713 Marcar todo lo que est\u00e1 en orden como revisado</button>` : ''}
             <div class="cmp-list">${cuerpo}</div>
             ${vehiculo}
           </div>
         </div>`;
+    }
+
+    /* ---------- visto bueno ----------
+       Rechazar dice "esto esta mal". Sin lo contrario, "no rechazado" es
+       ambiguo: puede ser revisado y correcto, o que nadie lo haya mirado.
+       El visto bueno separa esas dos cosas y deja una cola de trabajo real. */
+    async function aprobar(cedula, opts) {
+      setStatus('docStatus', 'Guardando el visto bueno\u2026', 'info');
+      try {
+        await adminCall('aprobarDato', Object.assign({ cedula }, opts));
+        setStatus('docStatus', '\u2713 Listo, queda como revisado.', 'ok');
+        docData = null;
+        consultarDocumentos();
+      } catch (e) { setStatus('docStatus', e.message, 'error'); }
+    }
+
+    async function quitarAprobacion(cedula, clave) {
+      setStatus('docStatus', 'Quitando\u2026', 'info');
+      try {
+        await adminCall('quitarAprobacion', { cedula, clave });
+        setStatus('docStatus', '\u2713 Vuelve a quedar sin revisar.', 'ok');
+        docData = null;
+        consultarDocumentos();
+      } catch (e) { setStatus('docStatus', e.message, 'error'); }
     }
 
     /* ---------- devolver un dato escrito ----------
