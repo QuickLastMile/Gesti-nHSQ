@@ -30,8 +30,9 @@
 --     de la matriz: viven como respuestas. Se toma la ultima
 --     respuesta no vacia de cada persona, que es el valor vigente.
 --
---  Las preguntas se localizan por su TEXTO, no por un id escrito
---  a mano: si manana se recrean con otro id, esto sigue sirviendo.
+--  Ojo con esas tres: no son filas de la tabla preguntas. El bloque
+--  de documentacion lo antepone la pantalla con ids fijos, y en la
+--  base solo quedan las respuestas. Ver la nota del punto 2.
 --
 --  Supabase -> SQL Editor -> New query -> pegar todo -> Run
 -- ============================================================
@@ -60,27 +61,25 @@ create index if not exists idx_resp_pregunta on respuestas (pregunta_id);
 -- ------------------------------------------------------------
 --  2) Que pregunta corresponde a que dato
 --  ------------------------------------------------------------
---  Se resuelve por texto y sin tildes. Devuelve una fila por
---  pregunta reconocida.
+--  OJO: estas preguntas NO estan en la tabla preguntas. El bloque
+--  de "Documentacion del vehiculo" lo antepone la pantalla
+--  (assets/api.js, constante DOCS_PREOP) con ids fijos, y lo
+--  unico que queda en la base son las RESPUESTAS. Por eso aqui
+--  van los ids escritos: no hay texto que buscar.
+--
+--  Si algun dia se cambia un id en api.js, hay que cambiarlo
+--  tambien aqui o esa columna sale vacia.
 -- ------------------------------------------------------------
 create or replace function preguntas_del_vehiculo()
 returns table (id text, campo text)
-language sql stable set search_path = public as $fn$
-  select p.id,
-         case
-           when sin_tildes(upper(p.pregunta)) like '%VIN%'                    then 'vin'
-           when sin_tildes(upper(p.pregunta)) like '%NOMBRE DEL PROPIETARIO%' then 'propietario_nombre'
-           when sin_tildes(upper(p.pregunta)) like '%CEDULA DEL PROPIETARIO%' then 'propietario_cedula'
-           when sin_tildes(upper(p.pregunta)) like '%MARCA DEL VEHICULO%'     then 'marca_vehiculo'
-           when sin_tildes(upper(p.pregunta)) like '%CILINDRAJE%'             then 'cilindraje'
-         end as campo
-    from preguntas p
-   where p.activo
-     and (sin_tildes(upper(p.pregunta)) like '%VIN%'
-       or sin_tildes(upper(p.pregunta)) like '%NOMBRE DEL PROPIETARIO%'
-       or sin_tildes(upper(p.pregunta)) like '%CEDULA DEL PROPIETARIO%'
-       or sin_tildes(upper(p.pregunta)) like '%MARCA DEL VEHICULO%'
-       or sin_tildes(upper(p.pregunta)) like '%CILINDRAJE%');
+language sql immutable set search_path = public as $fn$
+  select * from (values
+    ('DOC_VIN',           'vin'),
+    ('DOC_PROP_NOMBRE',   'propietario_nombre'),
+    ('DOC_PROP_CEDULA',   'propietario_cedula'),
+    ('DOC_MARCA_VEHICULO','marca_vehiculo'),
+    ('DOC_CILINDRAJE',    'cilindraje')
+  ) as v(id, campo);
 $fn$;
 
 -- ------------------------------------------------------------
@@ -278,14 +277,18 @@ $fn$;
 -- ------------------------------------------------------------
 --  Verificacion
 -- ------------------------------------------------------------
--- a) Que preguntas reconocio. Deben salir VIN, propietario
---    (nombre y cedula), marca y cilindraje. Si alguna falta, el
---    texto de esa pregunta cambio: avisame y ajusto el patron.
-select pv.campo, pv.id, left(p.pregunta, 60) as pregunta
+-- a) Cuanta gente tiene ya cada dato guardado. Si alguna fila sale
+--    en cero, es que nadie ha respondido esa pregunta todavia: el
+--    bloque solo aparece al responder SI a "primera vez o renovacion".
+select pv.campo,
+       count(distinct regexp_replace(rg.cedula, '\D', '', 'g')) as personas_con_dato
   from preguntas_del_vehiculo() pv
-  join preguntas p on p.id = pv.id
- where pv.campo is not null
- order by pv.campo, pv.id;
+  left join respuestas r2 on r2.pregunta_id = pv.id
+                         and coalesce(btrim(r2.valor), '') <> ''
+  left join registros  rg on rg.id = r2.registro_id
+                         and coalesce(rg.estado, '') <> 'ANULADO'
+ group by pv.campo
+ order by pv.campo;
 
 -- b) El router ya la conoce.
 select case when prosrc like '%exportarDocumentacion%' then 'ARREGLADO'
