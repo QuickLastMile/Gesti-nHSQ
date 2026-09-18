@@ -175,7 +175,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=46"></script>
+  <script src="assets/api.js?v=47"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -665,10 +665,28 @@
     //  compara solo contra el rango que HSEQ configuro, y la lectura
     //  anterior la manda el servidor.
     // ----------------------------------------------------------
+    // Mismo criterio que numero_limpio() en la base: si vienen los dos
+    // separadores, el ultimo es el decimal (1.234,5 y 1,234.5 son lo mismo).
+    function aNumero(texto) {
+      const t = String(texto == null ? '' : texto).replace(/\s/g, '');
+      if (t === '') return NaN;
+      let limpio = t;
+      const coma = t.lastIndexOf(',');
+      const punto = t.lastIndexOf('.');
+      if (coma >= 0 && punto >= 0) {
+        limpio = coma > punto
+          ? t.replace(/\./g, '').replace(',', '.')
+          : t.replace(/,/g, '');
+      } else if (coma >= 0) {
+        limpio = t.replace(',', '.');
+      }
+      return /^-?\d*\.?\d+$/.test(limpio) ? Number(limpio) : NaN;
+    }
+
     function fueraDeRango(input) {
       const txt = String(input.value || '').trim();
       if (txt === '') return false;
-      const n = Number(txt);
+      const n = aNumero(txt);
       if (!isFinite(n)) return false;
       const min = input.dataset.minNormal;
       const max = input.dataset.maxNormal;
@@ -691,7 +709,7 @@
     // Se recalcula con cada tecla: el mensajero ve el aviso mientras
     // escribe, no despues de guardar.
     function revisarRangos() {
-      const campos = Array.from($('questions').querySelectorAll('input[data-max-normal], input[data-min-normal]'));
+      const campos = Array.from($('questions').querySelectorAll('input[data-numero]'));
       let algunaFuera = false;
       campos.forEach((inp) => {
         const fuera = fueraDeRango(inp);
@@ -718,10 +736,17 @@
     }
 
     function wireRangos() {
-      const campos = Array.from($('questions').querySelectorAll('input[data-max-normal], input[data-min-normal]'));
+      const campos = Array.from($('questions').querySelectorAll('input[data-numero]'));
       if (!campos.length) return;
       campos.forEach((inp) => {
         inp.addEventListener('input', revisarRangos);
+        // Al salir del campo se muestra ya convertido: asi ve con sus
+        // ojos que su 20,5 quedo entendido como 20.5.
+        inp.addEventListener('blur', () => {
+          const n = aNumero(inp.value);
+          if (isFinite(n)) inp.value = String(n);
+          revisarRangos();
+        });
         inp.addEventListener('change', revisarRangos);
       });
       revisarRangos();
@@ -839,14 +864,18 @@
       switch (q.tipo_respuesta) {
         case 'parrafo': return `<textarea name="${id}" ${req} placeholder="Escribe aquí…">${escapeHtml(prev)}</textarea>`;
         case 'numero': {
-          // Los limites los pone HSEQ en Configuracion -> Rangos de medicion.
-          // min/max son lo POSIBLE (fuera de ahi es un dedo que se resbalo);
-          // data-*-normal es lo ESPERADO (fuera de ahi es una desviacion).
+          // Los limites los pone HSEQ en Configuracion -> Rangos de medición.
+          // *-valido es lo POSIBLE (fuera de ahi es un dedo que se resbalo);
+          // *-normal es lo ESPERADO (fuera de ahi es una desviacion).
           const lim = (a, v) => (v === null || v === undefined || v === '' ? '' : ` ${a}="${v}"`);
-          const limites = lim('min', q.min_valido) + lim('max', q.max_valido)
+          const limites = lim('data-min-valido', q.min_valido) + lim('data-max-valido', q.max_valido)
             + lim('data-min-normal', q.min_normal) + lim('data-max-normal', q.max_normal);
-          // decimal y no numeric: una temperatura es 17.5, no 17.
-          return `<input name="${id}" type="number" inputmode="decimal" step="any" ${req} placeholder="0"${val}${limites}>
+          // Va como texto, no como number, a proposito. Un <input type="number">
+          // DESCARTA "20,5" entero y deja el campo vacio sin avisar, que es
+          // justo como se escribe un decimal aqui: la lectura se perdia y al
+          // guardar le decia que faltaba la pregunta. Como texto llega tal
+          // cual se escribio y la coma se convierte sola.
+          return `<input name="${id}" type="text" inputmode="decimal" data-numero="1" ${req} placeholder="0"${val}${limites}>
                   <span class="aviso-rango hidden" data-rango-de="${id}"></span>`;
         }
         case 'fecha': {
@@ -963,20 +992,25 @@
 
       // Un valor imposible se ataja aqui y no en el servidor: el
       // mensajero tiene el dato a la vista y lo puede corregir ya.
-      for (const inp of Array.from(form.querySelectorAll('input[type="number"]'))) {
+      for (const inp of Array.from(form.querySelectorAll('input[data-numero]'))) {
         const txt = String(inp.value || '').trim();
         if (txt === '') continue;
         const caja = inp.closest('.question');
         if (caja && caja.classList.contains('cond') && caja.classList.contains('hidden')) continue;
-        const n = Number(txt);
+        const n = aNumero(txt);
         const nombre = caja ? (caja.querySelector('.question__label') || {}).textContent : '';
         if (!isFinite(n)) {
           inp.focus();
-          return showStatus((nombre || 'Ese campo') + ' debe ser un número.', 'error');
+          return showStatus((nombre || 'Ese campo') + ' debe ser un número. Escribiste "'
+            + txt + '".', 'error');
         }
-        const min = inp.getAttribute('min');
-        const max = inp.getAttribute('max');
-        if ((min !== null && n < Number(min)) || (max !== null && n > Number(max))) {
+        // Se envia ya convertido: la base guarda un solo formato, no uno
+        // por cada forma de escribirlo.
+        respuestas[inp.name] = String(n);
+        const min = inp.dataset.minValido;
+        const max = inp.dataset.maxValido;
+        if ((min !== undefined && min !== '' && n < Number(min))
+            || (max !== undefined && max !== '' && n > Number(max))) {
           inp.focus();
           inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return showStatus('Revisa ' + (nombre || 'el dato') + ': escribiste ' + txt
@@ -1393,11 +1427,11 @@
         ayuda: 'Son 17 caracteres entre letras y números. Búscalo en el SOAT, que es donde se lee más claro.' },
       { k: 'marca_vehiculo', etiqueta: 'Marca del vehículo', tipo: 'text',
         ayuda: 'Como aparece en la licencia de tránsito. Ejemplo: BAJAJ, YAMAHA, AKT.' },
-      { k: 'cilindraje', etiqueta: 'Cilindraje (CC)', tipo: 'number',
+      { k: 'cilindraje', etiqueta: 'Cilindraje (CC)', tipo: 'text', modo: 'numeric',
         ayuda: 'Solo el número, sin la sigla CC. Ejemplo: 125.' },
       { k: 'propietario_nombre', etiqueta: 'Nombre del propietario', tipo: 'text',
         ayuda: 'Quien figura como dueño en la licencia de tránsito. Puede no ser tu nombre.' },
-      { k: 'propietario_cedula', etiqueta: 'Cédula del propietario', tipo: 'number',
+      { k: 'propietario_cedula', etiqueta: 'Cédula del propietario', tipo: 'text', modo: 'numeric',
         ayuda: 'La del propietario que escribiste arriba.' },
     ];
 
@@ -1414,7 +1448,7 @@
       const campos = CAMPOS_VEHICULO.map((c) => `
         <div class="field" style="margin-top:10px">
           <span class="label">${escapeHtml(c.etiqueta)}</span>
-          <input type="${c.tipo}" data-veh="${c.k}" value="${escapeHtml(v[c.k] || '')}">
+          <input type="${c.tipo}" data-veh="${c.k}" value="${escapeHtml(v[c.k] || '')}"${c.modo ? ` inputmode="${c.modo}"` : ''}>
           <span class="auto-tag">${escapeHtml(c.ayuda)}</span>
         </div>`).join('');
 
@@ -1507,6 +1541,15 @@
       });
       const vin = String(vehiculo.vin || '').toUpperCase().replace(/[\s-]/g, '');
       vehiculo.vin = vin;
+      // La cédula no lleva puntos ni espacios, y el cilindraje es un número:
+      // se limpian aquí para que no se pierdan como se perdía la temperatura.
+      vehiculo.propietario_cedula = String(vehiculo.propietario_cedula || '').replace(/\D/g, '');
+      const cc = aNumero(vehiculo.cilindraje);
+      if (vehiculo.cilindraje && !isFinite(cc)) {
+        return setDocsStatus('El cilindraje debe ser un número. Escribiste "'
+          + vehiculo.cilindraje + '".', 'error');
+      }
+      if (isFinite(cc)) vehiculo.cilindraje = String(cc);
       if (vin && !/^[A-Z0-9]{17}$/.test(vin)) {
         const n = $('docsLista').querySelector('[data-veh="vin"]');
         if (n) { n.value = vin; n.focus(); n.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
