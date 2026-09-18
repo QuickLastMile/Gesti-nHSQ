@@ -848,3 +848,24 @@ body:has(.gate:not(.hidden)) { overflow: hidden; }
   .gate { grid-template-rows: 0 1fr; }
   .gate__visual { display: none; }
 }
+
+/* ---------- Rangos de medicion ----------
+   Una lectura fuera de parametros se ve en el momento de escribirla,
+   no cuando el coordinador abre el reporte al otro dia. */
+.aviso-rango {
+  display: block;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff4e5;
+  border: 1px solid #f0c48a;
+  color: #8a4b08;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.aviso-rango.hidden { display: none; }
+input.fuera-de-rango {
+  border-color: #e08b2e;
+  background: #fffaf3;
+}

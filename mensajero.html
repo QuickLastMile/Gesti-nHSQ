@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Registrar · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=31">
+  <link rel="stylesheet" href="assets/styles.css?v=32">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/icono-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -152,7 +152,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=43"></script>
+  <script src="assets/api.js?v=44"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -443,9 +443,14 @@
       const data = state.formData;
       if (!data) return;
       $('questionCount').textContent = data.preguntas.length + (data.preguntas.length === 1 ? ' pregunta' : ' preguntas');
-      $('questions').innerHTML = data.preguntas.map(renderQuestion).join('');
+      $('questions').innerHTML = data.preguntas.map(renderQuestion).join('')
+        // Compuerta virtual: no es una pregunta, la calcula la pantalla.
+        // Asi el aviso y la foto de la desviacion cuelgan de ella con el
+        // mismo mecanismo de siempre, sin inventar otro camino.
+        + '<input type="hidden" name="__DESVIACION__" value="NO">';
       pintarAvisoPrecarga();
       wireConditionals();
+      wireRangos();
       separarBloques(data.bloqueDocumentos || 0);
       revisarDocumentos();
     }
@@ -623,6 +628,76 @@
       return Number(p[2]) + ' de ' + (meses[Number(p[1]) - 1] || p[1]) + ' de ' + p[0];
     }
 
+    // ----------------------------------------------------------
+    //  Rangos de medicion
+    //  --------------------------------------------------------
+    //  Antes, saber si una lectura se habia salido dependia de que el
+    //  mensajero se acordara del registro anterior. Ahora el numero se
+    //  compara solo contra el rango que HSEQ configuro, y la lectura
+    //  anterior la manda el servidor.
+    // ----------------------------------------------------------
+    function fueraDeRango(input) {
+      const txt = String(input.value || '').trim();
+      if (txt === '') return false;
+      const n = Number(txt);
+      if (!isFinite(n)) return false;
+      const min = input.dataset.minNormal;
+      const max = input.dataset.maxNormal;
+      if (min !== undefined && min !== '' && n < Number(min)) return true;
+      if (max !== undefined && max !== '' && n > Number(max)) return true;
+      return false;
+    }
+
+    function textoRango(input) {
+      const min = input.dataset.minNormal;
+      const max = input.dataset.maxNormal;
+      const hayMin = min !== undefined && min !== '';
+      const hayMax = max !== undefined && max !== '';
+      if (hayMin && hayMax) return 'lo normal está entre ' + min + ' y ' + max;
+      if (hayMax) return 'el máximo permitido es ' + max;
+      if (hayMin) return 'el mínimo permitido es ' + min;
+      return '';
+    }
+
+    // Se recalcula con cada tecla: el mensajero ve el aviso mientras
+    // escribe, no despues de guardar.
+    function revisarRangos() {
+      const campos = Array.from($('questions').querySelectorAll('input[data-max-normal], input[data-min-normal]'));
+      let algunaFuera = false;
+      campos.forEach((inp) => {
+        const fuera = fueraDeRango(inp);
+        if (fuera) algunaFuera = true;
+        inp.classList.toggle('fuera-de-rango', fuera);
+        const aviso = $('questions').querySelector(`.aviso-rango[data-rango-de="${cssEscape(inp.name)}"]`);
+        if (!aviso) return;
+        aviso.classList.toggle('hidden', !fuera);
+        if (fuera) {
+          aviso.textContent = '⚠️ Fuera de parámetros: ' + textoRango(inp)
+            + '. Regístralo tal como lo ves, ya quedó marcado.';
+        }
+      });
+
+      // Desviacion sostenida = esta lectura fuera Y la anterior tambien.
+      // Es la regla de las 24 horas, que antes se le preguntaba a el.
+      const sostenida = algunaFuera && !!(state.formData && state.formData.lecturaAnteriorFuera);
+      const compuerta = $('questions').querySelector('[name="__DESVIACION__"]');
+      if (compuerta && compuerta.value !== (sostenida ? 'SI' : 'NO')) {
+        compuerta.value = sostenida ? 'SI' : 'NO';
+        // Un input oculto no dispara change solo; la condicional lo espera.
+        compuerta.dispatchEvent(new Event('change'));
+      }
+    }
+
+    function wireRangos() {
+      const campos = Array.from($('questions').querySelectorAll('input[data-max-normal], input[data-min-normal]'));
+      if (!campos.length) return;
+      campos.forEach((inp) => {
+        inp.addEventListener('input', revisarRangos);
+        inp.addEventListener('change', revisarRangos);
+      });
+      revisarRangos();
+    }
+
     // Preguntas condicionales: se muestran solo cuando la pregunta "madre" tiene el valor esperado.
     function wireConditionals() {
       const conds = Array.from($('questions').querySelectorAll('.question.cond'));
@@ -734,7 +809,17 @@
       const marcada = (o) => (prev.split(',').map((x) => x.trim()).includes(String(o)) ? ' checked' : '');
       switch (q.tipo_respuesta) {
         case 'parrafo': return `<textarea name="${id}" ${req} placeholder="Escribe aquí…">${escapeHtml(prev)}</textarea>`;
-        case 'numero': return `<input name="${id}" type="number" inputmode="numeric" ${req} placeholder="0"${val}>`;
+        case 'numero': {
+          // Los limites los pone HSEQ en Configuracion -> Rangos de medicion.
+          // min/max son lo POSIBLE (fuera de ahi es un dedo que se resbalo);
+          // data-*-normal es lo ESPERADO (fuera de ahi es una desviacion).
+          const lim = (a, v) => (v === null || v === undefined || v === '' ? '' : ` ${a}="${v}"`);
+          const limites = lim('min', q.min_valido) + lim('max', q.max_valido)
+            + lim('data-min-normal', q.min_normal) + lim('data-max-normal', q.max_normal);
+          // decimal y no numeric: una temperatura es 17.5, no 17.
+          return `<input name="${id}" type="number" inputmode="decimal" step="any" ${req} placeholder="0"${val}${limites}>
+                  <span class="aviso-rango hidden" data-rango-de="${id}"></span>`;
+        }
         case 'fecha': {
           // 1) Vencimiento de documento: se precarga de la matriz y va bloqueado,
           //    salvo que el mensajero marque "primera vez / renovación".
@@ -844,6 +929,29 @@
           return showStatus(
             'El VIN son 17 caracteres entre letras y números. Escribiste ' + vin.length
             + '. Búscalo en el SOAT, que es donde se lee más claro.', 'error');
+        }
+      }
+
+      // Un valor imposible se ataja aqui y no en el servidor: el
+      // mensajero tiene el dato a la vista y lo puede corregir ya.
+      for (const inp of Array.from(form.querySelectorAll('input[type="number"]'))) {
+        const txt = String(inp.value || '').trim();
+        if (txt === '') continue;
+        const caja = inp.closest('.question');
+        if (caja && caja.classList.contains('cond') && caja.classList.contains('hidden')) continue;
+        const n = Number(txt);
+        const nombre = caja ? (caja.querySelector('.question__label') || {}).textContent : '';
+        if (!isFinite(n)) {
+          inp.focus();
+          return showStatus((nombre || 'Ese campo') + ' debe ser un número.', 'error');
+        }
+        const min = inp.getAttribute('min');
+        const max = inp.getAttribute('max');
+        if ((min !== null && n < Number(min)) || (max !== null && n > Number(max))) {
+          inp.focus();
+          inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return showStatus('Revisa ' + (nombre || 'el dato') + ': escribiste ' + txt
+            + ', y solo puede estar entre ' + min + ' y ' + max + '.', 'error');
         }
       }
 

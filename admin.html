@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=31">
+  <link rel="stylesheet" href="assets/styles.css?v=32">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -170,6 +170,7 @@
           <button class="adm-link" type="button" data-v="historial" aria-label="Historial"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/><path d="M12 8v4.5l3 1.8"/></svg></span><span>Historial</span></button>
           <button id="lnkSeguridad" class="adm-link hidden" type="button" data-v="seguridad" aria-label="Seguridad"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6z"/><path d="M12 10v4"/></svg></span><span>Seguridad</span></button>
           <button class="adm-link" type="button" data-v="formularios" aria-label="Formularios por proyecto"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h4"/></svg></span><span>Formularios por proyecto</span></button>
+          <button class="adm-link" type="button" data-v="rangos" aria-label="Rangos de medición"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span><span>Rangos de medición</span></button>
           </div>
           <div class="adm-group">
             <button id="btnSalir" class="btn btn--ghost btn--block" type="button">Salir</button>
@@ -644,6 +645,28 @@
 
       </div>
 
+      <div id="v-rangos" class="view hidden">
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <p class="card__title">Rangos de medición</p>
+              <p class="card__sub">Desde qué valor una lectura deja de ser normal</p>
+            </div>
+            <button id="btnRangos" class="btn btn--ghost" type="button" style="margin-left:auto;min-height:40px">Recargar</button>
+          </div>
+          <div class="card__body">
+            <p class="hint-inline"><b>Rango normal</b> es lo esperado. Una lectura por fuera queda marcada
+              como desviación y el registro sale con alerta; si la lectura anterior también se había
+              salido, se reporta como desviación sostenida de 24 horas y se le pide la foto al mensajero.</p>
+            <p class="hint-inline" style="margin-top:8px"><b>Rango posible</b> es lo que físicamente puede
+              pasar. Por fuera de ahí no es una desviación sino un error al digitar, y el celular no lo
+              deja guardar. Déjalo en blanco para no poner límite por ese lado.</p>
+            <div id="rngLista" style="margin-top:14px"></div>
+            <div id="rngStatus" class="status" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+
       <div id="v-formularios" class="view hidden">
         <section class="card">
           <div class="card__head">
@@ -703,6 +726,7 @@
     $('btnVerPin').addEventListener('click', verPin);
     $('btnGuardarPin').addEventListener('click', guardarPin);
     $('btnFormularios').addEventListener('click', cargarFormulariosProyecto);
+    $('btnRangos').addEventListener('click', () => { rngData = null; cargarRangos(); });
     $('frmBuscar').addEventListener('input', pintarFormulariosProyecto);
     $('frmLimpiar').addEventListener('click', () => { $('frmBuscar').value = ''; pintarFormulariosProyecto(); });
 
@@ -715,6 +739,7 @@
       'encargados-carga': ['Cargar tabla de encargados', 'Se pega tal cual desde Excel; la llave es el CECO'],
       calendario: ['Calendario y metas', 'Qué días opera cada proyecto y su meta'],
       formularios: ['Formularios por proyecto', 'Qué debe diligenciar cada operación'],
+      rangos: ['Rangos de medición', 'Desde qué valor una lectura es una desviación'],
       historial: ['Historial de cambios', 'Qué se movió, cuándo y a quién'],
       documentos: ['Documentos', 'Revisar, rechazar y hacer seguimiento'],
       seguridad: ['Seguridad', 'El PIN que autoriza eliminar registros'],
@@ -738,6 +763,7 @@
       if (clave === 'historial' && !hisData) consultarHistorial();
       if (clave === 'calendario' && !calData) cargarCalendario();
       if (clave === 'formularios' && !frmData) cargarFormulariosProyecto();
+      if (clave === 'rangos' && !rngData) cargarRangos();
       if (clave === 'seguridad' && !segData) cargarSeguridad();
       if (clave === 'documentos' && !docData) consultarDocumentos();
       if ((clave === 'encargados' || clave === 'encargados-carga') && !encData) cargarEncargados();
@@ -1333,6 +1359,82 @@
         const sub = fila.querySelector('.hint-inline');
         if (sub) sub.textContent = sub.textContent.replace(' · usando valores por defecto', '');
       } catch (err) { setStatus('calStatus', err.message, 'error'); }
+    }
+
+    /* ---------- Rangos de medicion ---------- */
+    let rngData = null;
+
+    async function cargarRangos() {
+      $('rngLista').innerHTML = '<p class="hint-inline">Cargando\u2026</p>';
+      try {
+        rngData = await adminCall('rangos', {});
+        pintarRangos();
+      } catch (e) {
+        $('rngLista').innerHTML = `<p class="hint-inline">${esc(e.message)}</p>`;
+      }
+    }
+
+    function pintarRangos() {
+      const filas = (rngData && rngData.filas) || [];
+      if (!filas.length) {
+        $('rngLista').innerHTML = '<p class="hint-inline">No hay preguntas num\u00e9ricas activas.</p>';
+        return;
+      }
+      // Agrupadas por formulario: quien viene a cambiar el maximo de
+      // temperatura busca "Temperatura y humedad", no un id de pregunta.
+      const porForm = {};
+      filas.forEach((f) => { (porForm[f.formulario] = porForm[f.formulario] || []).push(f); });
+
+      const campo = (f, clave, etiqueta) => {
+        const v = f[clave];
+        return `<label class="field" style="max-width:118px;margin:0">
+            <span class="label">${etiqueta}</span>
+            <input type="number" step="any" class="rng-campo" data-id="${esc(f.id)}" data-campo="${clave}"
+                   value="${v === null || v === undefined ? '' : esc(String(v))}" placeholder="sin l\u00edmite">
+          </label>`;
+      };
+
+      $('rngLista').innerHTML = Object.keys(porForm).map((nombre) => `
+        <p class="card__title" style="margin:18px 0 8px">${esc(nombre)}</p>
+        ${porForm[nombre].map((f) => `
+          <div style="border:1px solid var(--linea,#d8e0da);border-radius:12px;padding:12px;margin-bottom:10px">
+            <p style="margin:0 0 10px"><b>${esc(f.pregunta)}</b>
+               <small style="color:var(--muted)"> \u00b7 ${esc(f.id)}</small></p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+              ${campo(f, 'min_normal', 'Normal desde')}
+              ${campo(f, 'max_normal', 'Normal hasta')}
+              <span style="width:14px"></span>
+              ${campo(f, 'min_valido', 'Posible desde')}
+              ${campo(f, 'max_valido', 'Posible hasta')}
+              <button class="btn btn--primary" type="button" data-guardar-rango="${esc(f.id)}"
+                      style="min-height:40px">Guardar</button>
+            </div>
+          </div>`).join('')}`).join('');
+
+      $('rngLista').querySelectorAll('[data-guardar-rango]').forEach((b) => {
+        b.addEventListener('click', () => guardarRango(b.dataset.guardarRango));
+      });
+    }
+
+    async function guardarRango(id) {
+      const valor = (clave) => {
+        const n = Array.from($('rngLista').querySelectorAll('.rng-campo'))
+          .find((x) => x.dataset.id === id && x.dataset.campo === clave);
+        return n ? n.value.trim() : '';
+      };
+      setStatus('rngStatus', 'Guardando\u2026', 'info');
+      try {
+        const r = await adminCall('guardarRango', {
+          id,
+          min_normal: valor('min_normal'), max_normal: valor('max_normal'),
+          min_valido: valor('min_valido'), max_valido: valor('max_valido'),
+        });
+        setStatus('rngStatus', '\u2713 Rango guardado para \u201c' + r.pregunta + '\u201d.', 'ok');
+        rngData = null;
+        cargarRangos();
+      } catch (e) {
+        setStatus('rngStatus', e.message, 'error');
+      }
     }
 
     /* ---------- Formularios habilitados por proyecto ---------- */
