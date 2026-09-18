@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=34">
+  <link rel="stylesheet" href="assets/styles.css?v=35">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -551,6 +551,7 @@
                 <select id="docAlcance">
                   <option value="pendientes">Solo con algo pendiente</option>
                   <option value="todos">Todos los activos</option>
+                  <option value="inactivos">Incluir inactivos</option>
                 </select></div>
               <button id="btnDocumentos" class="btn btn--primary" type="button">Consultar</button>
             </div>
@@ -851,7 +852,8 @@
         docData = await adminCall('documentos', {
           proyecto: $('docProyecto').value.trim(),
           cedula: $('docCedula').value.trim(),
-          soloPendientes: $('docAlcance').value !== 'todos',
+          soloPendientes: $('docAlcance').value === 'pendientes',
+          incluirInactivos: $('docAlcance').value === 'inactivos',
         });
         pintarDocumentos();
         const n = (docData.filas || []).length;
@@ -894,6 +896,33 @@
         b.addEventListener('click', () => rechazarDato(b.dataset.rechdato, b.dataset.campo, b.dataset.etq)));
       $('docLista').querySelectorAll('[data-levdato]').forEach((b) =>
         b.addEventListener('click', () => levantarDato(b.dataset.levdato, b.dataset.campo)));
+    }
+
+    // Por que esta persona no tiene documentacion. Un inactivo o alguien
+    // cuyo cargo no diligencia formularios no esta incumpliendo: es que no
+    // se le esta pidiendo. Sin decirlo, su ficha vacia se lee como falta.
+    function insignia(f) {
+      if (f.activo === false) return ' <span class="rowchip inactivo">Inactivo</span>';
+      if (f.aplica === false) return ' <span class="rowchip inactivo">No diligencia formularios</span>';
+      if (f.bloquea) return ' <span class="rowchip aviso">No puede registrar</span>';
+      return '';
+    }
+
+    function porQueSinDocumentos(f) {
+      if (f.activo !== false && f.aplica !== false) return '';
+      // Para quien esta inactivo, el motivo es lo que explica todo. Para
+      // quien simplemente tiene un cargo que no diligencia, el titulo ya
+      // lo dice y el motivo guardado solo lo repetiria.
+      if (f.aplica === false && f.activo !== false) {
+        return `<div class="doc-inactivo">
+          <b>Su cargo no diligencia formularios HSEQ, por eso no se le pide documentación.</b>
+        </div>`;
+      }
+      const motivo = String(f.motivo_inactivo || '').trim();
+      return `<div class="doc-inactivo">
+          <b>Está inactivo, por eso no se le pide documentación.</b>
+          <span>${motivo ? esc(motivo) : 'Sin motivo registrado.'}</span>
+        </div>`;
     }
 
     function filaDocumento(f) {
@@ -963,8 +992,7 @@
         <div class="doc-ficha">
           <button type="button" class="doc-cab" data-abrir="${esc(f.cedula)}">
             <span class="doc-cab__txt">
-              <span class="doc-cab__nombre">${esc(f.nombre)}
-                ${f.bloquea ? '<span class="rowchip aviso">No puede registrar</span>' : ''}</span>
+              <span class="doc-cab__nombre">${esc(f.nombre)}${insignia(f)}</span>
               <span class="doc-cab__sub">CC ${esc(f.cedula)} \u00b7 ${esc(f.proyecto)}${f.placa ? ' \u00b7 ' + esc(f.placa) : ''}</span>
             </span>
             <span class="doc-cab__chev" aria-hidden="true">
@@ -972,6 +1000,7 @@
             </span>
           </button>
           <div class="doc-cuerpo hidden" data-cuerpo="${esc(f.cedula)}">
+            ${porQueSinDocumentos(f)}
             <div class="cmp-list">${cuerpo}</div>
             ${vehiculo}
           </div>

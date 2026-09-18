@@ -959,3 +959,23 @@ input.fuera-de-rango {
   padding: 4px 10px;
   font-size: 12px;
 }
+
+/* Quien no esta activo se marca en gris, no en rojo: no es una falta. */
+.rowchip.inactivo {
+  background: #eceff0;
+  color: #5c6b63;
+  border: 1px solid #d8e0da;
+}
+.doc-inactivo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #eceff0;
+  border: 1px solid #d8e0da;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #44554c;
+}
