@@ -992,3 +992,9 @@ input.fuera-de-rango {
 }
 .rowchip.revisar { background: #fff4e5; color: #8a4b08; border: 1px solid #f0c48a; }
 .rowchip.ok { background: #eaf5ee; color: #1f7a4d; border: 1px solid #bfe0cd; }
+
+/* Calendario por ciudad: colgado del proyecto, visualmente subordinado. */
+.calciudades-wrap { margin: -4px 0 12px 0; padding-left: 14px; }
+.calciudades { margin-top: 8px; border-left: 2px solid var(--linea, #d8e0da); padding-left: 12px; }
+.calciudades.hidden { display: none; }
+.calrow--ciudad { background: #f7faf8; }

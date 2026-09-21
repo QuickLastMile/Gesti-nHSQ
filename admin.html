@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=36">
+  <link rel="stylesheet" href="assets/styles.css?v=37">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -1531,7 +1531,7 @@
       if (!ps.length) { $('calLista').innerHTML = `<p class="hint-inline">Ningún proyecto coincide con “${esc(q)}”.</p>`; return; }
       const metaDef = (calData.defecto || {}).meta ?? 90;
       $('calLista').innerHTML =
-        `<p class="hint-inline" style="margin:0 0 6px">Mostrando ${ps.length} de ${todos.length} proyecto(s)</p>` +
+        `<p class="hint-inline" style="margin:0 0 6px">Mostrando ${ps.length} de ${todos.length} proyecto(s). Si un proyecto opera distinto en alguna ciudad, \u00e1brelo en <b>Ajustar por ciudad</b>: lo que pongas ah\u00ed manda sobre el calendario del proyecto.</p>` +
         ps.map((p) => {
           const i = todos.indexOf(p);
           const sel = String(p.dias || calData.defecto.dias).split(',').filter(Boolean).map(Number);
@@ -1551,10 +1551,101 @@
                   style="width:62px;min-height:0;padding:4px 6px;text-align:right">%
               </label>
               <button class="btn btn--ghost" type="button" data-save="${i}" style="min-height:40px">Guardar</button>
-            </div>`;
+            </div>
+            ${filasCiudad(p, i, metaDef)}`;
         }).join('');
       $('calLista').querySelectorAll('[data-save]').forEach((b) =>
         b.addEventListener('click', () => guardarCalendario(b.dataset.save)));
+      $('calLista').querySelectorAll('[data-verciudades]').forEach((b) =>
+        b.addEventListener('click', () => {
+          const caja = $('calLista').querySelector(`[data-ciudades="${b.dataset.verciudades}"]`);
+          const abierto = !caja.classList.toggle('hidden');
+          b.textContent = abierto ? 'Ocultar ciudades' : b.dataset.etq;
+        }));
+      $('calLista').querySelectorAll('[data-savec]').forEach((b) =>
+        b.addEventListener('click', () => guardarCiudad(b.dataset.savec)));
+      $('calLista').querySelectorAll('[data-delc]').forEach((b) =>
+        b.addEventListener('click', () => quitarCiudad(b.dataset.delc)));
+    }
+
+    /* ---------- calendario por ciudad ----------
+       Un mismo cliente puede trabajar domingo en Barranquilla y no en
+       Bogota. Sin esto, el calendario era uno solo para todo el proyecto
+       y no habia forma de decirlo: o se les exigia a todos o a ninguno.
+       La ciudad sin fila propia se rige por la del proyecto. */
+    function filasCiudad(p, i, metaDef) {
+      const ciudades = p.ciudades || [];
+      // Con una sola ciudad no hay nada que distinguir.
+      if (ciudades.length < 2) return '';
+      const propias = ciudades.filter((c) => c.propio).length;
+      const etq = propias
+        ? `Ajustar por ciudad · ${propias} con calendario propio`
+        : `Ajustar por ciudad · ${ciudades.length} ciudades`;
+      const filas = ciudades.map((c, j) => {
+        const clave = i + '-' + j;
+        const base = c.propio ? c.dias : (p.dias || calData.defecto.dias);
+        const sel = String(base || '').split(',').filter(Boolean).map(Number);
+        const checks = DIAS_SEM.map(([n, t]) =>
+          `<label class="daychk"><input type="checkbox" data-ic="${clave}" value="${n}" ${sel.includes(n) ? 'checked' : ''}>${t}</label>`).join('');
+        return `
+          <div class="calrow calrow--ciudad" data-rowc="${clave}"
+               data-proyecto="${esc(p.proyecto)}" data-ciudad="${esc(c.ciudad)}">
+            <div style="min-width:0">
+              <div style="font-weight:700;overflow-wrap:anywhere">${esc(c.ciudad)}</div>
+              <div class="hint-inline">${c.activos} activo(s) · ${c.propio
+                ? 'calendario propio' : 'usa el del proyecto'}</div>
+            </div>
+            <div class="daygrid">${checks}</div>
+            <label class="daychk"><input type="checkbox" data-festc="${clave}" ${
+              (c.propio ? c.festivos : p.festivos) ? 'checked' : ''}>Festivos</label>
+            <label class="daychk" title="Meta de cumplimiento">Meta
+              <input type="number" data-metac="${clave}" min="0" max="100" step="1"
+                value="${c.propio ? (c.meta ?? '') : ''}" placeholder="${p.meta ?? metaDef}"
+                style="width:62px;min-height:0;padding:4px 6px;text-align:right">%
+            </label>
+            <button class="btn btn--ghost" type="button" data-savec="${clave}" style="min-height:36px">Guardar</button>
+            ${c.propio ? `<button class="btn btn--ghost" type="button" data-delc="${clave}"
+                 style="min-height:36px">Usar el del proyecto</button>` : ''}
+          </div>`;
+      }).join('');
+      return `
+        <div class="calciudades-wrap">
+          <button class="btn btn--ghost" type="button" data-verciudades="${i}"
+                  data-etq="${esc(etq)}" style="min-height:32px;font-size:13px">${esc(etq)}</button>
+          <div class="calciudades hidden" data-ciudades="${i}">${filas}</div>
+        </div>`;
+    }
+
+    async function guardarCiudad(clave) {
+      const fila = $('calLista').querySelector(`.calrow[data-rowc="${clave}"]`);
+      const dias = Array.from(fila.querySelectorAll(`input[data-ic="${clave}"]:checked`)).map((x) => x.value);
+      if (!dias.length) return setStatus('calStatus', 'Selecciona al menos un día laboral.', 'error');
+      setStatus('calStatus', 'Guardando\u2026', 'info');
+      try {
+        await adminCall('guardarCalendario', {
+          proyecto: fila.dataset.proyecto,
+          ciudad: fila.dataset.ciudad,
+          dias: dias.join(','),
+          festivos: fila.querySelector(`input[data-festc="${clave}"]`).checked,
+          meta: fila.querySelector(`input[data-metac="${clave}"]`).value.trim(),
+        });
+        setStatus('calStatus', `\u2713 ${fila.dataset.ciudad} queda con su propio calendario.`, 'ok');
+        calData = null;
+        cargarCalendario();
+      } catch (e) { setStatus('calStatus', e.message, 'error'); }
+    }
+
+    async function quitarCiudad(clave) {
+      const fila = $('calLista').querySelector(`.calrow[data-rowc="${clave}"]`);
+      setStatus('calStatus', 'Quitando\u2026', 'info');
+      try {
+        await adminCall('guardarCalendario', {
+          proyecto: fila.dataset.proyecto, ciudad: fila.dataset.ciudad, quitar: true,
+        });
+        setStatus('calStatus', `\u2713 ${fila.dataset.ciudad} vuelve al calendario del proyecto.`, 'ok');
+        calData = null;
+        cargarCalendario();
+      } catch (e) { setStatus('calStatus', e.message, 'error'); }
     }
 
     async function guardarCalendario(i) {
