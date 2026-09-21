@@ -507,7 +507,7 @@
                   <option value="proyecto">Por proyecto</option>
                 </select></div>
               <div class="card-body"><div class="tbl-wrap" style="max-height:none">
-                <table style="min-width:560px"><thead><tr><th>Responsable</th><th>Activos</th><th>Hechos</th><th>Pendientes</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
+                <table style="min-width:560px"><thead><tr><th>Responsable</th><th>Operan</th><th>Hechos</th><th>Pendientes</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
                 <tbody id="segRows"></tbody></table>
                 <div id="segEmpty" class="empty hidden">Nadie tiene ese nivel asignado todavía.</div></div>
                 <button class="linkmore" type="button" data-goto="seguimiento">Ver todo el seguimiento →</button>
@@ -529,7 +529,7 @@
                 <option value="mensajero">Por mensajero</option>
               </select></div>
             <div class="card-body"><div class="tbl-wrap">
-              <table style="min-width:700px"><thead><tr><th>#</th><th>Responsable</th><th>Activos</th><th>Hechos</th><th>Esperados</th><th>Pendientes</th><th>Justificados</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
+              <table style="min-width:700px"><thead><tr><th>#</th><th>Responsable</th><th>Operan</th><th>Hechos</th><th>Esperados</th><th>Pendientes</th><th>Justificados</th><th>Cumplimiento</th><th>Estado</th></tr></thead>
               <tbody id="segFullRows"></tbody></table>
               <div id="segFullEmpty" class="empty hidden">Nadie tiene ese nivel asignado todavía.</div>
             </div></div>
@@ -1141,7 +1141,8 @@
     function filasSeguimiento(nivel) {
       if (nivel === 'proyecto') {
         return (data.por_proyecto || []).map((x) => ({
-          nombre: x.proyecto || 'Sin proyecto', activos: x.activos, realizadas: x.realizadas,
+          nombre: x.proyecto || 'Sin proyecto', activos: x.activos,
+          operan: x.operan ?? x.activos, realizadas: x.realizadas,
           esperadas: x.esperadas, pendientes: x.no_realizadas, porcentaje: x.porcentaje,
           justificados: x.justificados,
           estado: MAPA_ESTADO[x.estado] || estadoDe(x.porcentaje, x.esperadas),
@@ -1151,6 +1152,7 @@
       if (nivel === 'mensajero') {
         return (data.mensajeros || []).map((m) => ({
           nombre: m.nombre || '(sin nombre)', sub: m.proyecto, activos: 1,
+          operan: Number(m.esperadas || 0) > 0 ? 1 : 0,
           realizadas: m.realizadas, esperadas: m.esperadas,
           pendientes: Math.max(Number(m.esperadas || 0) - Number(m.realizadas || 0), 0),
           justificados: m.dias_justificados,
@@ -1159,13 +1161,24 @@
       }
       const campo = { jefatura: 'fJefe', lider: 'fLider', coordinador: 'fCoord' }[nivel];
       return (((data.por_encargado || {})[nivel]) || []).map((e) => ({
-        nombre: e.nombre || 'Sin asignar', activos: e.activos, realizadas: e.realizadas,
+        nombre: e.nombre || 'Sin asignar', activos: e.activos,
+        operan: e.operan ?? e.activos, realizadas: e.realizadas,
         esperadas: e.esperadas, pendientes: e.no_realizadas, porcentaje: e.porcentaje,
         justificados: e.justificados,
         estado: MAPA_ESTADO[e.estado] || estadoDe(e.porcentaje, e.esperadas),
         // "Sin asignar" no es una persona: no sirve como filtro.
         filtro: e.nombre ? { campo, valor: e.nombre } : null,
       }));
+    }
+
+    // Cuantos de la nomina operan en el periodo filtrado. Entre semana
+    // suelen ser todos; un domingo pueden ser 70 de 274, y ese es el
+    // numero que hay que comparar contra lo esperado.
+    function celdaOperan(f) {
+      const op = Number(f.operan ?? f.activos);
+      const tot = Number(f.activos || 0);
+      if (op === tot) return fmt(tot);
+      return `${fmt(op)}<div class="t-sub">de ${fmt(tot)}</div>`;
     }
 
     // Lo urgente primero: el que peor va, arriba.
@@ -1183,7 +1196,7 @@
       $('segRows').innerHTML = filas.map((f) => `
         <tr class="${f.filtro ? 'rowlink' : ''}" ${f.filtro ? `data-fcampo="${esc(f.filtro.campo)}" data-fvalor="${esc(f.filtro.valor)}"` : ''}>
           <td><b>${esc(f.nombre)}</b>${f.sub ? `<div class="t-sub">${esc(f.sub)}</div>` : ''}</td>
-          <td class="tnum">${fmt(f.activos)}</td>
+          <td class="tnum">${celdaOperan(f)}</td>
           <td class="tnum">${fmt(f.realizadas)}</td>
           <td class="tnum">${fmt(f.pendientes)}</td>
           <td>${celdaPct(f.porcentaje, f.estado)}</td>
@@ -1199,7 +1212,7 @@
         <tr class="${f.filtro ? 'rowlink' : ''}" ${f.filtro ? `data-fcampo="${esc(f.filtro.campo)}" data-fvalor="${esc(f.filtro.valor)}"` : ''}>
           <td><span class="rank ${f.estado === 'bad' ? 'low' : ''}">${i + 1}</span></td>
           <td><b>${esc(f.nombre)}</b>${f.sub ? `<div class="t-sub">${esc(f.sub)}</div>` : ''}</td>
-          <td class="tnum">${fmt(f.activos)}</td>
+          <td class="tnum">${celdaOperan(f)}</td>
           <td class="tnum">${fmt(f.realizadas)}</td>
           <td class="tnum">${fmt(f.esperadas)}</td>
           <td class="tnum">${fmt(f.pendientes)}</td>
