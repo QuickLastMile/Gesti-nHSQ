@@ -181,7 +181,7 @@
   </div>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=48"></script>
+  <script src="assets/api.js?v=49"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const state = { persona: null, activo: false, placaMode: 'nuevo', estado: {}, formularios: [], currentForm: null, formData: null, ultimoComprobante: null, formCache: {}, documentos: {} };
@@ -246,6 +246,19 @@
         $('bottombar').classList.add('hidden');
         return showStatus('Tu proyecto no tiene formularios habilitados. No necesitas realizar un registro hoy.', 'info');
       }
+
+      // Si hoy no es dia laboral para el, se le dice de una: llenar 48
+      // preguntas para que se lo rechacen al guardar es peor que no
+      // dejarlo empezar.
+      const motivo = String(resp.motivoNoLaboral || '').trim();
+      if (motivo && resp.bloqueaDiaNoLaboral) {
+        $('cardPlaca').classList.add('hidden');
+        $('cardChecklist').classList.add('hidden');
+        $('registroForm').classList.add('hidden');
+        $('bottombar').classList.add('hidden');
+        return showStatus('Hoy no tienes registro. ' + motivo, 'info');
+      }
+      if (motivo) showStatus(motivo, 'warn');
 
       if (resp.requierePlaca) {
         abrirPlacaNueva();
