@@ -1,0 +1,185 @@
+-- ============================================================
+--  Pestaña "Temperatura" en el dashboard de WAREHOUSE
+--  ------------------------------------------------------------
+--  El lider de la linea WAREHOUSE pidio ver, en su propio tablero,
+--  el comportamiento de temperatura y humedad por rango de fechas
+--  filtrable, y el top 10 de conductores con las temperaturas mas
+--  altas. Va en una funcion nueva y una accion nueva en el router,
+--  sin tocar api_dashboard (que ya son 300+ lineas y se ha
+--  revertido sola una vez por pegarle copias viejas).
+--
+--  Este script YA SE APLICO en produccion (2026-09-24). Queda aqui
+--  como constancia, no para volver a correrlo sin mirar: es
+--  idempotente para la parte del router, pero el create or replace
+--  de api_temperatura siempre reemplaza el cuerpo completo.
+--
+--  Supabase -> SQL Editor -> New query -> pegar todo -> Run
+-- ============================================================
+
+-- ------------------------------------------------------------
+--  1) La funcion que arma la pestaña
+--  ------------------------------------------------------------
+--  Una lectura = un registro de TEMP_HUM_AM o TEMP_HUM_PM con sus
+--  dos respuestas (temperatura y humedad). numero_limpio() ya
+--  entiende la coma decimal (20,5 y 20.5). valor_fuera_de_rango()
+--  ya sabe cual es el limite normal de cada pregunta (25 °C / 65 %),
+--  no se reinventa aqui.
+--
+--  Ojo con el dato historico: antes del trigger de validacion
+--  (db/temperatura_rangos_1.sql) se guardo una temperatura de 181,
+--  un error de digitacion que no es fisicamente posible en una
+--  bodega. Por eso se descarta cualquier lectura fuera de
+--  min_valido/max_valido de la pregunta (los mismos limites que ya
+--  usa el trigger para las lecturas nuevas), tanto en los promedios
+--  como en el top 10. Sin este filtro, esa lectura vieja se hubiera
+--  quedado con el primer puesto del ranking y hubiera inflado el
+--  promedio general.
+-- ------------------------------------------------------------
+create or replace function api_temperatura(payload jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $fn$
+declare
+  hoy date := (now() at time zone 'America/Bogota')::date;
+  fi date := coalesce(nullif(payload->>'fechaInicio','')::date, hoy - 29);
+  ff date := coalesce(nullif(payload->>'fechaFin','')::date, hoy);
+  ciu text := btrim(coalesce(payload->>'ciudad',''));
+  v_linea text := linea_efectiva(coalesce(payload->>'linea',''));
+  v_temp_min numeric; v_temp_max numeric; v_hum_min numeric; v_hum_max numeric;
+  resumen jsonb;
+  serie jsonb;
+  top_temp jsonb;
+  ciudades jsonb;
+  descartadas int;
+begin
+  if fi > ff then raise exception 'El rango de fechas no es valido.'; end if;
+  if (ff - fi) > 366 then raise exception 'El rango no puede superar un anio. Acortalo.'; end if;
+
+  select min_valido, max_valido into v_temp_min, v_temp_max from preguntas where id = 'THA_002';
+  select min_valido, max_valido into v_hum_min, v_hum_max from preguntas where id = 'THA_003';
+
+  drop table if exists pg_temp.tmp_temp;
+  create temp table tmp_temp on commit drop as
+  select r.id, r.fecha, r.cedula, r.nombre, r.proyecto, r.ciudad,
+         t_raw.temp_raw, h_raw.hum_raw,
+         case when t_raw.temp_raw is null then null
+              when v_temp_min is not null and t_raw.temp_raw < v_temp_min then null
+              when v_temp_max is not null and t_raw.temp_raw > v_temp_max then null
+              else t_raw.temp_raw end as temp,
+         case when h_raw.hum_raw is null then null
+              when v_hum_min is not null and h_raw.hum_raw < v_hum_min then null
+              when v_hum_max is not null and h_raw.hum_raw > v_hum_max then null
+              else h_raw.hum_raw end as hum,
+         t_raw.temp_fuera, h_raw.hum_fuera
+    from registros r
+    join lateral (
+      select numero_limpio(max(rp.valor)) as temp_raw,
+             bool_or(valor_fuera_de_rango(rp.pregunta_id, rp.valor)) as temp_fuera
+        from respuestas rp where rp.registro_id = r.id and rp.pregunta_id in ('THA_002','THP_002')
+    ) t_raw on true
+    join lateral (
+      select numero_limpio(max(rp.valor)) as hum_raw,
+             bool_or(valor_fuera_de_rango(rp.pregunta_id, rp.valor)) as hum_fuera
+        from respuestas rp where rp.registro_id = r.id and rp.pregunta_id in ('THA_003','THP_003')
+    ) h_raw on true
+   where r.formulario_id in ('TEMP_HUM_AM','TEMP_HUM_PM')
+     and coalesce(r.estado,'') <> 'ANULADO'
+     and r.linea = v_linea
+     and r.fecha between fi and ff
+     and (ciu = '' or r.ciudad = ciu);
+
+  select count(*) into descartadas from tmp_temp
+   where (temp_raw is not null and temp is null) or (hum_raw is not null and hum is null);
+
+  resumen := (
+    select jsonb_build_object(
+      'tomas', count(*),
+      'temp_prom', round(avg(temp),1), 'temp_max', max(temp), 'temp_min', min(temp),
+      'hum_prom', round(avg(hum),1), 'hum_max', max(hum), 'hum_min', min(hum),
+      'cumple_temp_pct', case when count(temp) > 0
+        then round(100 - (count(*) filter (where temp_fuera))::numeric * 100 / count(temp), 1) end,
+      'cumple_hum_pct', case when count(hum) > 0
+        then round(100 - (count(*) filter (where hum_fuera))::numeric * 100 / count(hum), 1) end,
+      'descartadas', descartadas)
+    from tmp_temp);
+
+  serie := coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'fecha', to_char(fecha,'YYYY-MM-DD'),
+      'temp_prom', round(avg(temp),1), 'temp_max', max(temp), 'temp_min', min(temp),
+      'hum_prom', round(avg(hum),1), 'hum_max', max(hum), 'hum_min', min(hum),
+      'tomas', count(*)) order by fecha)
+    from tmp_temp group by fecha), '[]'::jsonb);
+
+  top_temp := coalesce((
+    select jsonb_agg(to_jsonb(t) order by t.temp_max desc, t.temp_prom desc)
+    from (
+      select nombre, ciudad, proyecto,
+             max(temp) as temp_max, round(avg(temp),1) as temp_prom, count(*) as tomas
+        from tmp_temp
+       where temp is not null
+       group by cedula, nombre, ciudad, proyecto
+       order by max(temp) desc, avg(temp) desc
+       limit 10) t), '[]'::jsonb);
+
+  ciudades := coalesce((
+    select jsonb_agg(distinct r.ciudad order by r.ciudad)
+      from registros r
+     where r.formulario_id in ('TEMP_HUM_AM','TEMP_HUM_PM')
+       and coalesce(r.estado,'') <> 'ANULADO'
+       and r.linea = v_linea
+       and r.ciudad is not null and r.ciudad <> ''), '[]'::jsonb);
+
+  return jsonb_build_object(
+    'filtros', jsonb_build_object('desde', to_char(fi,'YYYY-MM-DD'), 'hasta', to_char(ff,'YYYY-MM-DD'), 'ciudad', ciu),
+    'resumen', resumen, 'serie', serie, 'top_temperatura', top_temp, 'ciudades', ciudades);
+end;
+$fn$;
+
+-- ------------------------------------------------------------
+--  2) La accion nueva en el router, protegida igual que el resto
+--  ------------------------------------------------------------
+--  Se parchea el cuerpo vivo de hseq_api en vez de pegarlo entero
+--  (regla del CLAUDE.md): si el ancla no aparece, truena.
+-- ------------------------------------------------------------
+do $do$
+declare
+  src text;
+  nuevo text;
+  anchor_lista text := $tag$'listaEncargados','alertasMantenimiento',$tag$;
+  anchor_case  text := $tag$when 'alertasMantenimiento' then result := api_alertas_mantenimiento(payload);$tag$;
+begin
+  select prosrc into src from pg_proc where proname = 'hseq_api';
+  if src is null then raise exception 'No existe hseq_api'; end if;
+  if position('getTemperatura' in src) > 0 then
+    raise notice 'Ya estaba puesto: no se toca.';
+    return;
+  end if;
+
+  if position(anchor_lista in src) = 0 then raise exception 'No encontre la lista de acciones protegidas'; end if;
+  nuevo := replace(src, anchor_lista, anchor_lista || $tag$'getTemperatura',$tag$);
+
+  if position(anchor_case in nuevo) = 0 then raise exception 'No encontre el case de alertasMantenimiento'; end if;
+  nuevo := replace(nuevo, anchor_case,
+    anchor_case || chr(13) || chr(10) || $tag$    when 'getTemperatura'     then result := api_temperatura(payload);$tag$);
+
+  if nuevo = src then raise exception 'El parche no cambio nada'; end if;
+
+  execute 'create or replace function hseq_api(action text, payload jsonb default ''{}''::jsonb)'
+       || ' returns jsonb language plpgsql security definer set search_path = public as '
+       || quote_literal(nuevo);
+
+  raise notice 'hseq_api parchado con getTemperatura.';
+end
+$do$;
+
+-- ------------------------------------------------------------
+--  Verificacion
+-- ------------------------------------------------------------
+-- a) El router quedo con la accion nueva.
+select prosrc like '%getTemperatura%' as tiene_accion,
+       prosrc like '%api_temperatura(payload)%' as tiene_case
+  from pg_proc where proname = 'hseq_api';
+
+-- b) La funcion compila y devuelve datos reales (requiere sesion con
+--    linea asignada; desde el SQL Editor sin login va a fallar con
+--    "Tu usuario no tiene ninguna linea asignada" -eso es correcto,
+--    no un bug).

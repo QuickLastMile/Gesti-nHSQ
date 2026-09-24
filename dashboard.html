@@ -406,6 +406,7 @@
         <button data-s="seguimiento" data-label="Seguimiento" aria-label="Seguimiento"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 11h5M16 15h5M16 19h5"/></svg></span><span class="label">Seguimiento</span></button>
         <button data-s="hseq" data-label="HSEQ" aria-label="HSEQ"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span><span class="label">HSEQ</span></button>
         <button data-s="documentos" data-label="Documentos" aria-label="Documentos"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5M9 12h6M9 16h6"/></svg></span><span class="label">Documentos</span></button>
+        <button data-s="temperatura" data-label="Temperatura" aria-label="Temperatura"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14.5V4a2 2 0 1 0-4 0v10.5a4 4 0 1 0 4 0z"/><path d="M10 8h1"/></svg></span><span class="label">Temperatura</span></button>
         <button data-s="preventivo" data-label="Preventivo" aria-label="Preventivo"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0 5 5l-8.4 8.4a2.8 2.8 0 0 1-4-4z"/><path d="m3.5 3.5 3 3"/></svg></span><span class="label">Preventivo</span></button>
         <button data-s="detalle" data-label="Detalle" aria-label="Detalle"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="7" cy="6" r="1.4"/><circle cx="13" cy="12" r="1.4"/><circle cx="17" cy="18" r="1.4"/></svg></span><span class="label">Detalle</span></button>
       </nav>
@@ -614,6 +615,58 @@
           </article>
         </section>
 
+        <!-- ============ TEMPERATURA ============ -->
+        <section id="temperatura" class="section">
+          <article class="card">
+            <div class="card-head"><div><h2>Filtrar por periodo</h2>
+              <p>Temperatura y humedad de bodega. Elige el rango de fechas y, si quieres, una ciudad puntual.</p></div></div>
+            <div class="card-body">
+              <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+                <div class="field" style="width:150px"><label>Desde</label><input id="tDesde" type="date"></div>
+                <div class="field" style="width:150px"><label>Hasta</label><input id="tHasta" type="date"></div>
+                <div class="field" style="width:200px"><label>Ciudad</label><select id="tCiudad"><option value="">Todas</option></select></div>
+                <div class="fbtns"><button id="tAplicar" class="btn btn-primary" type="button">Aplicar</button></div>
+              </div>
+            </div>
+          </article>
+
+          <div class="kpis" id="tKpis" style="margin-top:16px">
+            <div class="kpi"><span class="cap">Tomas</span><div id="kTTomas" class="num tnum">—</div>
+              <div class="sub">Registros en el periodo</div></div>
+            <div class="kpi"><span class="cap">Temperatura</span><div id="kTTempProm" class="num tnum">—</div>
+              <div class="sub" id="kTTempSub">Promedio · máx. / mín.</div></div>
+            <div class="kpi" id="kTCumpleTempBox"><span class="cap">Cumplimiento temp.</span><div id="kTCumpleTemp" class="num tnum">—</div>
+              <div class="sub">Lecturas dentro del rango normal</div></div>
+            <div class="kpi"><span class="cap">Humedad</span><div id="kTHumProm" class="num tnum">—</div>
+              <div class="sub" id="kTHumSub">Promedio · máx. / mín.</div></div>
+            <div class="kpi" id="kTCumpleHumBox"><span class="cap">Cumplimiento hum.</span><div id="kTCumpleHum" class="num tnum">—</div>
+              <div class="sub">Lecturas dentro del rango normal</div></div>
+          </div>
+
+          <div class="grid">
+            <article class="card">
+              <div class="card-head"><div><h2>Comportamiento de temperatura</h2><p>Promedio diario, con el rango entre la lectura mínima y la máxima de cada día.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cTempSerie"></canvas></div>
+                <div id="tempSerieEmpty" class="empty hidden">Sin tomas de temperatura en este periodo.</div></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><h2>Comportamiento de humedad</h2><p>Promedio diario, con el rango entre la lectura mínima y la máxima de cada día.</p></div></div>
+              <div class="card-body"><div class="canvas-wrap"><canvas id="cHumSerie"></canvas></div>
+                <div id="humSerieEmpty" class="empty hidden">Sin tomas de humedad en este periodo.</div></div>
+            </article>
+          </div>
+
+          <article class="card">
+            <div class="card-head"><div><h2>Top 10 · temperaturas más elevadas</h2>
+              <p>Los conductores con la lectura de temperatura más alta en el periodo filtrado.</p></div></div>
+            <div class="card-body"><div class="tbl-wrap" style="max-height:none">
+              <table style="min-width:560px"><thead><tr><th>#</th><th>Conductor</th><th>Ciudad</th><th>Temp. máxima</th><th>Temp. promedio</th><th>Tomas</th></tr></thead>
+              <tbody id="tTopRows"></tbody></table>
+              <div id="tTopEmpty" class="empty hidden">Sin lecturas de temperatura en este periodo.</div>
+            </div></div>
+          </article>
+        </section>
+
         <!-- ============ PREVENTIVO ============ -->
         <section id="preventivo" class="section">
           <article class="card">
@@ -721,6 +774,7 @@
     const DOW = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
     const C = { verde:'#12875f', oscuro:'#07382b', lima:'#7f9e1f', ok:'#0f7a4d', warn:'#b57611', bad:'#b83a33' };
     let data = null, docFiltro = 'TODOS';
+    let datosTemp = null, ciudadesTempListas = false;
     // id de formulario -> nombre con su jornada, cuando la tiene. Va aqui
     // y no junto a las tablas: arrancar() la escribe, y se llama mucho antes.
     const nombreLargo = {};
@@ -771,6 +825,7 @@
     $('mSearch').addEventListener('input', pintarMensajeros);
     $('opSearch').addEventListener('input', pintarNovedades);
     $('mtoSearch').addEventListener('input', pintarMantenimiento);
+    $('tAplicar').addEventListener('click', () => cargarTemperatura());
     $('focusBackdrop').addEventListener('click', cerrarEnfoque);
     document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && focusedCard) cerrarEnfoque(); });
     sideToggle.addEventListener('click', () => actualizarMenuLateral(!layout.classList.contains('side-collapsed'), true));
@@ -843,6 +898,10 @@
       const d = new Date();
       return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     }
+    function hace(dias) {
+      const d = new Date(); d.setDate(d.getDate() - dias);
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    }
 
     async function arrancar() {
       try {
@@ -872,7 +931,7 @@
     // PUEDE consultar ya lo decide la base por linea. Y el Excel y el PDF
     // se arman aqui con la informacion que ya se descargo, asi que
     // quitarlos es alcance, no candado.
-    const SECCIONES_DE_LINEA = ['resumen', 'seguimiento', 'documentos'];
+    const SECCIONES_DE_LINEA = ['resumen', 'seguimiento', 'documentos', 'temperatura'];
 
     function ajustarPorCuenta(perfil) {
       // Sin perfil no se recorta nada: es mejor un tablero completo que uno
@@ -1010,11 +1069,18 @@
         seguimiento: ['Seguimiento de operación', 'Quién responde y a quién hay que contactar hoy'],
         hseq: ['HSEQ', 'Novedades, fallas reportadas y hábitos de registro'],
         documentos: ['Documentos', 'Vigencia de SOAT, tecnomecánica y licencia'],
+        temperatura: ['Temperatura y humedad', 'Comportamiento por periodo y conductores con lecturas más altas'],
         preventivo: ['Preventivo', 'Puntos reportados de forma repetida'],
         detalle: ['Detalle', 'Tablas completas y desglose por encargado'],
       }[btn.dataset.s] || ['Dashboard HSEQ', ''];
       $('pgTitle').textContent = t[0]; $('pgSub').textContent = t[1];
       if (data) pintarGraficas();
+      // Se carga aparte y solo la primera vez: tiene su propio rango de
+      // fechas, distinto del filtro principal del tablero.
+      if (btn.dataset.s === 'temperatura') {
+        if (!$('tDesde').value) { $('tDesde').value = hace(29); $('tHasta').value = hoyISO(); }
+        if (!datosTemp) cargarTemperatura();
+      }
     }
 
     function pintar() {
@@ -1328,6 +1394,7 @@
         (d) => [fmt(d.realizadas) + ' registros', 'en ' + fmt(d.dias) + ' día(s)']);
       barras('cHour', (data.por_hora || []), (d) => String(d.hora).padStart(2, '0') + 'h', (d) => d.realizadas, C.verde,
         (d) => [fmt(d.realizadas) + ' registros', 'entre ' + String(d.hora).padStart(2, '0') + ':00 y ' + String(d.hora).padStart(2, '0') + ':59']);
+      pintarTemperatura();
     }
 
     function base(id) {
@@ -1381,6 +1448,37 @@
       x.stroke();
       arr.forEach((d, i) => {
         const a = px(i), c2 = py(val(d));
+        x.fillStyle = '#fff'; x.beginPath(); x.arc(a, c2, 3.8, 0, 7); x.fill();
+        x.strokeStyle = color; x.lineWidth = 2; x.stroke();
+        hits[id].push({ cx: a, cy: c2, r: 14, t: etq(d), l: det(d) });
+      });
+      x.fillStyle = '#5c7269'; x.font = '10.5px "Segoe UI"'; x.textAlign = 'center';
+      const salto = Math.max(1, Math.ceil(arr.length / 9));
+      arr.forEach((d, i) => { if (i % salto === 0) x.fillText(etq(d), px(i), h - 11); });
+      x.textAlign = 'left';
+    }
+
+    // Como linea(), pero con una banda entre el minimo y el maximo del dia
+    // detras de la linea de promedio. Se usa para temperatura y humedad:
+    // el promedio solo no dice si hubo un pico puntual.
+    function lineaBanda(id, arr, etq, valProm, valMin, valMax, color, det) {
+      const b = base(id); if (!b) return; const { x, w, h } = b;
+      if (!arr.length) return sinDatos(x, w, h);
+      const p = { l: 48, r: 14, t: 14, b: 32 };
+      const max = Math.max(...arr.map((d) => +valMax(d) || 0), 1);
+      marco(x, w, h, max, p);
+      const iw = w - p.l - p.r, ih = h - p.t - p.b;
+      const px = (i) => p.l + (arr.length > 1 ? i * iw / (arr.length - 1) : iw / 2);
+      const py = (v) => p.t + ih * (1 - (+v || 0) / max);
+      x.beginPath();
+      arr.forEach((d, i) => { const a = px(i), c2 = py(valMax(d)); i ? x.lineTo(a, c2) : x.moveTo(a, c2); });
+      for (let i = arr.length - 1; i >= 0; i--) x.lineTo(px(i), py(valMin(arr[i])));
+      x.closePath(); x.fillStyle = color + '26'; x.fill();
+      x.beginPath(); x.strokeStyle = color; x.lineWidth = 2.4; x.lineJoin = 'round';
+      arr.forEach((d, i) => { const a = px(i), c2 = py(valProm(d)); i ? x.lineTo(a, c2) : x.moveTo(a, c2); });
+      x.stroke();
+      arr.forEach((d, i) => {
+        const a = px(i), c2 = py(valProm(d));
         x.fillStyle = '#fff'; x.beginPath(); x.arc(a, c2, 3.8, 0, 7); x.fill();
         x.strokeStyle = color; x.lineWidth = 2; x.stroke();
         hits[id].push({ cx: a, cy: c2, r: 14, t: etq(d), l: det(d) });
@@ -1540,7 +1638,7 @@
       });
     }
 
-    ['cDaily','cMonthly','cProjects','cDow','cHour','cJefe','cLider','cCoord','cProjBars','cTrend'].forEach((id) => {
+    ['cDaily','cMonthly','cProjects','cDow','cHour','cJefe','cLider','cCoord','cProjBars','cTrend','cTempSerie','cHumSerie'].forEach((id) => {
       const c = $(id); if (!c) return;
       c.addEventListener('mousemove', (ev) => {
         const rc = c.getBoundingClientRect(), mx = ev.clientX - rc.left, my = ev.clientY - rc.top;
@@ -1685,6 +1783,60 @@
        Se consulta aparte del dashboard: mira los últimos 30 días, no el
        periodo filtrado, porque busca reincidencia y no un corte mensual. */
     let mantenimiento = null;
+
+    // Temperatura y humedad de bodega: tiene su propio rango de fechas
+    // (no el Año/Mes/Día del filtro principal), asi que se carga aparte.
+    async function cargarTemperatura() {
+      try {
+        datosTemp = await HSQ_API.call('getTemperatura', {
+          fechaInicio: $('tDesde').value, fechaFin: $('tHasta').value, ciudad: $('tCiudad').value,
+        });
+        if (!ciudadesTempListas) {
+          const sel = $('tCiudad'), actual = sel.value;
+          sel.length = 1;
+          (datosTemp.ciudades || []).forEach((c) => sel.add(new Option(c, c)));
+          sel.value = actual;
+          ciudadesTempListas = true;
+        }
+        pintarTemperatura();
+      } catch (e) { manejarError(e); }
+    }
+
+    function pintarTemperatura() {
+      if (!datosTemp) return;
+      const r = datosTemp.resumen || {};
+      const gr = (v) => v === null || v === undefined ? '—' : Number(v).toFixed(1) + '°';
+      const pc = (v) => v === null || v === undefined ? '—' : Number(v).toFixed(1) + '%';
+      $('kTTomas').textContent = fmt(r.tomas);
+      $('kTTempProm').textContent = gr(r.temp_prom);
+      $('kTTempSub').textContent = 'Máx. ' + gr(r.temp_max) + ' · Mín. ' + gr(r.temp_min);
+      $('kTHumProm').textContent = pc(r.hum_prom);
+      $('kTHumSub').textContent = 'Máx. ' + pc(r.hum_max) + ' · Mín. ' + pc(r.hum_min);
+      $('kTCumpleTemp').textContent = r.cumple_temp_pct == null ? '—' : pct(r.cumple_temp_pct);
+      $('kTCumpleTemp').style.color = r.cumple_temp_pct == null ? '' : colorPct(r.cumple_temp_pct);
+      $('kTCumpleHum').textContent = r.cumple_hum_pct == null ? '—' : pct(r.cumple_hum_pct);
+      $('kTCumpleHum').style.color = r.cumple_hum_pct == null ? '' : colorPct(r.cumple_hum_pct);
+
+      const serie = datosTemp.serie || [];
+      const serieTemp = serie.filter((d) => d.temp_prom !== null && d.temp_prom !== undefined);
+      const serieHum = serie.filter((d) => d.hum_prom !== null && d.hum_prom !== undefined);
+      $('tempSerieEmpty').classList.toggle('hidden', serieTemp.length > 0);
+      $('humSerieEmpty').classList.toggle('hidden', serieHum.length > 0);
+      lineaBanda('cTempSerie', serieTemp, (d) => String(d.fecha).slice(5),
+        (d) => d.temp_prom, (d) => d.temp_min, (d) => d.temp_max, C.verde,
+        (d) => ['Promedio ' + gr(d.temp_prom), 'Máx. ' + gr(d.temp_max) + ' · Mín. ' + gr(d.temp_min), fmt(d.tomas) + ' toma(s)']);
+      lineaBanda('cHumSerie', serieHum, (d) => String(d.fecha).slice(5),
+        (d) => d.hum_prom, (d) => d.hum_min, (d) => d.hum_max, C.oscuro,
+        (d) => ['Promedio ' + pc(d.hum_prom), 'Máx. ' + pc(d.hum_max) + ' · Mín. ' + pc(d.hum_min), fmt(d.tomas) + ' toma(s)']);
+
+      const top = datosTemp.top_temperatura || [];
+      $('tTopEmpty').classList.toggle('hidden', top.length > 0);
+      $('tTopRows').innerHTML = top.map((t, i) => `
+        <tr><td><span class="rank ${i === 0 ? 'gold' : ''}">${i + 1}</span></td>
+        <td class="t-name">${esc(t.nombre)}</td><td class="t-sub">${esc(t.ciudad || '—')}</td>
+        <td class="tnum"><b>${gr(t.temp_max)}</b></td><td class="tnum">${gr(t.temp_prom)}</td>
+        <td class="tnum">${fmt(t.tomas)}</td></tr>`).join('');
+    }
 
     async function cargarMantenimiento() {
       try {
