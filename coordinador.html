@@ -215,7 +215,7 @@
               <input id="repProyecto" list="proyDatalist" autocomplete="off" placeholder="Todos"></div>
             <div class="field"><span class="label">Tipo de vehículo</span>
               <select id="repPerfil"><option value="">Todos</option><option value="MOTO">Motos (mensajeros)</option><option value="VEHICULO">Vehículos (conductores)</option></select></div>
-            <div class="field"><span class="label">Ciudad</span><input id="repCiudad" autocomplete="off" placeholder="Todas"></div>
+            <div class="field"><span class="label">Ciudad</span><select id="repCiudad"><option value="">Todas</option></select></div>
             <div class="field"><span class="label">Desde</span><input id="repDesde" type="date"></div>
             <div class="field"><span class="label">Hasta</span><input id="repHasta" type="date"></div>
             <div class="field"><span class="label">Encargado</span><select id="repEncargado"><option value="">Todos</option></select></div>
@@ -223,6 +223,7 @@
               <svg viewBox="0 0 24 24" fill="none"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
               Consultar
             </button>
+            <button id="btnReportesLimpiar" class="btn btn--ghost" type="button">Limpiar</button>
           </div>
           <div id="repStatus" class="status" aria-live="polite"></div>
         </div>
@@ -255,6 +256,7 @@
 
           <div id="repDetalle" class="hidden">
             <div id="repDetalleHead" class="hint-inline" style="margin-bottom:10px"></div>
+            <div id="repAlerta" class="hidden" style="margin-bottom:14px"></div>
             <div id="repQA" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px"></div>
             <div id="repVisor" class="hidden" style="margin-bottom:12px">
               <img id="repVisorImg" class="hidden" style="max-width:100%;max-height:58vh;border-radius:10px;border:1px solid var(--line-strong);display:block">
@@ -386,7 +388,11 @@
     $('justGuardar').addEventListener('click', guardarJust);
     $('justCerrar').addEventListener('click', () => $('justModal').classList.remove('show'));
     $('btnReportes').addEventListener('click', consultarReportes);
-    $('repLinea').addEventListener('change', () => { repFormularioActivo = ''; cargarSubtabsReportes(); consultarReportes(); });
+    $('repLinea').addEventListener('change', () => {
+      repFormularioActivo = ''; ciudadesRepListas = false;
+      cargarSubtabsReportes(); consultarReportes();
+    });
+    $('btnReportesLimpiar').addEventListener('click', limpiarReportes);
     $('repBuscar').addEventListener('keydown', (e) => { if (e.key === 'Enter') consultarReportes(); });
     $('repModalCerrar').addEventListener('click', () => $('repModal').classList.remove('show'));
     $('repModalFormulario').addEventListener('change', () => pintarDiasRep());
@@ -634,6 +640,7 @@
        resuelve asi en el servidor). */
     let repData = null;
     let repFormularioActivo = '';
+    let ciudadesRepListas = false;
     // Las dos jornadas de temperatura comparten nombre corto ("Temperatura
     // y humedad"); nombreLargoRep ya las distingue si el bootstrap se pidio
     // en esa linea, pero por si la cuenta general mira otra linea distinta
@@ -674,6 +681,17 @@
       } catch (err) { /* sin sub-pestanas, la lista sigue funcionando igual */ }
     }
 
+    function limpiarReportes() {
+      $('repBuscar').value = ''; $('repProyecto').value = '';
+      $('repPerfil').value = ''; $('repCiudad').value = '';
+      $('repEncargado').value = '';
+      const today = new Date().toISOString().slice(0, 10);
+      $('repDesde').value = today; $('repHasta').value = today;
+      repFormularioActivo = '';
+      $('repSubTabs').querySelectorAll('.fchip').forEach((b) => b.classList.toggle('active', b.dataset.repForm === ''));
+      consultarReportes();
+    }
+
     async function consultarReportes() {
       setBtn($('btnReportes'), true);
       showRepStatus('Consultando…', 'info');
@@ -690,6 +708,13 @@
         };
         Object.assign(filtros, encargadoDe('repEncargado'), lineaFiltroRep());
         repData = await HSQ_API.call('reportesLista', filtros);
+        if (!ciudadesRepListas) {
+          const sel = $('repCiudad'), actual = sel.value;
+          sel.length = 1;
+          (repData.ciudades || []).forEach((c) => sel.add(new Option(c, c)));
+          sel.value = actual;
+          ciudadesRepListas = true;
+        }
         pintarReportes();
         const n = (repData.filas || []).length;
         const truncado = repData.total > n;
@@ -828,6 +853,20 @@
         $('repDetalleHead').textContent = `${nombreFormRep(reg.formulario_id)} · ${reg.fecha}${reg.hora ? ' ' + reg.hora : ''}`
           + (reg.placa_moto ? ' · Placa ' + reg.placa_moto : '')
           + (reg.diferido ? ' · Diligenciado sin conexión' : '');
+
+        // Por que quedo "Con alerta": reusa el mismo desglose (documento /
+        // respuesta de alerta / novedad operativa) que ya usa Cumplimiento.
+        const alertasReg = detallesAlerta(reg.alertas);
+        if (alertasReg.length) {
+          $('repAlerta').classList.remove('hidden');
+          $('repAlerta').innerHTML = `<div class="cmp-alert-detail" style="display:grid" role="status">
+            <span class="cmp-alert-title">Por qué quedó con alerta</span>
+            ${alertasReg.map((a) => `<div class="cmp-alert-item"><strong>Tipo: ${escapeHtml(a.tipo)}</strong><span>Novedad: ${escapeHtml(a.novedad)}</span></div>`).join('')}
+          </div>`;
+        } else {
+          $('repAlerta').classList.add('hidden');
+          $('repAlerta').innerHTML = '';
+        }
 
         // Las preguntas 'info' no se responden y las 'archivo' se ven
         // abajo como imagen, no como texto.
