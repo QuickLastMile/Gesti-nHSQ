@@ -90,6 +90,7 @@
       <button class="tab active" type="button" data-view="exportar">Exportar</button>
       <button class="tab" type="button" data-view="cumplimiento">Cumplimiento</button>
       <button class="tab" type="button" data-view="reportes">Detalle de reportes</button>
+      <button class="tab" type="button" data-view="colaborativos">Personal colaborativo</button>
     </nav>
 
     <section id="view-exportar" class="view">
@@ -190,6 +191,9 @@
       </section>
 
       <div id="cumResumen" class="hidden"></div>
+      <!-- Solo aparece cuando el proyecto consultado tiene personal
+           colaborativo cargado: nunca mezclados en un mismo numero. -->
+      <div id="cumTipoBox" class="chips-row hidden"></div>
       <div id="cumFiltroChips" class="chips-row hidden"></div>
       <div id="cumLista"></div>
     </section>
@@ -272,6 +276,61 @@
         </div>
       </div>
     </div>
+
+    <!-- ============ PERSONAL COLABORATIVO ============ -->
+    <!-- Gente que no esta vinculada en Quick ni en la matriz de activos,
+         pero diligencia los mismos formularios y cuenta en el indicador
+         de UN proyecto puntual. No se sincroniza como la matriz
+         (actualizarMatriz nunca los toca): para sacar a alguien hay que
+         inactivarlo o eliminarlo a mano; cargar de mas nunca borra lo
+         que ya estaba. -->
+    <section id="view-colaborativos" class="view hidden">
+      <section class="card card--filtros">
+        <div class="card__head"><p class="card__title">Personal colaborativo</p></div>
+        <div class="card__body">
+          <p class="hint-inline" style="margin-top:0">Diligencia los mismos formularios y cuenta en el
+            indicador del proyecto que elijas abajo. No reemplaza la matriz real: cargar un archivo
+            nuevo nunca borra ni inactiva lo que ya estaba cargado.</p>
+          <div class="field">
+            <span class="label">Proyecto (obligatorio)</span>
+            <input id="colabProyecto" list="proyDatalist" autocomplete="off" placeholder="Escribe para buscar…">
+          </div>
+
+          <p class="card__title" style="font-size:14px;margin:18px 0 6px">Cargar varios (pegar desde Excel)</p>
+          <div class="field">
+            <textarea id="colabData" placeholder="Copia el rango desde Excel, incluida la fila de títulos (Cedula, Nombre, Cargo, Ciudad, Placa) y pégalo aquí…" style="min-height:110px"></textarea>
+            <span class="hint-inline">Cedula y Nombre son obligatorias. Ciudad y Placa son opcionales. En Cargo escribe
+              "Conductor" para vehículo o cualquier otra cosa (o déjalo vacío) para mensajero en moto.</span>
+          </div>
+          <button id="btnColabCargar" class="btn btn--primary" type="button">Cargar</button>
+          <div id="colabCargaResult" class="hidden" style="margin-top:12px"></div>
+
+          <p class="card__title" style="font-size:14px;margin:18px 0 6px">O agregar una sola persona</p>
+          <div class="cmp-filtros">
+            <div class="field"><span class="label">Cédula</span><input id="colabCedula" inputmode="numeric" autocomplete="off"></div>
+            <div class="field"><span class="label">Nombre</span><input id="colabNombre" autocomplete="off"></div>
+            <div class="field"><span class="label">Tipo</span>
+              <select id="colabCargo"><option value="">Mensajero (moto)</option><option value="Conductor">Conductor (vehículo)</option></select></div>
+            <div class="field"><span class="label">Ciudad</span><input id="colabCiudad" autocomplete="off"></div>
+            <div class="field"><span class="label">Placa</span><input id="colabPlaca" autocomplete="off"></div>
+            <button id="btnColabAgregar" class="btn btn--primary" type="button">Agregar</button>
+          </div>
+
+          <div id="colabStatus" class="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><p class="card__title">Cargados en tu línea</p></div>
+        <div class="card__body">
+          <div class="field" style="max-width:320px;margin-bottom:14px">
+            <span class="label">Filtrar por proyecto</span>
+            <select id="colabFiltroProyecto"><option value="">Todos</option></select>
+          </div>
+          <div id="colabLista"></div>
+        </div>
+      </section>
+    </section>
 
     <!-- Modal justificación -->
     <div id="justModal" class="modal" role="dialog" aria-modal="true">
@@ -380,7 +439,7 @@
     if (HSQ_API.isDemo) $('demoBanner').classList.remove('hidden');
     $('exportar').addEventListener('click', generarExportable);
     $('filtroFormulario').addEventListener('change', ajustarFiltrosExportar);
-    $('btnCumplimiento').addEventListener('click', consultarCumplimiento);
+    $('btnCumplimiento').addEventListener('click', () => consultarCumplimiento());
     // Los datos del dia ya estan aqui: cambiar de ciudad no vuelve a
     // pedirlos, solo repinta.
     $('cumCiudad').addEventListener('change', () => { if (cumData) pintarCumplimiento(); });
@@ -397,14 +456,23 @@
     $('repModalCerrar').addEventListener('click', () => $('repModal').classList.remove('show'));
     $('repModalFormulario').addEventListener('change', () => pintarDiasRep());
     $('repModalDia').addEventListener('change', () => abrirRegistroDetalle($('repModalDia').value));
+    $('btnColabCargar').addEventListener('click', cargarColabMasivo);
+    $('btnColabAgregar').addEventListener('click', agregarColabManual);
+    $('colabFiltroProyecto').addEventListener('change', cargarColaborativos);
 
     /* ---------- Pestañas ---------- */
+    let colabCargado = false;
     document.querySelectorAll('.tab').forEach((t) => {
       t.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
         t.classList.add('active');
         document.querySelectorAll('.view').forEach((v) => v.classList.add('hidden'));
         $('view-' + t.dataset.view).classList.remove('hidden');
+        // Se carga la primera vez que se entra, no en cada clic.
+        if (t.dataset.view === 'colaborativos' && !colabCargado) {
+          colabCargado = true;
+          cargarColaborativos();
+        }
       });
     });
 
@@ -472,19 +540,28 @@
     /* ================= CUMPLIMIENTO DIARIO ================= */
     let cumData = null, cumFiltro = 'todos';
 
-    async function consultarCumplimiento() {
+    // 'FIJO' o 'COLABORATIVO'. Se resetea a FIJO en cada consulta nueva
+    // (fecha/proyecto/coordinador); el toggle mismo la preserva al
+    // volver a llamar con preservarTipo=true.
+    let cumTipoPersonal = 'FIJO';
+
+    async function consultarCumplimiento(preservarTipo) {
       const fecha = $('cumFecha').value;
       if (!fecha) return showCum('Selecciona la fecha.', 'error');
+      if (!preservarTipo) cumTipoPersonal = 'FIJO';
       setBtn($('btnCumplimiento'), true);
       showCum('Consultando…', 'info');
       $('cumLista').innerHTML = '';
       $('cumResumen').classList.add('hidden');
+      $('cumTipoBox').classList.add('hidden');
       $('cumFiltroChips').classList.add('hidden');
       try {
         cumData = await HSQ_API.call('getCumplimientoDia',
-          Object.assign({ fecha, proyecto: resolverTexto($('cumProyecto').value) }, encargadoDe('cumCoordinador')));
+          Object.assign({ fecha, proyecto: resolverTexto($('cumProyecto').value), tipoPersonal: cumTipoPersonal },
+            encargadoDe('cumCoordinador')));
         cumFiltro = 'todos';
         llenarCiudades();
+        pintarTipoPersonalChips();
         pintarCumplimiento();
         const coord = encargadoDe('cumCoordinador').coordinador;
         if (!(cumData.personas || []).length && coord) {
@@ -497,6 +574,18 @@
       } finally {
         setBtn($('btnCumplimiento'), false);
       }
+    }
+
+    // Solo se muestra cuando el proyecto consultado tiene personal
+    // colaborativo cargado (api_colaborativos_guardar) para esa fecha.
+    function pintarTipoPersonalChips() {
+      const box = $('cumTipoBox');
+      if (!cumData.tieneColaborativos) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      box.classList.remove('hidden');
+      box.innerHTML = [['FIJO', 'Fijo'], ['COLABORATIVO', 'Colaborativo']].map(([v, t]) =>
+        `<button type="button" class="fchip ${cumTipoPersonal === v ? 'active' : ''}" data-tipo="${v}">${t}</button>`).join('');
+      box.querySelectorAll('[data-tipo]').forEach((b) =>
+        b.addEventListener('click', () => { cumTipoPersonal = b.dataset.tipo; consultarCumplimiento(true); }));
     }
 
     // Las ciudades salen de lo que trajo la consulta, no de una lista
@@ -932,6 +1021,126 @@
       } else {
         $('repVisorImg').src = enlace; $('repVisorImg').classList.remove('hidden');
         $('repVisorPdf').classList.add('hidden'); $('repVisorPdf').src = '';
+      }
+    }
+
+    /* ================= PERSONAL COLABORATIVO ================= */
+    let colabData = null;
+
+    function proyectoColab() { return $('colabProyecto').value.trim(); }
+
+    async function cargarColabMasivo() {
+      const proyecto = proyectoColab();
+      const data = $('colabData').value;
+      if (!proyecto) return setStatusId('colabStatus', 'Escribe primero el proyecto.', 'error');
+      if (!data.trim()) return setStatusId('colabStatus', 'Pega los datos, con la fila de títulos, primero.', 'error');
+      setBtn($('btnColabCargar'), true);
+      $('colabCargaResult').classList.add('hidden');
+      setStatusId('colabStatus', 'Cargando…', 'info');
+      try {
+        const r = await HSQ_API.call('colaborativosGuardar', { proyecto, data });
+        $('colabCargaResult').classList.remove('hidden');
+        $('colabCargaResult').innerHTML = `
+          <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+            ${[['Nuevos', r.nuevos], ['Actualizados', r.actualizados], ['Saltados', r.saltados]].map(([t, v]) =>
+              `<div style="border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:#fff">
+                 <span class="label" style="font-size:10.5px">${t}</span>
+                 <b style="display:block;font-size:20px;margin-top:5px">${v}</b></div>`).join('')}
+          </div>`;
+        const aviso = r.saltados ? ` ${r.saltados} fila(s) se saltaron (sin cédula/nombre, o esa cédula ya es personal fijo).` : '';
+        setStatusId('colabStatus', `✓ Listo.${aviso}`, r.saltados ? 'warn' : 'ok');
+        $('colabData').value = '';
+        cargarColaborativos();
+      } catch (err) {
+        setStatusId('colabStatus', err.message, 'error');
+      } finally {
+        setBtn($('btnColabCargar'), false);
+      }
+    }
+
+    async function agregarColabManual() {
+      const proyecto = proyectoColab();
+      const cedula = $('colabCedula').value.trim();
+      const nombre = $('colabNombre').value.trim();
+      if (!proyecto) return setStatusId('colabStatus', 'Escribe primero el proyecto.', 'error');
+      if (!cedula || !nombre) return setStatusId('colabStatus', 'Cédula y nombre son obligatorios.', 'error');
+      const fila = [cedula, nombre, $('colabCargo').value.trim(), $('colabCiudad').value.trim(), $('colabPlaca').value.trim()].join('\t');
+      const data = 'Cedula\tNombre\tCargo\tCiudad\tPlaca\n' + fila;
+      setBtn($('btnColabAgregar'), true);
+      setStatusId('colabStatus', 'Agregando…', 'info');
+      try {
+        await HSQ_API.call('colaborativosGuardar', { proyecto, data });
+        setStatusId('colabStatus', '✓ Agregado.', 'ok');
+        ['colabCedula', 'colabNombre', 'colabCargo', 'colabCiudad', 'colabPlaca'].forEach((id) => { $(id).value = ''; });
+        cargarColaborativos();
+      } catch (err) {
+        setStatusId('colabStatus', err.message, 'error');
+      } finally {
+        setBtn($('btnColabAgregar'), false);
+      }
+    }
+
+    async function cargarColaborativos() {
+      try {
+        colabData = await HSQ_API.call('colaborativosLista', { proyecto: $('colabFiltroProyecto').value });
+        pintarColaborativos();
+      } catch (err) {
+        $('colabLista').innerHTML = `<div class="card"><div class="card__body"><p class="hint-inline">${escapeHtml(err.message)}</p></div></div>`;
+      }
+    }
+
+    function pintarColaborativos() {
+      const filas = (colabData && colabData.filas) || [];
+      // El filtro de proyecto se arma con lo que realmente hay cargado,
+      // no con la lista completa de proyectos de la linea.
+      const sel = $('colabFiltroProyecto'), actual = sel.value;
+      const proyectos = [...new Set(filas.map((f) => f.proyecto).filter(Boolean))].sort();
+      sel.innerHTML = '<option value="">Todos</option>' + proyectos.map((p) =>
+        `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+      sel.value = proyectos.includes(actual) ? actual : '';
+
+      if (!filas.length) {
+        $('colabLista').innerHTML = '<div class="card"><div class="card__body"><p class="hint-inline">Todavía no hay personal colaborativo cargado en tu línea.</p></div></div>';
+        return;
+      }
+      $('colabLista').innerHTML = `<div class="card"><div class="cmp-list">${filas.map(filaColab).join('')}</div></div>`;
+      $('colabLista').querySelectorAll('[data-colab-toggle]').forEach((btn) =>
+        btn.addEventListener('click', () => cambiarEstadoColab(btn.dataset.colabToggle, btn.dataset.activo !== '1')));
+      $('colabLista').querySelectorAll('[data-colab-borrar]').forEach((btn) =>
+        btn.addEventListener('click', () => eliminarColab(btn.dataset.colabBorrar, btn.dataset.nombre)));
+    }
+
+    function filaColab(c) {
+      return `
+        <div class="cmp-row cmp-row--${c.activo ? 'completos' : 'pendientes'}">
+          <div class="cmp-main">
+            <span class="cmp-nombre">${escapeHtml(c.nombre || '(sin nombre)')}</span>
+            <span class="cmp-sub">CC ${escapeHtml(c.cedula)} · ${c.tipo === 'VEHICULO' ? 'Conductor' : 'Mensajero'} · ${escapeHtml(c.proyecto || '')}${c.ciudad ? ' · ' + escapeHtml(c.ciudad) : ''}</span>
+          </div>
+          <div class="cmp-dots">
+            <span class="badge ${c.activo ? '' : 'badge--req'}">${c.activo ? 'Activo' : 'Inactivo'}</span>
+          </div>
+          <button class="cmp-btn" type="button" data-colab-toggle="${escapeHtml(c.cedula)}" data-activo="${c.activo ? '1' : '0'}">${c.activo ? 'Inactivar' : 'Activar'}</button>
+          <button class="cmp-btn" type="button" data-colab-borrar="${escapeHtml(c.cedula)}" data-nombre="${escapeHtml(c.nombre)}">Eliminar</button>
+        </div>`;
+    }
+
+    async function cambiarEstadoColab(cedula, activo) {
+      try {
+        await HSQ_API.call('colaborativosEstado', { cedula, activo });
+        cargarColaborativos();
+      } catch (err) {
+        setStatusId('colabStatus', err.message, 'error');
+      }
+    }
+
+    async function eliminarColab(cedula, nombre) {
+      if (!confirm('¿Eliminar a ' + nombre + ' (CC ' + cedula + ') del personal colaborativo? No se puede deshacer.')) return;
+      try {
+        await HSQ_API.call('colaborativosEliminar', { cedula });
+        cargarColaborativos();
+      } catch (err) {
+        setStatusId('colabStatus', err.message, 'error');
       }
     }
 

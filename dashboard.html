@@ -449,6 +449,10 @@
 
       <div class="content">
         <div id="ctx" class="ctxbar"></div>
+        <!-- Solo aparece si el proyecto filtrado tiene personal
+             colaborativo cargado: nunca mezclado con el fijo en el mismo
+             numero. -->
+        <div id="tipoPersonalBox" class="hidden" style="display:flex;gap:8px;margin-bottom:16px"></div>
 
         <!-- ============ RESUMEN ============ -->
         <section id="resumen" class="section active">
@@ -802,7 +806,7 @@
       location.href = 'index.html';
     });
 
-    $('btnApply').addEventListener('click', cargar);
+    $('btnApply').addEventListener('click', () => cargar());
     $('btnExcel').addEventListener('click', exportarExcel);
     $('btnPdf').addEventListener('click', exportarPdf);
     // Ojo: los listeners se enganchan antes de saber el tipo de cuenta.
@@ -815,7 +819,7 @@
       $('fMonth').value = String(new Date().getMonth() + 1);
       cargar();
     });
-    $('fDay').addEventListener('change', cargar);
+    $('fDay').addEventListener('change', () => cargar());
     // Al cambiar un nivel se recortan los de abajo, sin recargar datos.
     $('fJefe').addEventListener('change', pintarFiltrosEncargado);
     $('fLider').addEventListener('change', pintarFiltrosEncargado);
@@ -970,15 +974,21 @@
       else ctx(e.message, true);
     }
 
-    async function cargar() {
+    // 'FIJO' o 'COLABORATIVO'. Se resetea a FIJO en cada consulta nueva;
+    // el toggle mismo la preserva llamando cargar(true).
+    let dashTipoPersonal = 'FIJO';
+
+    async function cargar(preservarTipo) {
+      if (!preservarTipo) dashTipoPersonal = 'FIJO';
       ctx('Actualizando información…');
       try {
         data = await HSQ_API.call('getDashboard', {
           anio: $('fYear').value, mes: $('fMonth').value,
           dia: $('fDay').value, proyecto: $('fProject').value,
-          formulario: $('fForm').value,
+          formulario: $('fForm').value, tipoPersonal: dashTipoPersonal,
           ...encargadoSel(),
         });
+        pintarTipoPersonalBox();
         pintar();
         // En las cuentas de linea estos botones no existen.
         if ($('btnExcel')) $('btnExcel').disabled = false;
@@ -994,6 +1004,16 @@
                      sel.coordinador && 'coord. ' + sel.coordinador].filter(Boolean).join(', ');
         ctx(`<b>${esc(proy)}</b>${enc ? ' · ' + esc(enc) : ''} · ${esc(form)} · ${esc(periodo)} · ${f.dias || 0} día(s) · actualizado ${esc(data.actualizado || '')}`);
       } catch (e) { manejarError(e); }
+    }
+
+    function pintarTipoPersonalBox() {
+      const box = $('tipoPersonalBox');
+      if (!data.tieneColaborativos) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      box.classList.remove('hidden');
+      box.innerHTML = [['FIJO', 'Fijo'], ['COLABORATIVO', 'Colaborativo']].map(([v, t]) =>
+        `<button type="button" class="btn ${dashTipoPersonal === v ? 'btn-primary' : 'btn-ghost'}" data-tipo="${v}">${t}</button>`).join('');
+      box.querySelectorAll('[data-tipo]').forEach((b) =>
+        b.addEventListener('click', () => { dashTipoPersonal = b.dataset.tipo; cargar(true); }));
     }
 
     // Un desplegable por nivel. El de coordinador solo se muestra cuando
