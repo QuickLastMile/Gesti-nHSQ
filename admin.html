@@ -156,6 +156,7 @@
             <p class="adm-group__title">Colaboradores</p>
           <button class="adm-link on" type="button" data-v="colaboradores" aria-label="Buscar y editar"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="8" r="3.4"/><path d="M4 20a7 7 0 0 1 14 0"/><path d="m17 4 2 2 3-3"/></svg></span><span>Buscar y editar</span></button>
           <button class="adm-link" type="button" data-v="matriz" aria-label="Actualizar matriz"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg></span><span>Actualizar matriz</span></button>
+          <button class="adm-link" type="button" data-v="colaborativos" aria-label="Personal colaborativo"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M2 20a6 6 0 0 1 12 0"/><path d="M16 5v6M13 8h6"/></svg></span><span>Personal colaborativo</span></button>
           <button class="adm-link" type="button" data-v="provisional" aria-label="Ingreso provisional"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3.4"/><path d="M3 20a7 7 0 0 1 12.2-4.7"/><path d="M18 14v6M15 17h6"/></svg></span><span>Ingreso provisional</span></button>
           </div>
           <div class="adm-group">
@@ -308,6 +309,66 @@
             </button>
             <div id="matrizResult" class="hidden" style="margin-top:12px"></div>
             <div id="matrizStatus" class="status" aria-live="polite"></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Gente que no esta vinculada en Quick ni en la matriz de activos
+           (no la trae ningun export de nomina), pero diligencia los mismos
+           formularios y cuenta en el indicador de UN proyecto puntual. No
+           se sincroniza como la matriz de arriba: cargar un archivo nuevo
+           nunca borra ni inactiva a nadie, eso se hace a mano abajo. -->
+      <div id="v-colaborativos" class="view hidden">
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <p class="card__title">Personal colaborativo</p>
+              <p class="card__sub">No vinculado en Quick ni en la matriz real</p>
+            </div>
+          </div>
+          <div class="card__body">
+            <p class="hint-inline" style="margin-top:0">No se sincroniza como la matriz: cargar un
+              archivo nuevo nunca borra ni inactiva a nadie. Para sacar a alguien, actívalo/inactívalo
+              o elimínalo en la lista de abajo.</p>
+            <div class="field">
+              <span class="label">Proyecto (obligatorio)</span>
+              <input id="colabProyecto" list="proyLista" autocomplete="off" placeholder="Escribe para buscar…">
+            </div>
+
+            <p class="card__title" style="font-size:14px;margin:18px 0 6px">Cargar varios (archivo Excel o CSV)</p>
+            <p class="hint-inline" style="margin-top:0">Columnas: <b>Cedula</b> y <b>Nombre</b> son obligatorias.
+              En <b>Cargo</b> escribe "Conductor" para vehículo, o déjalo vacío (o cualquier otra cosa) para
+              mensajero en moto. Ciudad y Placa son opcionales.</p>
+            <div class="field">
+              <span class="label">Archivo (.xlsx, .xls o .csv)</span>
+              <input id="colabArchivo" type="file" accept=".xlsx,.xls,.csv">
+            </div>
+            <button id="btnColabCargar" class="btn btn--dark" type="button" style="margin-top:6px">Cargar archivo</button>
+            <div id="colabCargaResult" class="hidden" style="margin-top:12px"></div>
+
+            <p class="card__title" style="font-size:14px;margin:18px 0 6px">O agregar una sola persona</p>
+            <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));align-items:end">
+              <div class="field"><span class="label">Cédula</span><input id="colabCedula" inputmode="numeric" autocomplete="off"></div>
+              <div class="field"><span class="label">Nombre</span><input id="colabNombre" autocomplete="off"></div>
+              <div class="field"><span class="label">Tipo</span>
+                <select id="colabCargo"><option value="">Mensajero (moto)</option><option value="Conductor">Conductor (vehículo)</option></select></div>
+              <div class="field"><span class="label">Ciudad</span><input id="colabCiudad" autocomplete="off"></div>
+              <div class="field"><span class="label">Placa</span><input id="colabPlaca" autocomplete="off"></div>
+            </div>
+            <button id="btnColabAgregar" class="btn btn--ghost" type="button" style="margin-top:10px">Agregar</button>
+
+            <div id="colabStatus" class="status" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="card" style="margin-top:16px">
+          <div class="card__head"><p class="card__title">Cargados en tu línea</p></div>
+          <div class="card__body">
+            <div class="field" style="max-width:320px;margin-bottom:14px">
+              <span class="label">Filtrar por proyecto</span>
+              <select id="colabFiltroProyecto"><option value="">Todos</option></select>
+            </div>
+            <div id="colabLista"></div>
           </div>
         </section>
       </div>
@@ -702,6 +763,7 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
+  <script src="assets/vendor/xlsx.full.min.js?v=1"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const CFG = window.HSQ_CONFIG || {};
@@ -739,6 +801,7 @@
     const SECCIONES = {
       colaboradores: ['Colaboradores', 'Buscar, editar y trasladar'],
       matriz: ['Actualizar matriz de activos', 'La nómina manda: quién entra, quién sale'],
+      colaborativos: ['Personal colaborativo', 'No vinculado en Quick ni en la matriz real'],
       provisional: ['Ingreso provisional', 'Para quien todavía no aparece en la nómina'],
       encargados: ['Proyectos y encargados', 'Quién responde por cada operación'],
       'encargados-carga': ['Cargar tabla de encargados', 'Se pega tal cual desde Excel; la llave es el CECO'],
@@ -765,6 +828,7 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
       // Cada sección carga sus datos la primera vez que se abre.
       if (clave === 'matriz') cargarMatrizInfo();
+      if (clave === 'colaborativos' && !colabData) cargarColaborativos();
       if (clave === 'historial' && !hisData) consultarHistorial();
       if (clave === 'calendario' && !calData) cargarCalendario();
       if (clave === 'formularios' && !frmData) cargarFormulariosProyecto();
@@ -2615,6 +2679,155 @@
         $('btnMatriz').disabled = false;
       }
     }
+
+    /* ================= PERSONAL COLABORATIVO =================
+       No vinculado en Quick ni en la matriz real: no se sincroniza como
+       ella (nunca inactiva a nadie por no aparecer en el archivo), asi
+       que no necesita el mismo aviso de confirmacion. */
+    let colabData = null;
+
+    // Lee un .xlsx/.xls/.csv y lo convierte al mismo formato de texto
+    // (titulos + filas separadas por tab) que ya entiende
+    // api_colaborativos_guardar -el mismo que se pega a mano en la Matriz.
+    function leerArchivoColab(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+        reader.onload = () => {
+          try {
+            const wb = XLSX.read(reader.result, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const filas = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+            const texto = filas
+              .filter((f) => f.some((c) => String(c ?? '').trim() !== ''))
+              .map((f) => f.map((c) => String(c ?? '').trim()).join('\t'))
+              .join('\n');
+            resolve(texto);
+          } catch (e) { reject(new Error('No pude leer ese archivo. ¿Es un Excel o CSV válido?')); }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    async function cargarColabMasivo() {
+      const proyecto = $('colabProyecto').value.trim();
+      const file = ($('colabArchivo').files || [])[0];
+      if (!proyecto) return setStatus('colabStatus', 'Escribe primero el proyecto.', 'error');
+      if (!file) return setStatus('colabStatus', 'Elige un archivo primero.', 'error');
+      $('btnColabCargar').disabled = true;
+      $('colabCargaResult').classList.add('hidden');
+      setStatus('colabStatus', 'Leyendo el archivo…', 'info');
+      try {
+        const data = await leerArchivoColab(file);
+        if (!data.trim()) throw new Error('El archivo no tiene datos.');
+        setStatus('colabStatus', 'Cargando…', 'info');
+        const r = await adminCall('colaborativosGuardar', { proyecto, data });
+        $('colabCargaResult').classList.remove('hidden');
+        $('colabCargaResult').innerHTML = `
+          <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
+            ${[['Nuevos', r.nuevos], ['Actualizados', r.actualizados], ['Saltados', r.saltados]].map(([t, v]) =>
+              `<div style="border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:#fff">
+                 <span class="label" style="font-size:10.5px">${t}</span>
+                 <b style="display:block;font-size:20px;margin-top:5px">${v}</b></div>`).join('')}
+          </div>`;
+        const aviso = r.saltados ? ` ${r.saltados} fila(s) se saltaron (sin cédula/nombre, o esa cédula ya es personal fijo).` : '';
+        setStatus('colabStatus', `✓ Listo.${aviso}`, r.saltados ? 'warn' : 'ok');
+        $('colabArchivo').value = '';
+        cargarColaborativos();
+      } catch (err) {
+        setStatus('colabStatus', err.message, 'error');
+      } finally {
+        $('btnColabCargar').disabled = false;
+      }
+    }
+
+    async function agregarColabManual() {
+      const proyecto = $('colabProyecto').value.trim();
+      const cedula = $('colabCedula').value.trim();
+      const nombre = $('colabNombre').value.trim();
+      if (!proyecto) return setStatus('colabStatus', 'Escribe primero el proyecto.', 'error');
+      if (!cedula || !nombre) return setStatus('colabStatus', 'Cédula y nombre son obligatorios.', 'error');
+      const fila = [cedula, nombre, $('colabCargo').value.trim(), $('colabCiudad').value.trim(), $('colabPlaca').value.trim()].join('\t');
+      const data = 'Cedula\tNombre\tCargo\tCiudad\tPlaca\n' + fila;
+      $('btnColabAgregar').disabled = true;
+      setStatus('colabStatus', 'Agregando…', 'info');
+      try {
+        await adminCall('colaborativosGuardar', { proyecto, data });
+        setStatus('colabStatus', '✓ Agregado.', 'ok');
+        ['colabCedula', 'colabNombre', 'colabCargo', 'colabCiudad', 'colabPlaca'].forEach((id) => { $(id).value = ''; });
+        cargarColaborativos();
+      } catch (err) {
+        setStatus('colabStatus', err.message, 'error');
+      } finally {
+        $('btnColabAgregar').disabled = false;
+      }
+    }
+
+    async function cargarColaborativos() {
+      try {
+        colabData = await adminCall('colaborativosLista', { proyecto: $('colabFiltroProyecto').value });
+        pintarColaborativos();
+      } catch (err) {
+        $('colabLista').innerHTML = `<div class="card"><div class="card__body"><p class="hint-inline">${esc(err.message)}</p></div></div>`;
+      }
+    }
+
+    function pintarColaborativos() {
+      const filas = (colabData && colabData.filas) || [];
+      const sel = $('colabFiltroProyecto'), actual = sel.value;
+      const proyectos = [...new Set(filas.map((f) => f.proyecto).filter(Boolean))].sort();
+      sel.innerHTML = '<option value="">Todos</option>' + proyectos.map((p) =>
+        `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      sel.value = proyectos.includes(actual) ? actual : '';
+
+      if (!filas.length) {
+        $('colabLista').innerHTML = '<div class="card"><div class="card__body"><p class="hint-inline">Todavía no hay personal colaborativo cargado en tu línea.</p></div></div>';
+        return;
+      }
+      $('colabLista').innerHTML = `<div class="card"><div class="cmp-list">${filas.map(filaColab).join('')}</div></div>`;
+      $('colabLista').querySelectorAll('[data-colab-toggle]').forEach((btn) =>
+        btn.addEventListener('click', () => cambiarEstadoColab(btn.dataset.colabToggle, btn.dataset.activo !== '1')));
+      $('colabLista').querySelectorAll('[data-colab-borrar]').forEach((btn) =>
+        btn.addEventListener('click', () => eliminarColab(btn.dataset.colabBorrar, btn.dataset.nombre)));
+    }
+
+    function filaColab(c) {
+      return `
+        <div class="cmp-row cmp-row--${c.activo ? 'completos' : 'pendientes'}">
+          <div class="cmp-main">
+            <span class="cmp-nombre">${esc(c.nombre || '(sin nombre)')}</span>
+            <span class="cmp-sub">CC ${esc(c.cedula)} · ${c.tipo === 'VEHICULO' ? 'Conductor' : 'Mensajero'} · ${esc(c.proyecto || '')}${c.ciudad ? ' · ' + esc(c.ciudad) : ''}</span>
+          </div>
+          <div class="cmp-dots">
+            <span class="badge ${c.activo ? '' : 'badge--req'}">${c.activo ? 'Activo' : 'Inactivo'}</span>
+          </div>
+          <button class="cmp-btn" type="button" data-colab-toggle="${esc(c.cedula)}" data-activo="${c.activo ? '1' : '0'}">${c.activo ? 'Inactivar' : 'Activar'}</button>
+          <button class="cmp-btn" type="button" data-colab-borrar="${esc(c.cedula)}" data-nombre="${esc(c.nombre)}">Eliminar</button>
+        </div>`;
+    }
+
+    async function cambiarEstadoColab(cedula, activo) {
+      try {
+        await adminCall('colaborativosEstado', { cedula, activo });
+        cargarColaborativos();
+      } catch (err) {
+        setStatus('colabStatus', err.message, 'error');
+      }
+    }
+
+    async function eliminarColab(cedula, nombre) {
+      if (!confirm('¿Eliminar a ' + nombre + ' (CC ' + cedula + ') del personal colaborativo? No se puede deshacer.')) return;
+      try {
+        await adminCall('colaborativosEliminar', { cedula });
+        cargarColaborativos();
+      } catch (err) {
+        setStatus('colabStatus', err.message, 'error');
+      }
+    }
+
+    $('btnColabCargar').addEventListener('click', cargarColabMasivo);
+    $('btnColabAgregar').addEventListener('click', agregarColabManual);
+    $('colabFiltroProyecto').addEventListener('change', cargarColaborativos);
 
     /* ================= HISTORIAL ================= */
     let hisData = null;
