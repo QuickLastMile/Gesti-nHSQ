@@ -204,6 +204,11 @@
         <div class="card__head"><p class="card__title">Detalle de reportes</p></div>
         <div class="card__body">
           <div class="cmp-filtros">
+            <!-- Solo la cuenta general (ve todas las lineas) la necesita:
+                 una cuenta de linea ya esta en la suya, cambiarla no
+                 tendria a donde ir. Se llena y se muestra en init(). -->
+            <div id="repLineaBox" class="field hidden"><span class="label">Línea</span>
+              <select id="repLinea"></select></div>
             <div class="field"><span class="label">Buscar (cédula o nombre)</span>
               <input id="repBuscar" autocomplete="off" placeholder="Trae todo el historial de esa persona"></div>
             <div class="field"><span class="label">Proyecto</span>
@@ -223,6 +228,10 @@
         </div>
       </section>
 
+      <!-- Un formulario a la vez: mezclarlos hacia ver el mismo nombre y
+           fecha repetidos por cada formulario que esa persona diligencio
+           ese dia, y parecia informacion duplicada. -->
+      <div id="repSubTabs" class="chips-row"></div>
       <div id="repLista"></div>
     </section>
 
@@ -365,6 +374,7 @@
     $('justGuardar').addEventListener('click', guardarJust);
     $('justCerrar').addEventListener('click', () => $('justModal').classList.remove('show'));
     $('btnReportes').addEventListener('click', consultarReportes);
+    $('repLinea').addEventListener('change', () => { repFormularioActivo = ''; cargarSubtabsReportes(); consultarReportes(); });
     $('repBuscar').addEventListener('keydown', (e) => { if (e.key === 'Enter') consultarReportes(); });
     $('repModalCerrar').addEventListener('click', () => $('repModal').classList.remove('show'));
 
@@ -423,6 +433,17 @@
             esCuentaGeneral = true;
             agregarOpcionDocumentacion();
           }
+          // Detalle de reportes: solo la cuenta general necesita elegir
+          // linea aqui (la de linea ya esta en la suya). Recargar la pagina
+          // entera -como hace el selector de arriba- seria demasiado para
+          // solo mirar reportes de otra linea.
+          if (info && info.general && (info.lineas || []).length > 1) {
+            $('repLineaBox').classList.remove('hidden');
+            $('repLinea').innerHTML = info.lineas.map((l) =>
+              `<option value="${escapeHtml(l.id)}">${escapeHtml(l.nombre)}</option>`).join('');
+            $('repLinea').value = info.actual || info.lineas[0].id;
+          }
+          cargarSubtabsReportes();
         })
         .catch(() => { /* sin sesion todavia */ });
     }
@@ -597,6 +618,41 @@
        se ve TODO el historial de esa persona (api_reportes_lista lo
        resuelve asi en el servidor). */
     let repData = null;
+    let repFormularioActivo = '';
+
+    // Vacio para una cuenta de linea (la suya es la unica que puede ver).
+    // Para la cuenta general, lo que haya elegido en el desplegable propio
+    // de esta pestana -no el selector de arriba, que recarga toda la
+    // pagina-.
+    function lineaFiltroRep() {
+      if ($('repLineaBox').classList.contains('hidden')) return {};
+      const v = $('repLinea').value;
+      return v ? { linea: v } : {};
+    }
+
+    // Un formulario a la vez: mezclarlos hacia ver el mismo nombre y fecha
+    // repetidos por cada formulario que esa persona diligencio ese dia, y
+    // parecia informacion duplicada. Las sub-pestanas solo muestran los
+    // formularios activos en la linea que se este mirando.
+    async function cargarSubtabsReportes() {
+      const NOMBRE_FALLBACK = { TEMP_HUM_AM: 'Temperatura · Mañana', TEMP_HUM_PM: 'Temperatura · Tarde' };
+      try {
+        const r = await HSQ_API.call('reportesFormularios', lineaFiltroRep());
+        const forms = r.formularios || [];
+        if (repFormularioActivo && !forms.some((f) => f.id === repFormularioActivo)) repFormularioActivo = '';
+        const chips = [{ id: '', nombre: 'Todos' }].concat(forms.map((f) =>
+          ({ id: f.id, nombre: nombreLargoRep[f.id] || NOMBRE_FALLBACK[f.id] || f.nombre || f.id })));
+        $('repSubTabs').innerHTML = chips.map((c) =>
+          `<button type="button" class="fchip ${repFormularioActivo === c.id ? 'active' : ''}" data-rep-form="${escapeHtml(c.id)}">${escapeHtml(c.nombre)}</button>`).join('');
+        $('repSubTabs').querySelectorAll('[data-rep-form]').forEach((b) =>
+          b.addEventListener('click', () => {
+            repFormularioActivo = b.dataset.repForm;
+            $('repSubTabs').querySelectorAll('.fchip').forEach((x) => x.classList.remove('active'));
+            b.classList.add('active');
+            consultarReportes();
+          }));
+      } catch (err) { /* sin sub-pestanas, la lista sigue funcionando igual */ }
+    }
 
     async function consultarReportes() {
       setBtn($('btnReportes'), true);
@@ -610,8 +666,9 @@
           ciudad: $('repCiudad').value.trim(),
           fechaInicio: $('repDesde').value,
           fechaFin: $('repHasta').value,
+          formulario: repFormularioActivo,
         };
-        Object.assign(filtros, encargadoDe('repEncargado'));
+        Object.assign(filtros, encargadoDe('repEncargado'), lineaFiltroRep());
         repData = await HSQ_API.call('reportesLista', filtros);
         pintarReportes();
         const n = (repData.filas || []).length;
@@ -664,7 +721,7 @@
       $('repModalStatus').className = 'status'; $('repModalStatus').textContent = '';
       $('repModal').classList.add('show');
       try {
-        const r = await HSQ_API.call('reportesPersona', { cedula });
+        const r = await HSQ_API.call('reportesPersona', Object.assign({ cedula }, lineaFiltroRep()));
         const p = r.persona || {};
         $('repPersonaNombre').textContent = p.nombre || nombreRapido || '';
         $('repPersonaSub').textContent = [
@@ -704,7 +761,7 @@
       $('repEvidencias').innerHTML = '';
       $('repModalStatus').className = 'status'; $('repModalStatus').textContent = '';
       try {
-        const d = await HSQ_API.call('reportesRegistro', { id_registro: idRegistro });
+        const d = await HSQ_API.call('reportesRegistro', Object.assign({ id_registro: idRegistro }, lineaFiltroRep()));
         const reg = d.registro || {};
         const nombreForm = nombreLargoRep[reg.formulario_id] || reg.formulario_id;
         $('repDetalleHead').textContent = `${nombreForm} · ${reg.fecha}${reg.hora ? ' ' + reg.hora : ''}`
