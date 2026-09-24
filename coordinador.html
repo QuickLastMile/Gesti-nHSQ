@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/styles.css?v=38">
+  <link rel="stylesheet" href="assets/styles.css?v=39">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -235,19 +235,31 @@
       <div id="repLista"></div>
     </section>
 
-    <!-- Modal detalle de reportes: dia por dia, preguntas y respuestas -->
+    <!-- Modal detalle de reportes: preguntas, respuestas y evidencias -->
     <div id="repModal" class="modal" role="dialog" aria-modal="true">
-      <div class="modal__card" style="max-width:760px">
+      <div class="modal__card" style="max-width:960px">
         <div class="modal__body" style="text-align:left">
           <h2 id="repPersonaNombre" style="margin:0 0 2px;font-size:19px;color:var(--brand)"></h2>
           <p id="repPersonaSub" class="hint-inline" style="margin:0 0 14px"></p>
 
-          <p class="label" style="margin-bottom:6px">Elige un día para ver el detalle</p>
-          <div id="repDiasLista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+            <!-- Solo aparece cuando hay mas de un formulario entre los
+                 registros traidos (o sea, cuando la sub-pestana activa era
+                 "Todos"): si ya se venia filtrado por uno solo, no hace
+                 falta elegirlo de nuevo aqui. -->
+            <div class="field hidden" id="repModalFormularioBox" style="min-width:230px">
+              <span class="label">Formulario</span><select id="repModalFormulario"></select></div>
+            <div class="field" style="min-width:230px">
+              <span class="label">Día</span><select id="repModalDia"></select></div>
+          </div>
 
           <div id="repDetalle" class="hidden">
             <div id="repDetalleHead" class="hint-inline" style="margin-bottom:10px"></div>
             <div id="repQA" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px"></div>
+            <div id="repVisor" class="hidden" style="margin-bottom:12px">
+              <img id="repVisorImg" class="hidden" style="max-width:100%;max-height:58vh;border-radius:10px;border:1px solid var(--line-strong);display:block">
+              <iframe id="repVisorPdf" class="hidden" title="Evidencia en PDF" style="width:100%;height:58vh;border:1px solid var(--line-strong);border-radius:10px"></iframe>
+            </div>
             <div id="repEvidencias" style="display:flex;flex-wrap:wrap;gap:10px"></div>
           </div>
 
@@ -377,6 +389,8 @@
     $('repLinea').addEventListener('change', () => { repFormularioActivo = ''; cargarSubtabsReportes(); consultarReportes(); });
     $('repBuscar').addEventListener('keydown', (e) => { if (e.key === 'Enter') consultarReportes(); });
     $('repModalCerrar').addEventListener('click', () => $('repModal').classList.remove('show'));
+    $('repModalFormulario').addEventListener('change', () => pintarDiasRep());
+    $('repModalDia').addEventListener('change', () => abrirRegistroDetalle($('repModalDia').value));
 
     /* ---------- Pestañas ---------- */
     document.querySelectorAll('.tab').forEach((t) => {
@@ -397,8 +411,9 @@
       $('fechaInicio').value = today;
       $('fechaFin').value = today;
       $('cumFecha').value = today;
-      const hace30 = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
-      $('repDesde').value = hace30;
+      // Por defecto, solo hoy: es lo que se consulta mas seguido. Para ver
+      // un rango mas amplio, se cambia Desde a mano.
+      $('repDesde').value = today;
       $('repHasta').value = today;
       try {
         const data = await HSQ_API.call('getBootstrap');
@@ -619,6 +634,12 @@
        resuelve asi en el servidor). */
     let repData = null;
     let repFormularioActivo = '';
+    // Las dos jornadas de temperatura comparten nombre corto ("Temperatura
+    // y humedad"); nombreLargoRep ya las distingue si el bootstrap se pidio
+    // en esa linea, pero por si la cuenta general mira otra linea distinta
+    // a la de su bootstrap inicial, este es el respaldo.
+    const NOMBRE_FALLBACK_REP = { TEMP_HUM_AM: 'Temperatura · Mañana', TEMP_HUM_PM: 'Temperatura · Tarde' };
+    const nombreFormRep = (id) => nombreLargoRep[id] || NOMBRE_FALLBACK_REP[id] || id;
 
     // Vacio para una cuenta de linea (la suya es la unica que puede ver).
     // Para la cuenta general, lo que haya elegido en el desplegable propio
@@ -635,13 +656,12 @@
     // parecia informacion duplicada. Las sub-pestanas solo muestran los
     // formularios activos en la linea que se este mirando.
     async function cargarSubtabsReportes() {
-      const NOMBRE_FALLBACK = { TEMP_HUM_AM: 'Temperatura · Mañana', TEMP_HUM_PM: 'Temperatura · Tarde' };
       try {
         const r = await HSQ_API.call('reportesFormularios', lineaFiltroRep());
         const forms = r.formularios || [];
         if (repFormularioActivo && !forms.some((f) => f.id === repFormularioActivo)) repFormularioActivo = '';
         const chips = [{ id: '', nombre: 'Todos' }].concat(forms.map((f) =>
-          ({ id: f.id, nombre: nombreLargoRep[f.id] || NOMBRE_FALLBACK[f.id] || f.nombre || f.id })));
+          ({ id: f.id, nombre: nombreFormRep(f.id) })));
         $('repSubTabs').innerHTML = chips.map((c) =>
           `<button type="button" class="fchip ${repFormularioActivo === c.id ? 'active' : ''}" data-rep-form="${escapeHtml(c.id)}">${escapeHtml(c.nombre)}</button>`).join('');
         $('repSubTabs').querySelectorAll('[data-rep-form]').forEach((b) =>
@@ -692,36 +712,51 @@
       }
       $('repLista').innerHTML = `<div class="card"><div class="cmp-list">${filas.map(filaReporte).join('')}</div></div>`;
       $('repLista').querySelectorAll('[data-rep-persona]').forEach((btn) =>
-        btn.addEventListener('click', () => abrirPersona(btn.dataset.repPersona, btn.dataset.repNombre)));
+        btn.addEventListener('click', () => abrirPersona(btn.dataset.repPersona, btn.dataset.repNombre, btn.dataset.repRegistro)));
     }
 
     function filaReporte(f) {
-      const formNombre = nombreLargoRep[f.formulario_id] || f.formulario_id;
       const conAlerta = f.estado === 'CON_ALERTA';
       return `
         <div class="cmp-row cmp-row--${conAlerta ? 'pendientes' : 'completos'}">
           <div class="cmp-main">
-            <button class="rep-link" type="button" data-rep-persona="${escapeHtml(f.cedula)}" data-rep-nombre="${escapeHtml(f.nombre)}">${escapeHtml(f.nombre || '(sin nombre)')}</button>
+            <button class="rep-link" type="button" data-rep-persona="${escapeHtml(f.cedula)}"
+              data-rep-nombre="${escapeHtml(f.nombre)}" data-rep-registro="${escapeHtml(f.id_registro)}">${escapeHtml(f.nombre || '(sin nombre)')}</button>
             <span class="cmp-sub">CC ${escapeHtml(f.cedula)} · ${escapeHtml(f.proyecto || '')}${f.ciudad ? ' · ' + escapeHtml(f.ciudad) : ''}</span>
           </div>
           <div class="cmp-dots">
             <span class="cmp-just">${escapeHtml(f.fecha)}${f.hora ? ' · ' + escapeHtml(f.hora) : ''}</span>
-            <span class="cmp-just">${escapeHtml(formNombre)}</span>
+            <span class="cmp-just">${escapeHtml(nombreFormRep(f.formulario_id))}</span>
             ${conAlerta ? '<span class="badge badge--req">Con alerta</span>' : ''}
           </div>
         </div>`;
     }
 
-    /* ----- Modal: historial completo de una persona ----- */
-    async function abrirPersona(cedula, nombreRapido) {
+    // Todos los registros que trajo api_reportes_persona, para armar los
+    // dos desplegables (formulario y dia) sin volver a pedirlos.
+    let repRegistrosPersona = [];
+
+    /* ----- Modal: historial de una persona, respetando los filtros
+       activos (fechas y sub-pestana de formulario) -- salvo cuando se
+       esta buscando por cedula/nombre, que trae todo el historial. */
+    async function abrirPersona(cedula, nombreRapido, idRegistroClic) {
       $('repPersonaNombre').textContent = nombreRapido || 'Cargando…';
       $('repPersonaSub').textContent = '';
-      $('repDiasLista').innerHTML = '';
+      $('repModalFormularioBox').classList.add('hidden');
+      $('repModalFormulario').innerHTML = '';
+      $('repModalDia').innerHTML = '';
       $('repDetalle').classList.add('hidden');
       $('repModalStatus').className = 'status'; $('repModalStatus').textContent = '';
       $('repModal').classList.add('show');
       try {
-        const r = await HSQ_API.call('reportesPersona', Object.assign({ cedula }, lineaFiltroRep()));
+        const buscando = $('repBuscar').value.trim() !== '';
+        const r = await HSQ_API.call('reportesPersona', Object.assign({
+          cedula,
+          // Buscando: se quiere ver TODO el historial, no solo el filtro.
+          fechaInicio: buscando ? '' : $('repDesde').value,
+          fechaFin: buscando ? '' : $('repHasta').value,
+          formulario: repFormularioActivo,
+        }, lineaFiltroRep()));
         const p = r.persona || {};
         $('repPersonaNombre').textContent = p.nombre || nombreRapido || '';
         $('repPersonaSub').textContent = [
@@ -730,27 +765,51 @@
           p.coordinador ? 'Coord. ' + p.coordinador : '',
           p.activo === false ? 'INACTIVO' : '',
         ].filter(Boolean).join(' · ');
-        const regs = r.registros || [];
-        if (!regs.length) {
-          $('repDiasLista').innerHTML = '<p class="hint-inline">Esta persona no tiene registros.</p>';
+        repRegistrosPersona = r.registros || [];
+        if (!repRegistrosPersona.length) {
+          $('repModalDia').innerHTML = '<option>Sin registros para este filtro</option>';
           return;
         }
-        $('repDiasLista').innerHTML = regs.map((rg) => {
-          const nombreForm = nombreLargoRep[rg.formulario_id] || rg.formulario_id;
-          const alerta = rg.estado === 'CON_ALERTA';
-          return `<button class="rep-dia-chip${alerta ? ' rep-dia-chip--alerta' : ''}" type="button"
-            data-rep-registro="${escapeHtml(rg.id_registro)}">${escapeHtml(rg.fecha)} · ${escapeHtml(nombreForm)}</button>`;
-        }).join('');
-        $('repDiasLista').querySelectorAll('[data-rep-registro]').forEach((btn) =>
-          btn.addEventListener('click', () => {
-            $('repDiasLista').querySelectorAll('.rep-dia-chip').forEach((b) => b.classList.remove('active'));
-            btn.classList.add('active');
-            abrirRegistroDetalle(btn.dataset.repRegistro);
-          }));
+
+        // El desplegable de formulario solo aparece si hay mas de uno entre
+        // lo que se trajo (o sea, si la sub-pestana activa era "Todos").
+        const formIds = [...new Set(repRegistrosPersona.map((rg) => rg.formulario_id))];
+        if (formIds.length > 1) {
+          $('repModalFormularioBox').classList.remove('hidden');
+          $('repModalFormulario').innerHTML = formIds.map((id) =>
+            `<option value="${escapeHtml(id)}">${escapeHtml(nombreFormRep(id))}</option>`).join('');
+          const formInicial = idRegistroClic
+            && (repRegistrosPersona.find((rg) => rg.id_registro === idRegistroClic) || {}).formulario_id;
+          $('repModalFormulario').value = formInicial || formIds[0];
+        }
+
+        pintarDiasRep(idRegistroClic);
       } catch (err) {
         $('repModalStatus').className = 'status show status--error';
         $('repModalStatus').textContent = err.message;
       }
+    }
+
+    // Llena el desplegable de dias con los registros del formulario elegido
+    // (o todos, si el desplegable de formulario esta oculto), y abre el
+    // registro pedido -o el mas reciente si no se pidio ninguno.
+    function pintarDiasRep(idRegistroPreferido) {
+      const formSel = $('repModalFormularioBox').classList.contains('hidden') ? '' : $('repModalFormulario').value;
+      const regs = formSel ? repRegistrosPersona.filter((rg) => rg.formulario_id === formSel) : repRegistrosPersona;
+      if (!regs.length) {
+        $('repModalDia').innerHTML = '<option>Sin registros para este formulario</option>';
+        $('repDetalle').classList.add('hidden');
+        return;
+      }
+      $('repModalDia').innerHTML = regs.map((rg) => {
+        const alerta = rg.estado === 'CON_ALERTA';
+        const etiqueta = rg.fecha + (rg.hora ? ' · ' + rg.hora : '') + (alerta ? ' · ⚠' : '');
+        return `<option value="${escapeHtml(rg.id_registro)}">${escapeHtml(etiqueta)}</option>`;
+      }).join('');
+      const preferido = idRegistroPreferido && regs.some((rg) => rg.id_registro === idRegistroPreferido)
+        ? idRegistroPreferido : regs[0].id_registro;
+      $('repModalDia').value = preferido;
+      abrirRegistroDetalle(preferido);
     }
 
     /* ----- Modal: preguntas, respuestas y evidencias de un dia ----- */
@@ -759,12 +818,14 @@
       $('repDetalleHead').textContent = 'Cargando…';
       $('repQA').innerHTML = '';
       $('repEvidencias').innerHTML = '';
+      $('repVisor').classList.add('hidden');
+      $('repVisorImg').classList.add('hidden'); $('repVisorImg').src = '';
+      $('repVisorPdf').classList.add('hidden'); $('repVisorPdf').src = '';
       $('repModalStatus').className = 'status'; $('repModalStatus').textContent = '';
       try {
         const d = await HSQ_API.call('reportesRegistro', Object.assign({ id_registro: idRegistro }, lineaFiltroRep()));
         const reg = d.registro || {};
-        const nombreForm = nombreLargoRep[reg.formulario_id] || reg.formulario_id;
-        $('repDetalleHead').textContent = `${nombreForm} · ${reg.fecha}${reg.hora ? ' ' + reg.hora : ''}`
+        $('repDetalleHead').textContent = `${nombreFormRep(reg.formulario_id)} · ${reg.fecha}${reg.hora ? ' ' + reg.hora : ''}`
           + (reg.placa_moto ? ' · Placa ' + reg.placa_moto : '')
           + (reg.diferido ? ' · Diligenciado sin conexión' : '');
 
@@ -788,7 +849,8 @@
         } else {
           const rutas = evidencias.map((e) => e.storage_path || e.url).filter(Boolean);
           const firmadas = await HSQ_API.firmarRutas(rutas);
-          $('repEvidencias').innerHTML = evidencias.map((e) => {
+          let primerVisible = null;
+          $('repEvidencias').innerHTML = evidencias.map((e, i) => {
             const ruta = e.storage_path || e.url || '';
             const enlace = firmadas[ruta] || '';
             const esPdf = /\.pdf($|\?)/i.test(e.nombre || ruta);
@@ -798,13 +860,39 @@
               || (d.preguntas || []).find((p) => e.pregunta_id.startsWith(p.id + '_'));
             const titulo = (preguntaTxt && preguntaTxt.pregunta) || e.pregunta_id;
             if (!enlace) return `<div class="rep-evid-item rep-evid-item--pdf" title="${escapeHtml(titulo)}">Sin firmar</div>`;
-            if (esPdf) return `<a class="rep-evid-item rep-evid-item--pdf" href="${enlace}" target="_blank" rel="noopener" title="${escapeHtml(titulo)}">PDF<br>Ver</a>`;
-            return `<a class="rep-evid-item" href="${enlace}" target="_blank" rel="noopener" title="${escapeHtml(titulo)}"><img src="${enlace}" alt="${escapeHtml(titulo)}" loading="lazy"></a>`;
+            if (primerVisible === null) primerVisible = i;
+            const contenido = esPdf ? 'PDF<br>Ver' : `<img src="${enlace}" alt="${escapeHtml(titulo)}" loading="lazy">`;
+            return `<button type="button" class="rep-evid-item${esPdf ? ' rep-evid-item--pdf' : ''}"
+              data-enlace="${escapeHtml(enlace)}" data-pdf="${esPdf ? 1 : 0}" data-idx="${i}" title="${escapeHtml(titulo)}">${contenido}</button>`;
           }).join('');
+          const botones = $('repEvidencias').querySelectorAll('[data-enlace]');
+          botones.forEach((b) => b.addEventListener('click', () => {
+            botones.forEach((x) => x.classList.remove('active'));
+            b.classList.add('active');
+            mostrarEvidenciaRep(b.dataset.enlace, b.dataset.pdf === '1');
+          }));
+          // Se ve la primera evidencia de una vez, sin obligar a hacer clic.
+          if (primerVisible !== null) {
+            botones[0].classList.add('active');
+            mostrarEvidenciaRep(botones[0].dataset.enlace, botones[0].dataset.pdf === '1');
+          }
         }
       } catch (err) {
         $('repModalStatus').className = 'status show status--error';
         $('repModalStatus').textContent = err.message;
+      }
+    }
+
+    // Muestra la evidencia dentro del mismo modal -sin pestana ni ventana
+    // aparte-. Una imagen se ve directo; un PDF se incrusta en un iframe.
+    function mostrarEvidenciaRep(enlace, esPdf) {
+      $('repVisor').classList.remove('hidden');
+      if (esPdf) {
+        $('repVisorPdf').src = enlace; $('repVisorPdf').classList.remove('hidden');
+        $('repVisorImg').classList.add('hidden'); $('repVisorImg').src = '';
+      } else {
+        $('repVisorImg').src = enlace; $('repVisorImg').classList.remove('hidden');
+        $('repVisorPdf').classList.add('hidden'); $('repVisorPdf').src = '';
       }
     }
 
