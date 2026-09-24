@@ -524,6 +524,14 @@
        cuarenta preguntas para que al final lo rebote el servidor. */
     const NOMBRE_DOC = { SOAT: 'SOAT', TECNOMECANICA: 'Tecnomecánica', LICENCIA: 'Licencia de tránsito' };
 
+    // Evidencia de limpieza (moto y vehículo): la primera foto es
+    // obligatoria, hasta tres mas quedan como respaldo opcional. Se
+    // guardan bajo el mismo id_pregunta la primera, y con sufijo _2/_3/_4
+    // las demas -no hace falta tocar la tabla `preguntas` ni el SQL: el
+    // exportable ya arma sus columnas de evidencia a partir de las llaves
+    // que encuentre.
+    const EVIDENCIA_LIMPIEZA_MULTIPLE = ['LIM_012', 'LIV_007'];
+
     // "a", "a y b", "a, b y c". Tres elementos unidos con "y" dos veces
     // se leen mal.
     function listar(arr) {
@@ -955,6 +963,10 @@
             return `<input name="${id}" type="file" accept="application/pdf" ${req}>
                     <span class="auto-tag">Solo PDF. Es el archivo que te entregan al expedir el documento.</span>`;
           }
+          if (EVIDENCIA_LIMPIEZA_MULTIPLE.includes(q.id_pregunta)) {
+            return `<input name="${id}" type="file" accept="image/*" multiple ${req}>
+                    <span class="auto-tag">La primera foto es obligatoria. Puedes agregar hasta 3 más si quieres mostrar otros ángulos.</span>`;
+          }
           return `<input name="${id}" type="file" accept="image/*" ${req}>`;
         }
         case 'si_no': return `<select name="${id}" ${req}><option value="">Selecciona…</option><option${sel('SI')}>SI</option><option${sel('NO')}>NO</option></select>`;
@@ -1005,6 +1017,18 @@
               archivos.push(await fileToPayload(q.id_pregunta, unida));
             } catch (err) {
               return showStatus(err.message, 'error');
+            }
+          } else if (EVIDENCIA_LIMPIEZA_MULTIPLE.includes(q.id_pregunta) && files.length) {
+            if (files.length > 4) {
+              return showStatus(q.pregunta + ': selecciona como máximo 4 fotos (1 obligatoria y hasta 3 adicionales).', 'error');
+            }
+            try {
+              for (const f of files) await validarEvidencia(f);
+              for (let i = 0; i < files.length; i++) {
+                archivos.push(await fileToPayload(i === 0 ? q.id_pregunta : q.id_pregunta + '_' + (i + 1), files[i]));
+              }
+            } catch (err) {
+              return showStatus(q.pregunta + ': ' + err.message, 'error');
             }
           } else if (files[0]) {
             try {

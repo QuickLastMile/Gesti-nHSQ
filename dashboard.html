@@ -173,7 +173,7 @@
     .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 
     /* ---------- Tooltip ---------- */
-    .tip{position:fixed;z-index:80;pointer-events:none;background:#062b21;color:#e8f3ee;border-radius:9px;
+    .tip{position:fixed;z-index:95;pointer-events:none;background:#062b21;color:#e8f3ee;border-radius:9px;
       padding:10px 13px;font-size:12.5px;line-height:1.55;box-shadow:var(--sh-lg);opacity:0;
       transition:opacity .12s;max-width:270px;border:1px solid rgba(184,212,63,.25)}
     .tip.show{opacity:1}
@@ -622,9 +622,12 @@
                ni envolverlo en otra tarjeta con su propio encabezado. -->
           <article class="card">
             <div class="card-body" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+              <div class="field" style="width:170px"><label>Mes</label><select id="tMes"><option value="">Rango libre</option></select></div>
               <div class="field" style="width:150px"><label>Desde</label><input id="tDesde" type="date"></div>
               <div class="field" style="width:150px"><label>Hasta</label><input id="tHasta" type="date"></div>
-              <div class="field" style="width:200px"><label>Ciudad</label><select id="tCiudad"><option value="">Todas</option></select></div>
+              <div class="field" style="width:220px"><label>Proyecto</label><select id="tProyecto"><option value="">Todos</option></select></div>
+              <div class="field" style="width:180px"><label>Ciudad</label><select id="tCiudad"><option value="">Todas</option></select></div>
+              <div class="field" style="width:150px"><label>Jornada</label><select id="tJornada"><option value="">Mañana y tarde</option><option value="AM">Mañana</option><option value="PM">Tarde</option></select></div>
               <div class="fbtns"><button id="tAplicar" class="btn btn-primary" type="button">Aplicar</button></div>
             </div>
           </article>
@@ -773,7 +776,7 @@
     const DOW = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
     const C = { verde:'#12875f', oscuro:'#07382b', lima:'#7f9e1f', ok:'#0f7a4d', warn:'#b57611', bad:'#b83a33' };
     let data = null, docFiltro = 'TODOS';
-    let datosTemp = null, ciudadesTempListas = false;
+    let datosTemp = null, ciudadesTempListas = false, proyectosTempListos = false, mesesTempListos = false;
     // id de formulario -> nombre con su jornada, cuando la tiene. Va aqui
     // y no junto a las tablas: arrancar() la escribe, y se llama mucho antes.
     const nombreLargo = {};
@@ -825,6 +828,7 @@
     $('opSearch').addEventListener('input', pintarNovedades);
     $('mtoSearch').addEventListener('input', pintarMantenimiento);
     $('tAplicar').addEventListener('click', () => cargarTemperatura());
+    $('tMes').addEventListener('change', aplicarMesTemp);
     $('focusBackdrop').addEventListener('click', cerrarEnfoque);
     document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && focusedCard) cerrarEnfoque(); });
     sideToggle.addEventListener('click', () => actualizarMenuLateral(!layout.classList.contains('side-collapsed'), true));
@@ -1792,9 +1796,11 @@
     // Temperatura y humedad de bodega: tiene su propio rango de fechas
     // (no el Año/Mes/Día del filtro principal), asi que se carga aparte.
     async function cargarTemperatura() {
+      if (!mesesTempListos) poblarMesesTemp();
       try {
         datosTemp = await HSQ_API.call('getTemperatura', {
           fechaInicio: $('tDesde').value, fechaFin: $('tHasta').value, ciudad: $('tCiudad').value,
+          proyecto: $('tProyecto').value, jornada: $('tJornada').value,
         });
         if (!ciudadesTempListas) {
           const sel = $('tCiudad'), actual = sel.value;
@@ -1803,8 +1809,41 @@
           sel.value = actual;
           ciudadesTempListas = true;
         }
+        if (!proyectosTempListos) {
+          const sel = $('tProyecto'), actual = sel.value;
+          sel.length = 1;
+          (datosTemp.proyectos || []).forEach((p) => sel.add(new Option(p, p)));
+          sel.value = actual;
+          proyectosTempListos = true;
+        }
         pintarTemperatura();
       } catch (e) { manejarError(e); }
+    }
+
+    // Atajo "Mes": los ultimos 12 meses, para no tener que picar Desde/Hasta
+    // a mano. Al elegir uno se aplica de una vez -es un atajo, no un filtro
+    // mas para confirmar con "Aplicar".
+    function poblarMesesTemp() {
+      const sel = $('tMes'); sel.length = 1;
+      const hoy = new Date();
+      for (let i = 0; i < 12; i++) {
+        const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+        const valor = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        sel.add(new Option(MESES[d.getMonth()] + ' ' + d.getFullYear(), valor));
+      }
+      mesesTempListos = true;
+    }
+    function aplicarMesTemp() {
+      const v = $('tMes').value;
+      if (!v) return;
+      const [anio, mes] = v.split('-').map(Number);
+      const desde = new Date(anio, mes - 1, 1);
+      const hasta = new Date(anio, mes, 0);
+      const hoyLocal = new Date(hoyISO());
+      if (hasta > hoyLocal) hasta.setTime(hoyLocal.getTime());
+      const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+      $('tDesde').value = iso(desde); $('tHasta').value = iso(hasta);
+      cargarTemperatura();
     }
 
     function pintarTemperatura() {
@@ -1839,7 +1878,9 @@
       $('tTopRows').innerHTML = top.map((t, i) => `
         <tr><td><span class="rank ${i === 0 ? 'gold' : ''}">${i + 1}</span></td>
         <td class="t-name">${esc(t.nombre)}</td><td class="t-sub">${esc(t.ciudad || '—')}</td>
-        <td class="tnum"><b>${gr(t.temp_max)}</b></td><td class="tnum">${gr(t.temp_prom)}</td>
+        <td class="tnum"><b${t.alerta ? ' style="color:var(--bad)"' : ''}>${gr(t.temp_max)}</b>
+          ${t.alerta ? ' <span class="badge bad" title="Alguna lectura de esta persona superó el rango normal (25 °C)">Fuera de rango</span>' : ''}</td>
+        <td class="tnum">${gr(t.temp_prom)}</td>
         <td class="tnum">${fmt(t.tomas)}</td></tr>`).join('');
     }
 
