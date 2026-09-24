@@ -13,6 +13,13 @@
 --  idempotente para la parte del router, pero el create or replace
 --  de api_temperatura siempre reemplaza el cuerpo completo.
 --
+--  La primera version de api_temperatura fallaba con "aggregate
+--  function calls cannot be nested" en la serie por dia: metia
+--  avg()/max()/min()/count() directo dentro de jsonb_agg(...), los
+--  dos agregados en el mismo nivel. La correccion es la misma idea
+--  que ya usaba top_temp: agregar por dia en una subconsulta aparte,
+--  y solo despues juntar esas filas (ya planas) en el arreglo.
+--
 --  Supabase -> SQL Editor -> New query -> pegar todo -> Run
 -- ============================================================
 
@@ -101,13 +108,22 @@ begin
       'descartadas', descartadas)
     from tmp_temp);
 
+  -- Dos niveles, igual que top_temp: primero se agregan los numeros por
+  -- dia (subconsulta), y solo despues se junta esa fila ya lista en el
+  -- arreglo. jsonb_agg(jsonb_build_object(avg(...))) en un solo nivel es
+  -- justo lo que Postgres rechaza como "agregado anidado".
   serie := coalesce((
     select jsonb_agg(jsonb_build_object(
-      'fecha', to_char(fecha,'YYYY-MM-DD'),
-      'temp_prom', round(avg(temp),1), 'temp_max', max(temp), 'temp_min', min(temp),
-      'hum_prom', round(avg(hum),1), 'hum_max', max(hum), 'hum_min', min(hum),
-      'tomas', count(*)) order by fecha)
-    from tmp_temp group by fecha), '[]'::jsonb);
+      'fecha', to_char(s.fecha,'YYYY-MM-DD'),
+      'temp_prom', s.temp_prom, 'temp_max', s.temp_max, 'temp_min', s.temp_min,
+      'hum_prom', s.hum_prom, 'hum_max', s.hum_max, 'hum_min', s.hum_min,
+      'tomas', s.tomas) order by s.fecha)
+    from (
+      select fecha, round(avg(temp),1) as temp_prom, max(temp) as temp_max, min(temp) as temp_min,
+             round(avg(hum),1) as hum_prom, max(hum) as hum_max, min(hum) as hum_min,
+             count(*) as tomas
+        from tmp_temp
+       group by fecha) s), '[]'::jsonb);
 
   top_temp := coalesce((
     select jsonb_agg(to_jsonb(t) order by t.temp_max desc, t.temp_prom desc)

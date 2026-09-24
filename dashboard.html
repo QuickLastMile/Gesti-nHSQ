@@ -1074,10 +1074,16 @@
         detalle: ['Detalle', 'Tablas completas y desglose por encargado'],
       }[btn.dataset.s] || ['Dashboard HSEQ', ''];
       $('pgTitle').textContent = t[0]; $('pgSub').textContent = t[1];
+      // Temperatura tiene su propio filtro de fechas: el filtro principal
+      // (Proyecto/Año/Mes/Día) no aplica ahi y solo confundiria mostrando
+      // dos barras de filtros a la vez.
+      const esTemperatura = btn.dataset.s === 'temperatura';
+      document.querySelector('.filterbar').classList.toggle('hidden', esTemperatura);
+      $('ctx').classList.toggle('hidden', esTemperatura);
       if (data) pintarGraficas();
       // Se carga aparte y solo la primera vez: tiene su propio rango de
       // fechas, distinto del filtro principal del tablero.
-      if (btn.dataset.s === 'temperatura') {
+      if (esTemperatura) {
         if (!$('tDesde').value) { $('tDesde').value = hace(29); $('tHasta').value = hoyISO(); }
         if (!datosTemp) cargarTemperatura();
       }
