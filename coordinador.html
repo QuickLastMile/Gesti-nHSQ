@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/styles.css?v=37">
+  <link rel="stylesheet" href="assets/styles.css?v=38">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -89,6 +89,7 @@
     <nav class="tabs" role="tablist">
       <button class="tab active" type="button" data-view="exportar">Exportar</button>
       <button class="tab" type="button" data-view="cumplimiento">Cumplimiento</button>
+      <button class="tab" type="button" data-view="reportes">Detalle de reportes</button>
     </nav>
 
     <section id="view-exportar" class="view">
@@ -193,6 +194,62 @@
       <div id="cumLista"></div>
     </section>
 
+    <!-- ============ DETALLE DE REPORTES ============ -->
+    <!-- Para ver respuestas y evidencias sin tener que descargar el
+         exportable. El buscador manda sobre el rango de fechas: si
+         escribes cedula o nombre, se ve TODO el historial de esa
+         persona, no solo lo que cae en el filtro de fechas. -->
+    <section id="view-reportes" class="view hidden">
+      <section class="card card--filtros">
+        <div class="card__head"><p class="card__title">Detalle de reportes</p></div>
+        <div class="card__body">
+          <div class="cmp-filtros">
+            <div class="field"><span class="label">Buscar (cédula o nombre)</span>
+              <input id="repBuscar" autocomplete="off" placeholder="Trae todo el historial de esa persona"></div>
+            <div class="field"><span class="label">Proyecto</span>
+              <input id="repProyecto" list="proyDatalist" autocomplete="off" placeholder="Todos"></div>
+            <div class="field"><span class="label">Tipo de vehículo</span>
+              <select id="repPerfil"><option value="">Todos</option><option value="MOTO">Motos (mensajeros)</option><option value="VEHICULO">Vehículos (conductores)</option></select></div>
+            <div class="field"><span class="label">Ciudad</span><input id="repCiudad" autocomplete="off" placeholder="Todas"></div>
+            <div class="field"><span class="label">Desde</span><input id="repDesde" type="date"></div>
+            <div class="field"><span class="label">Hasta</span><input id="repHasta" type="date"></div>
+            <div class="field"><span class="label">Encargado</span><select id="repEncargado"><option value="">Todos</option></select></div>
+            <button id="btnReportes" class="btn btn--primary" type="button">
+              <svg viewBox="0 0 24 24" fill="none"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              Consultar
+            </button>
+          </div>
+          <div id="repStatus" class="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <div id="repLista"></div>
+    </section>
+
+    <!-- Modal detalle de reportes: dia por dia, preguntas y respuestas -->
+    <div id="repModal" class="modal" role="dialog" aria-modal="true">
+      <div class="modal__card" style="max-width:760px">
+        <div class="modal__body" style="text-align:left">
+          <h2 id="repPersonaNombre" style="margin:0 0 2px;font-size:19px;color:var(--brand)"></h2>
+          <p id="repPersonaSub" class="hint-inline" style="margin:0 0 14px"></p>
+
+          <p class="label" style="margin-bottom:6px">Elige un día para ver el detalle</p>
+          <div id="repDiasLista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+
+          <div id="repDetalle" class="hidden">
+            <div id="repDetalleHead" class="hint-inline" style="margin-bottom:10px"></div>
+            <div id="repQA" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px"></div>
+            <div id="repEvidencias" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+          </div>
+
+          <div id="repModalStatus" class="status" aria-live="polite"></div>
+          <div class="modal__actions" style="margin-top:14px">
+            <button id="repModalCerrar" class="btn btn--ghost btn--block" type="button">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal justificación -->
     <div id="justModal" class="modal" role="dialog" aria-modal="true">
       <div class="modal__card">
@@ -235,11 +292,12 @@
   </main>
 
   <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=49"></script>
+  <script src="assets/api.js?v=50"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let proyectosMap = {}; // nombre(lower) -> proyecto_id ; también id -> id
     let esCuentaGeneral = false;
+    let nombreLargoRep = {}; // id_formulario -> nombre largo, para Detalle de reportes
 
     /* ---------- Acceso coordinador ---------- */
     (function gate() {
@@ -306,6 +364,9 @@
     $('justTipo').addEventListener('change', toggleJustRango);
     $('justGuardar').addEventListener('click', guardarJust);
     $('justCerrar').addEventListener('click', () => $('justModal').classList.remove('show'));
+    $('btnReportes').addEventListener('click', consultarReportes);
+    $('repBuscar').addEventListener('keydown', (e) => { if (e.key === 'Enter') consultarReportes(); });
+    $('repModalCerrar').addEventListener('click', () => $('repModal').classList.remove('show'));
 
     /* ---------- Pestañas ---------- */
     document.querySelectorAll('.tab').forEach((t) => {
@@ -326,6 +387,9 @@
       $('fechaInicio').value = today;
       $('fechaFin').value = today;
       $('cumFecha').value = today;
+      const hace30 = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+      $('repDesde').value = hace30;
+      $('repHasta').value = today;
       try {
         const data = await HSQ_API.call('getBootstrap');
         // El exportable saca una columna por pregunta, y cada jornada tiene
@@ -333,6 +397,9 @@
         const listaExport = data.formularios_detalle || data.formularios || [];
         $('filtroFormulario').innerHTML = listaExport.map((f) =>
           `<option value="${escapeHtml(f.id_formulario)}">${escapeHtml(f.nombre_formulario)}</option>`).join('');
+        // Las dos jornadas de temperatura comparten nombre corto: para
+        // distinguirlas en Detalle de reportes se usa el nombre largo.
+        listaExport.forEach((f) => { nombreLargoRep[f.id_formulario] = f.nombre_formulario; });
         // El desplegable se acaba de rellenar: si ya se sabe que la cuenta
         // es general, se le vuelve a poner la opcion.
         agregarOpcionDocumentacion();
@@ -524,6 +591,166 @@
         </div>`;
     }
 
+    /* ================= DETALLE DE REPORTES =================
+       Filtra y busca sin necesidad de descargar el exportable. El
+       buscador manda sobre el rango de fechas: si hay texto escrito,
+       se ve TODO el historial de esa persona (api_reportes_lista lo
+       resuelve asi en el servidor). */
+    let repData = null;
+
+    async function consultarReportes() {
+      setBtn($('btnReportes'), true);
+      showRepStatus('Consultando…', 'info');
+      $('repLista').innerHTML = '';
+      try {
+        const filtros = {
+          buscar: $('repBuscar').value.trim(),
+          proyecto: $('repProyecto').value.trim(),
+          perfil: $('repPerfil').value,
+          ciudad: $('repCiudad').value.trim(),
+          fechaInicio: $('repDesde').value,
+          fechaFin: $('repHasta').value,
+        };
+        Object.assign(filtros, encargadoDe('repEncargado'));
+        repData = await HSQ_API.call('reportesLista', filtros);
+        pintarReportes();
+        const n = (repData.filas || []).length;
+        const truncado = repData.total > n;
+        showRepStatus(`${repData.total} registro(s)${truncado ? ' — se muestran los ' + n + ' más recientes' : ''}.`,
+          repData.total ? 'ok' : 'warn');
+      } catch (err) {
+        showRepStatus(err.message, 'error');
+      } finally {
+        setBtn($('btnReportes'), false);
+      }
+    }
+
+    function showRepStatus(msg, tipo) { setStatusId('repStatus', msg, tipo); }
+
+    function pintarReportes() {
+      const filas = (repData && repData.filas) || [];
+      if (!filas.length) {
+        $('repLista').innerHTML = '<div class="card"><div class="card__body"><p class="hint-inline">Sin resultados para este filtro.</p></div></div>';
+        return;
+      }
+      $('repLista').innerHTML = `<div class="card"><div class="cmp-list">${filas.map(filaReporte).join('')}</div></div>`;
+      $('repLista').querySelectorAll('[data-rep-persona]').forEach((btn) =>
+        btn.addEventListener('click', () => abrirPersona(btn.dataset.repPersona, btn.dataset.repNombre)));
+    }
+
+    function filaReporte(f) {
+      const formNombre = nombreLargoRep[f.formulario_id] || f.formulario_id;
+      const conAlerta = f.estado === 'CON_ALERTA';
+      return `
+        <div class="cmp-row cmp-row--${conAlerta ? 'pendientes' : 'completos'}">
+          <div class="cmp-main">
+            <button class="rep-link" type="button" data-rep-persona="${escapeHtml(f.cedula)}" data-rep-nombre="${escapeHtml(f.nombre)}">${escapeHtml(f.nombre || '(sin nombre)')}</button>
+            <span class="cmp-sub">CC ${escapeHtml(f.cedula)} · ${escapeHtml(f.proyecto || '')}${f.ciudad ? ' · ' + escapeHtml(f.ciudad) : ''}</span>
+          </div>
+          <div class="cmp-dots">
+            <span class="cmp-just">${escapeHtml(f.fecha)}${f.hora ? ' · ' + escapeHtml(f.hora) : ''}</span>
+            <span class="cmp-just">${escapeHtml(formNombre)}</span>
+            ${conAlerta ? '<span class="badge badge--req">Con alerta</span>' : ''}
+          </div>
+        </div>`;
+    }
+
+    /* ----- Modal: historial completo de una persona ----- */
+    async function abrirPersona(cedula, nombreRapido) {
+      $('repPersonaNombre').textContent = nombreRapido || 'Cargando…';
+      $('repPersonaSub').textContent = '';
+      $('repDiasLista').innerHTML = '';
+      $('repDetalle').classList.add('hidden');
+      $('repModalStatus').className = 'status'; $('repModalStatus').textContent = '';
+      $('repModal').classList.add('show');
+      try {
+        const r = await HSQ_API.call('reportesPersona', { cedula });
+        const p = r.persona || {};
+        $('repPersonaNombre').textContent = p.nombre || nombreRapido || '';
+        $('repPersonaSub').textContent = [
+          'CC ' + (p.cedula || cedula), p.proyecto, p.ciudad,
+          p.lider ? 'Líder ' + p.lider : '',
+          p.coordinador ? 'Coord. ' + p.coordinador : '',
+          p.activo === false ? 'INACTIVO' : '',
+        ].filter(Boolean).join(' · ');
+        const regs = r.registros || [];
+        if (!regs.length) {
+          $('repDiasLista').innerHTML = '<p class="hint-inline">Esta persona no tiene registros.</p>';
+          return;
+        }
+        $('repDiasLista').innerHTML = regs.map((rg) => {
+          const nombreForm = nombreLargoRep[rg.formulario_id] || rg.formulario_id;
+          const alerta = rg.estado === 'CON_ALERTA';
+          return `<button class="rep-dia-chip${alerta ? ' rep-dia-chip--alerta' : ''}" type="button"
+            data-rep-registro="${escapeHtml(rg.id_registro)}">${escapeHtml(rg.fecha)} · ${escapeHtml(nombreForm)}</button>`;
+        }).join('');
+        $('repDiasLista').querySelectorAll('[data-rep-registro]').forEach((btn) =>
+          btn.addEventListener('click', () => {
+            $('repDiasLista').querySelectorAll('.rep-dia-chip').forEach((b) => b.classList.remove('active'));
+            btn.classList.add('active');
+            abrirRegistroDetalle(btn.dataset.repRegistro);
+          }));
+      } catch (err) {
+        $('repModalStatus').className = 'status show status--error';
+        $('repModalStatus').textContent = err.message;
+      }
+    }
+
+    /* ----- Modal: preguntas, respuestas y evidencias de un dia ----- */
+    async function abrirRegistroDetalle(idRegistro) {
+      $('repDetalle').classList.remove('hidden');
+      $('repDetalleHead').textContent = 'Cargando…';
+      $('repQA').innerHTML = '';
+      $('repEvidencias').innerHTML = '';
+      $('repModalStatus').className = 'status'; $('repModalStatus').textContent = '';
+      try {
+        const d = await HSQ_API.call('reportesRegistro', { id_registro: idRegistro });
+        const reg = d.registro || {};
+        const nombreForm = nombreLargoRep[reg.formulario_id] || reg.formulario_id;
+        $('repDetalleHead').textContent = `${nombreForm} · ${reg.fecha}${reg.hora ? ' ' + reg.hora : ''}`
+          + (reg.placa_moto ? ' · Placa ' + reg.placa_moto : '')
+          + (reg.diferido ? ' · Diligenciado sin conexión' : '');
+
+        // Las preguntas 'info' no se responden y las 'archivo' se ven
+        // abajo como imagen, no como texto.
+        const preguntas = (d.preguntas || []).filter((p) => p.tipo_respuesta !== 'info' && p.tipo_respuesta !== 'archivo');
+        const respuestas = d.respuestas || {};
+        let seccionAnterior = null;
+        $('repQA').innerHTML = preguntas.map((p) => {
+          const encabezado = p.seccion !== seccionAnterior
+            ? `<div class="rep-qa-row rep-qa-row--seccion">${escapeHtml(p.seccion || '')}</div>` : '';
+          seccionAnterior = p.seccion;
+          const valor = respuestas[p.id];
+          return encabezado + `<div class="rep-qa-row"><b>${escapeHtml(p.pregunta)}</b>
+            <span>${valor !== undefined && valor !== null && valor !== '' ? escapeHtml(valor) : '—'}</span></div>`;
+        }).join('') || '<p class="hint-inline" style="padding:10px 14px">Este formulario no tiene preguntas con respuesta de texto.</p>';
+
+        const evidencias = d.evidencias || [];
+        if (!evidencias.length) {
+          $('repEvidencias').innerHTML = '';
+        } else {
+          const rutas = evidencias.map((e) => e.storage_path || e.url).filter(Boolean);
+          const firmadas = await HSQ_API.firmarRutas(rutas);
+          $('repEvidencias').innerHTML = evidencias.map((e) => {
+            const ruta = e.storage_path || e.url || '';
+            const enlace = firmadas[ruta] || '';
+            const esPdf = /\.pdf($|\?)/i.test(e.nombre || ruta);
+            // Las fotos adicionales de limpieza llegan como LIM_012_2, _3, _4:
+            // no hay pregunta con ese id exacto, se busca por el prefijo.
+            const preguntaTxt = (d.preguntas || []).find((p) => p.id === e.pregunta_id)
+              || (d.preguntas || []).find((p) => e.pregunta_id.startsWith(p.id + '_'));
+            const titulo = (preguntaTxt && preguntaTxt.pregunta) || e.pregunta_id;
+            if (!enlace) return `<div class="rep-evid-item rep-evid-item--pdf" title="${escapeHtml(titulo)}">Sin firmar</div>`;
+            if (esPdf) return `<a class="rep-evid-item rep-evid-item--pdf" href="${enlace}" target="_blank" rel="noopener" title="${escapeHtml(titulo)}">PDF<br>Ver</a>`;
+            return `<a class="rep-evid-item" href="${enlace}" target="_blank" rel="noopener" title="${escapeHtml(titulo)}"><img src="${enlace}" alt="${escapeHtml(titulo)}" loading="lazy"></a>`;
+          }).join('');
+        }
+      } catch (err) {
+        $('repModalStatus').className = 'status show status--error';
+        $('repModalStatus').textContent = err.message;
+      }
+    }
+
     /* ----- Modal justificación ----- */
     let justActual = null;
     function abrirJust(cedula, nombre, proyecto) {
@@ -656,11 +883,15 @@
         const grupo = (titulo, nivel, arr) => (!arr || !arr.length) ? ''
           : `<optgroup label="${escapeHtml(titulo)}">` + arr.map((x) => opcion(nivel, x)).join('') + '</optgroup>';
 
-        // Exportar: los tres niveles en un mismo desplegable.
-        $('filtroEncargado').innerHTML = '<option value="">Todos</option>' +
+        // Exportar y Detalle de reportes: los tres niveles en un mismo
+        // desplegable, con el mismo formato "nivel|nombre" que ya entiende
+        // encargadoDe().
+        const opcionesEncargado = '<option value="">Todos</option>' +
           grupo('Jefatura', 'jefatura', e.jefaturas) +
           grupo('Líder', 'lider', e.lideres) +
           grupo('Coordinador', 'coordinador', e.coordinadores);
+        $('filtroEncargado').innerHTML = opcionesEncargado;
+        $('repEncargado').innerHTML = opcionesEncargado;
 
         // Cumplimiento: solo coordinadores, y el campo aparece únicamente
         // cuando ya hay alguno asignado.

@@ -665,6 +665,35 @@
     return sinFirmar;
   }
 
+  // Firma una lista suelta de rutas de Storage y devuelve un objeto
+  // ruta -> enlace firmado. Es el mismo lote de firmarEvidenciasExportable,
+  // pero sin exigir la forma {fila: {evidencias: {...}}}: sirve para el
+  // detalle de un solo registro, que trae las evidencias en un arreglo.
+  async function firmarRutas(rutas) {
+    const token = sessionStorage.getItem('hsq_coord_token') || sessionStorage.getItem('hsq_admin_token') || '';
+    const limpias = [...new Set((rutas || []).map(rutaEvidencia).filter(Boolean))];
+    const resultado = {};
+    if (!token || !limpias.length) return resultado;
+    const base = CFG.SUPABASE_URL.replace(/\/$/, '');
+    const LOTE = 200;
+    const trozos = [];
+    for (let i = 0; i < limpias.length; i += LOTE) trozos.push(limpias.slice(i, i + LOTE));
+    await Promise.all(trozos.map(async (rutasTrozo) => {
+      let datos = null;
+      try {
+        const res = await fetch(base + '/storage/v1/object/sign/evidencias', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ expiresIn: 3600, paths: rutasTrozo }),
+        });
+        datos = await res.json();
+      } catch (e) { return; }
+      if (!Array.isArray(datos)) return;
+      datos.forEach((d) => { if (d && d.signedURL && d.path) resultado[d.path] = base + '/storage/v1' + d.signedURL; });
+    }));
+    return resultado;
+  }
+
   // Sube las fotos al almacenamiento y arma el registro con sus enlaces.
   async function prepararRegistro(payload) {
     const evidencias = [];
@@ -999,5 +1028,6 @@
     ojoClave,
     pedirRestablecer,
     DOCUMENTACION,
+    firmarRutas,
   };
 })();
