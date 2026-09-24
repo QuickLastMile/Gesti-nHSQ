@@ -617,16 +617,15 @@
 
         <!-- ============ TEMPERATURA ============ -->
         <section id="temperatura" class="section">
+          <!-- Un solo filtro para toda la pestaña: el titulo de arriba ya
+               dice "Temperatura y humedad", no hace falta repetirlo aqui
+               ni envolverlo en otra tarjeta con su propio encabezado. -->
           <article class="card">
-            <div class="card-head"><div><h2>Filtrar por periodo</h2>
-              <p>Temperatura y humedad de bodega. Elige el rango de fechas y, si quieres, una ciudad puntual.</p></div></div>
-            <div class="card-body">
-              <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-                <div class="field" style="width:150px"><label>Desde</label><input id="tDesde" type="date"></div>
-                <div class="field" style="width:150px"><label>Hasta</label><input id="tHasta" type="date"></div>
-                <div class="field" style="width:200px"><label>Ciudad</label><select id="tCiudad"><option value="">Todas</option></select></div>
-                <div class="fbtns"><button id="tAplicar" class="btn btn-primary" type="button">Aplicar</button></div>
-              </div>
+            <div class="card-body" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+              <div class="field" style="width:150px"><label>Desde</label><input id="tDesde" type="date"></div>
+              <div class="field" style="width:150px"><label>Hasta</label><input id="tHasta" type="date"></div>
+              <div class="field" style="width:200px"><label>Ciudad</label><select id="tCiudad"><option value="">Todas</option></select></div>
+              <div class="fbtns"><button id="tAplicar" class="btn btn-primary" type="button">Aplicar</button></div>
             </div>
           </article>
 
