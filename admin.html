@@ -337,8 +337,10 @@
 
             <p class="card__title" style="font-size:14px;margin:18px 0 6px">Cargar varios (archivo Excel o CSV)</p>
             <p class="hint-inline" style="margin-top:0">Columnas: <b>Cedula</b> y <b>Nombre</b> son obligatorias.
-              En <b>Cargo</b> escribe "Conductor" para vehículo, o déjalo vacío (o cualquier otra cosa) para
-              mensajero en moto. Ciudad y Placa son opcionales.</p>
+              En <b>Cargo</b> sirven las dos formas: <b>Conductor</b> / <b>Mensajero</b> o
+              <b>QUICKER - CONDUCTOR</b> / <b>QUICKER - MENSAJERO</b>, con o sin tildes, guiones
+              o mayúsculas. La celda vacía queda como mensajero en moto; si dice otra cosa también,
+              pero te avisamos al terminar cuántas fueron y qué decían. Ciudad y Placa son opcionales.</p>
             <div class="field">
               <span class="label">Archivo (.xlsx, .xls o .csv)</span>
               <input id="colabArchivo" type="file" accept=".xlsx,.xls,.csv">
@@ -2756,7 +2758,8 @@
         $('colabCargaResult').innerHTML = `
           <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">
             ${[['Nuevos', r.nuevos], ['Actualizados', r.actualizados], ['Saltados', r.saltados],
-               ['Mensajeros', r.mensajeros ?? '—'], ['Conductores', r.conductores ?? '—']].map(([t, v]) =>
+               ['Mensajeros', r.mensajeros ?? '—'], ['Conductores', r.conductores ?? '—'],
+               ['Cargo sin entender', r.no_entendidas ?? '—']].map(([t, v]) =>
               `<div style="border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:#fff">
                  <span class="label" style="font-size:10.5px">${t}</span>
                  <b style="display:block;font-size:20px;margin-top:5px">${v}</b></div>`).join('')}
@@ -2769,7 +2772,15 @@
           : (r.conductores === 0 && r.mensajeros > 0
               ? ' ⚠ Ningún conductor: revisa que en la columna "Cargo" diga Conductor donde corresponde, o corrígelos abajo en lote.'
               : '');
-        setStatus('colabStatus', `✓ Listo.${aviso}${sinCargo}`, (r.saltados || sinCargo) ? 'warn' : 'ok');
+        // Lo que el archivo decía y no se pudo interpretar. Va con ejemplos:
+        // sin verlos no hay forma de saber qué corregir en el Excel.
+        const raras = r.no_entendidas
+          ? ` ⚠ ${r.no_entendidas} fila(s) traían un Cargo que no se entiende`
+            + `${(r.ejemplos || []).length ? ' (' + r.ejemplos.map((e) => `"${e}"`).join(', ') + ')' : ''}`
+            + ' y quedaron como mensajero. Corrígelas abajo, en "Corregir el tipo en lote".'
+          : '';
+        setStatus('colabStatus', `✓ Listo.${aviso}${sinCargo}${raras}`,
+          (r.saltados || sinCargo || raras) ? 'warn' : 'ok');
         $('colabArchivo').value = '';
         cargarColaborativos();
       } catch (err) {
