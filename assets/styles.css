@@ -1017,3 +1017,9 @@ input.fuera-de-rango {
 /* Evidencia de un documento que ya se renovo: el archivo de aquel dia se
    borro a proposito. Se muestra apagada, no como si fuera un error. */
 .rep-evid-item--ido { color: var(--muted); font-weight: 700; background: var(--surface-2); border-style: dashed; cursor: default; }
+
+/* Personal colaborativo: no esta vinculado en Quick ni en la matriz real.
+   La ficha va en ambar para que no se lea igual que la de nomina. */
+.person--colab { background: var(--warning-soft); border-color: #ecd9ae; }
+.person--colab .person__name { color: #8a5b12; }
+.person--colab .person__item { border-color: #ecd9ae; }

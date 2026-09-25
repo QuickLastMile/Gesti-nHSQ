@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d3b2a">
   <title>Administración HSQ · Gestión HSEQ Motos</title>
-  <link rel="stylesheet" href="assets/styles.css?v=40">
+  <link rel="stylesheet" href="assets/styles.css?v=41">
   <style>
     /* ---------- Armazon de administracion ---------- */
     .adm{display:grid;grid-template-columns:236px 1fr;gap:20px;align-items:start}
@@ -364,10 +364,17 @@
         <section class="card" style="margin-top:16px">
           <div class="card__head"><p class="card__title">Cargados en tu línea</p></div>
           <div class="card__body">
-            <div class="field" style="max-width:320px;margin-bottom:14px">
-              <span class="label">Filtrar por proyecto</span>
-              <select id="colabFiltroProyecto"><option value="">Todos</option></select>
+            <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));max-width:660px">
+              <div class="field">
+                <span class="label">Filtrar por proyecto</span>
+                <select id="colabFiltroProyecto"><option value="">Todos</option></select>
+              </div>
+              <div class="field">
+                <span class="label">Filtrar por ciudad</span>
+                <select id="colabFiltroCiudad"><option value="">Todas</option></select>
+              </div>
             </div>
+            <p id="colabConteo" class="hint-inline" style="margin:10px 0 12px"></p>
             <div id="colabLista"></div>
           </div>
         </section>
@@ -2765,23 +2772,47 @@
 
     async function cargarColaborativos() {
       try {
-        colabData = await adminCall('colaborativosLista', { proyecto: $('colabFiltroProyecto').value });
+        // Se traen todos y el filtro se aplica aquí. Si el servidor filtrara
+        // por proyecto, la lista de proyectos se armaría con lo ya filtrado y
+        // habría que volver a "Todos" para poder cambiarse a otro.
+        colabData = await adminCall('colaborativosLista', {});
         pintarColaborativos();
       } catch (err) {
         $('colabLista').innerHTML = `<div class="card"><div class="card__body"><p class="hint-inline">${esc(err.message)}</p></div></div>`;
       }
     }
 
-    function pintarColaborativos() {
-      const filas = (colabData && colabData.filas) || [];
-      const sel = $('colabFiltroProyecto'), actual = sel.value;
-      const proyectos = [...new Set(filas.map((f) => f.proyecto).filter(Boolean))].sort();
-      sel.innerHTML = '<option value="">Todos</option>' + proyectos.map((p) =>
-        `<option value="${esc(p)}">${esc(p)}</option>`).join('');
-      sel.value = proyectos.includes(actual) ? actual : '';
+    // Llena un filtro y conserva lo elegido si sigue existiendo.
+    function opcionesFiltro(id, todas, valores) {
+      const sel = $(id), actual = sel.value;
+      const ops = [...new Set(valores.map((v) => String(v || '').trim()).filter(Boolean))].sort();
+      sel.innerHTML = `<option value="">${todas}</option>` +
+        ops.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+      sel.value = ops.includes(actual) ? actual : '';
+      return sel.value;
+    }
 
-      if (!filas.length) {
+    function pintarColaborativos() {
+      const todas = (colabData && colabData.filas) || [];
+      const fp = opcionesFiltro('colabFiltroProyecto', 'Todos', todas.map((f) => f.proyecto));
+      // Las ciudades se limitan al proyecto elegido: ofrecer una ciudad donde
+      // ese proyecto no opera solo lleva a una lista vacía.
+      const fc = opcionesFiltro('colabFiltroCiudad', 'Todas',
+        todas.filter((f) => !fp || f.proyecto === fp).map((f) => f.ciudad));
+      const filas = todas.filter((f) =>
+        (!fp || f.proyecto === fp) && (!fc || String(f.ciudad || '').trim() === fc));
+
+      $('colabConteo').textContent = !todas.length ? ''
+        : filas.length === todas.length
+          ? `${todas.length} persona(s)`
+          : `${filas.length} de ${todas.length} persona(s)`;
+
+      if (!todas.length) {
         $('colabLista').innerHTML = '<div class="card"><div class="card__body"><p class="hint-inline">Todavía no hay personal colaborativo cargado en tu línea.</p></div></div>';
+        return;
+      }
+      if (!filas.length) {
+        $('colabLista').innerHTML = '<div class="card"><div class="card__body"><p class="hint-inline">Nadie con ese filtro. Cambia el proyecto o la ciudad.</p></div></div>';
         return;
       }
       $('colabLista').innerHTML = `<div class="card"><div class="cmp-list">${filas.map(filaColab).join('')}</div></div>`;
@@ -2827,7 +2858,9 @@
 
     $('btnColabCargar').addEventListener('click', cargarColabMasivo);
     $('btnColabAgregar').addEventListener('click', agregarColabManual);
-    $('colabFiltroProyecto').addEventListener('change', cargarColaborativos);
+    // Filtrar no vuelve a pedir la lista: ya está toda en memoria.
+    $('colabFiltroProyecto').addEventListener('change', pintarColaborativos);
+    $('colabFiltroCiudad').addEventListener('change', pintarColaborativos);
 
     /* ================= HISTORIAL ================= */
     let hisData = null;
