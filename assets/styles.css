@@ -1023,3 +1023,13 @@ input.fuera-de-rango {
 .person--colab { background: var(--warning-soft); border-color: #ecd9ae; }
 .person--colab .person__name { color: #8a5b12; }
 .person--colab .person__item { border-color: #ecd9ae; }
+
+/* Vista de personal colaborativo. Son numeros aparte de los del proyecto:
+   la pantalla cambia de verde a ambar para que no se lean como lo mismo. */
+.aviso-colab { display: none; }
+.modo-colab .aviso-colab {
+  display: block; margin: 0 0 12px; padding: 10px 14px;
+  border-radius: var(--radius-sm); background: var(--warning-soft);
+  border: 1px solid #ecd9ae; color: #8a5b12; font-size: 13px;
+}
+.modo-colab .fchip.active { background: var(--warning); border-color: var(--warning); }

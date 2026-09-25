@@ -113,6 +113,15 @@
     .btn-primary:hover{background:var(--green-3)}
     .btn-ghost{background:var(--surface-2);color:var(--green-2);border:1px solid var(--line-2)}
     .btn-ghost:hover{background:#eaf2ee}
+
+    /* Vista de personal colaborativo: numeros aparte de los del proyecto,
+       nunca sumados. El tablero pasa de verde a ambar mientras se ve. */
+    .aviso-colab{display:none}
+    .modo-colab .aviso-colab{display:block;margin:0 0 16px;padding:10px 14px;border-radius:var(--r);
+      background:var(--warn-bg);border:1px solid #ecd9ae;color:#8a5b12;font-size:13px}
+    /* Solo el boton del selector: "Aplicar" y los demas siguen en verde. */
+    .modo-colab #tipoPersonalBox .btn-primary{background:var(--warn)}
+    .modo-colab #tipoPersonalBox .btn-primary:hover{background:#9c650e}
     .ctxbar{margin:0 0 16px;padding:9px 14px;font-size:12.5px;color:var(--muted);background:var(--surface);
       border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
     .ctxbar b{color:var(--ink-2)}
@@ -453,6 +462,9 @@
              colaborativo cargado: nunca mezclado con el fijo en el mismo
              numero. -->
         <div id="tipoPersonalBox" class="hidden" style="display:flex;gap:8px;margin-bottom:16px"></div>
+        <p class="aviso-colab">Estás viendo <b>personal colaborativo</b>: no está vinculado
+          en Quick ni aparece en la matriz real. Estos números son aparte y no se suman
+          a los del proyecto.</p>
 
         <!-- ============ RESUMEN ============ -->
         <section id="resumen" class="section active">
@@ -1008,7 +1020,11 @@
 
     function pintarTipoPersonalBox() {
       const box = $('tipoPersonalBox');
-      if (!data.tieneColaborativos) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      const hay = !!data.tieneColaborativos;
+      // Todo el tablero cambia a ámbar mientras se ve colaborativo: son
+      // números aparte y no deben leerse como el indicador del proyecto.
+      document.body.classList.toggle('modo-colab', hay && dashTipoPersonal === 'COLABORATIVO');
+      if (!hay) { box.classList.add('hidden'); box.innerHTML = ''; return; }
       box.classList.remove('hidden');
       box.innerHTML = [['FIJO', 'Fijo'], ['COLABORATIVO', 'Colaborativo']].map(([v, t]) =>
         `<button type="button" class="btn ${dashTipoPersonal === v ? 'btn-primary' : 'btn-ghost'}" data-tipo="${v}">${t}</button>`).join('');

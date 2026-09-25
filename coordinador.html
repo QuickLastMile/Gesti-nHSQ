@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/styles.css?v=41">
+  <link rel="stylesheet" href="assets/styles.css?v=42">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -193,6 +193,9 @@
       <!-- Solo aparece cuando el proyecto consultado tiene personal
            colaborativo cargado: nunca mezclados en un mismo numero. -->
       <div id="cumTipoBox" class="chips-row hidden"></div>
+      <p class="aviso-colab">Estás viendo <b>personal colaborativo</b>: no está vinculado
+        en Quick ni aparece en la matriz real. Estos números son aparte y no se suman
+        a los del proyecto.</p>
       <div id="cumFiltroChips" class="chips-row hidden"></div>
       <div id="cumLista"></div>
     </section>
@@ -515,7 +518,12 @@
     // colaborativo cargado (api_colaborativos_guardar) para esa fecha.
     function pintarTipoPersonalChips() {
       const box = $('cumTipoBox');
-      if (!cumData.tieneColaborativos) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      const hay = !!cumData.tieneColaborativos;
+      // La pantalla entera cambia a ámbar mientras se ve colaborativo. Estos
+      // números no se suman a los del proyecto, y leer un indicador de
+      // colaborativos como si fuera el del proyecto es peor que no verlo.
+      $('view-cumplimiento').classList.toggle('modo-colab', hay && cumTipoPersonal === 'COLABORATIVO');
+      if (!hay) { box.classList.add('hidden'); box.innerHTML = ''; return; }
       box.classList.remove('hidden');
       box.innerHTML = [['FIJO', 'Fijo'], ['COLABORATIVO', 'Colaborativo']].map(([v, t]) =>
         `<button type="button" class="fchip ${cumTipoPersonal === v ? 'active' : ''}" data-tipo="${v}">${t}</button>`).join('');
