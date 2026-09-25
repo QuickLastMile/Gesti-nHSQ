@@ -1033,3 +1033,11 @@ input.fuera-de-rango {
   border: 1px solid #ecd9ae; color: #8a5b12; font-size: 13px;
 }
 .modo-colab .fchip.active { background: var(--warning); border-color: var(--warning); }
+
+/* Corregir mensajero/conductor en lote. Va plegado: se usa cuando un
+   archivo entro con la columna Cargo mal, no todos los dias. */
+.colab-tipo { margin: 2px 0 14px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); padding: 10px 14px; }
+.colab-tipo > summary { cursor: pointer; font-weight: 700; font-size: 13px; color: var(--brand); }
+.colab-tipo[open] > summary { margin-bottom: 4px; }
+.colab-tipo textarea { min-height: 84px; background: #fff; }
