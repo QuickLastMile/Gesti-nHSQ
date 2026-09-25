@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap">
-  <link rel="stylesheet" href="assets/styles.css?v=39">
+  <link rel="stylesheet" href="assets/styles.css?v=40">
 </head>
 <body>
   <!-- Acceso autenticado de coordinador -->
@@ -922,7 +922,19 @@
             const preguntaTxt = (d.preguntas || []).find((p) => p.id === e.pregunta_id)
               || (d.preguntas || []).find((p) => e.pregunta_id.startsWith(p.id + '_'));
             const titulo = (preguntaTxt && preguntaTxt.pregunta) || e.pregunta_id;
-            if (!enlace) return `<div class="rep-evid-item rep-evid-item--pdf" title="${escapeHtml(titulo)}">Sin firmar</div>`;
+            // Al renovar un SOAT, tecnomecánica o licencia se borra el archivo
+            // anterior para no acumularlo. El registro de aquel día queda
+            // apuntando a algo que ya no está: decir "Sin firmar" ahí suena a
+            // falla de permisos, cuando lo que pasó fue un reemplazo normal.
+            if (!enlace) {
+              const renovado = /(^|\/)documentos\//.test(ruta);
+              const leyenda = renovado ? 'Documento<br>renovado' : 'Sin firmar';
+              const nota = renovado
+                ? ' — se renovó después de este registro; el vigente está en la ficha de la persona'
+                : '';
+              return `<div class="rep-evid-item rep-evid-item--pdf${renovado ? ' rep-evid-item--ido' : ''}"
+                title="${escapeHtml(titulo)}${nota}">${leyenda}</div>`;
+            }
             if (primerVisible === null) primerVisible = i;
             const contenido = esPdf ? 'PDF<br>Ver' : `<img src="${enlace}" alt="${escapeHtml(titulo)}" loading="lazy">`;
             return `<button type="button" class="rep-evid-item${esPdf ? ' rep-evid-item--pdf' : ''}"
@@ -1200,7 +1212,9 @@
         showResult(resp);
         const sinFirma = resp.evidenciasSinFirmar || 0;
         // Un enlace sin firmar sale como ruta suelta: hay que decirlo, no callarlo.
-        const aviso = sinFirma ? ` ${sinFirma} evidencia(s) quedaron sin enlace y salen como ruta.` : '';
+        const aviso = sinFirma
+          ? ` ${sinFirma} evidencia(s) salen como ruta: suelen ser documentos que se renovaron después de ese registro.`
+          : '';
         showStatus(`✓ Exportable generado: ${resp.filas} fila(s), ${resp.columnas} columna(s).${aviso}`,
           !resp.filas || sinFirma ? 'warn' : 'ok');
       } catch (err) {

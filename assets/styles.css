@@ -1013,3 +1013,7 @@ input.fuera-de-rango {
 .calciudades { margin-top: 8px; border-left: 2px solid var(--linea, #d8e0da); padding-left: 12px; }
 .calciudades.hidden { display: none; }
 .calrow--ciudad { background: #f7faf8; }
+
+/* Evidencia de un documento que ya se renovo: el archivo de aquel dia se
+   borro a proposito. Se muestra apagada, no como si fuera un error. */
+.rep-evid-item--ido { color: var(--muted); font-weight: 700; background: var(--surface-2); border-style: dashed; cursor: default; }
