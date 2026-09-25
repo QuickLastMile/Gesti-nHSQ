@@ -725,6 +725,31 @@
   // para permitir la subida. Se crea un usuario temporal y se reutiliza su token.
   let _stToken = null;
 
+  // El usuario anonimo se recordaba en sessionStorage, que muere al cerrar la
+  // pestana: cada jornada se creaba uno nuevo. Iban 11 858 usuarios fantasma,
+  // ~370 al dia, con sus sesiones y refresh tokens arrastrados. En
+  // localStorage el mismo telefono reutiliza siempre el suyo.
+  //
+  // Se sigue escribiendo en sessionStorage y se lee de ahi como respaldo: en
+  // modo privado localStorage puede fallar o venir vacio, y asi el mensajero
+  // no se queda sin poder subir la foto.
+  const memoria = {
+    leer(k) {
+      let v = null;
+      try { v = localStorage.getItem(k); } catch (e) { /* modo privado */ }
+      if (v) return v;
+      try { return sessionStorage.getItem(k); } catch (e) { return null; }
+    },
+    poner(k, v) {
+      try { localStorage.setItem(k, v); } catch (e) { /* modo privado */ }
+      try { sessionStorage.setItem(k, v); } catch (e) { /* noop */ }
+    },
+    quitar(k) {
+      try { localStorage.removeItem(k); } catch (e) { /* noop */ }
+      try { sessionStorage.removeItem(k); } catch (e) { /* noop */ }
+    },
+  };
+
   // El token dura una hora. Antes se reutilizaba sin mirar la fecha, así que a
   // quien dejaba el formulario abierto un rato le fallaba la subida con
   // '"exp" claim timestamp check failed'. Se descarta con dos minutos de
@@ -744,24 +769,24 @@
   async function tokenStorage(renovar) {
     if (!renovar) {
       if (_stToken && !tokenVencido(_stToken)) return _stToken;
-      const cache = sessionStorage.getItem('hsq_st_token');
+      const cache = memoria.leer('hsq_st_token');
       if (cache && !tokenVencido(cache)) { _stToken = cache; return _stToken; }
     }
     _stToken = null;
-    sessionStorage.removeItem('hsq_st_token');
+    memoria.quitar('hsq_st_token');
     const base = CFG.SUPABASE_URL.replace(/\/$/, '');
 
     const guardar = (d) => {
       if (!d || !d.access_token) return null;
       _stToken = d.access_token;
-      sessionStorage.setItem('hsq_st_token', _stToken);
-      if (d.refresh_token) sessionStorage.setItem('hsq_st_refresh', d.refresh_token);
+      memoria.poner('hsq_st_token', _stToken);
+      if (d.refresh_token) memoria.poner('hsq_st_refresh', d.refresh_token);
       return _stToken;
     };
 
     // Primero se renueva el usuario anónimo que ya existe. Crear uno nuevo
     // cada hora llenaría Supabase de usuarios temporales sin necesidad.
-    const rt = sessionStorage.getItem('hsq_st_refresh');
+    const rt = memoria.leer('hsq_st_refresh');
     if (rt) {
       try {
         const r = await fetch(base + '/auth/v1/token?grant_type=refresh_token', {
@@ -773,7 +798,7 @@
         const tok = guardar(d);
         if (tok) return tok;
       } catch (e) { /* si no se puede renovar, se crea uno nuevo */ }
-      sessionStorage.removeItem('hsq_st_refresh');
+      memoria.quitar('hsq_st_refresh');
     }
 
     let res;
