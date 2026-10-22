@@ -970,8 +970,11 @@
                     <span class="auto-tag">Solo PDF. Es el archivo que te entregan al expedir el documento.</span>`;
           }
           if (EVIDENCIA_LIMPIEZA_MULTIPLE.includes(q.id_pregunta)) {
-            return `<input name="${id}" type="file" accept="image/*" multiple ${req}>
-                    <span class="auto-tag">La primera foto es obligatoria. Puedes agregar hasta 3 más si quieres mostrar otros ángulos.</span>`;
+            // capture="environment" hace que el celular abra la camara trasera
+            // en vez del selector de archivos: la evidencia de limpieza se toma
+            // en el momento, no se saca de la galeria.
+            return `<input name="${id}" type="file" accept="image/*" capture="environment" multiple ${req}>
+                    <span class="auto-tag">Se toma con la cámara en el momento. La primera foto es obligatoria; puedes agregar hasta 3 más para mostrar otros ángulos.</span>`;
           }
           return `<input name="${id}" type="file" accept="image/*" ${req}>`;
         }
