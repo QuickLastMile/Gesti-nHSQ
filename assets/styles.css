@@ -1041,3 +1041,26 @@ input.fuera-de-rango {
 .colab-tipo > summary { cursor: pointer; font-weight: 700; font-size: 13px; color: var(--brand); }
 .colab-tipo[open] > summary { margin-bottom: 4px; }
 .colab-tipo textarea { min-height: 84px; background: #fff; }
+
+/* Evidencia por tomas: cuatro campos de archivo iguales no se distinguen
+   entre si. Cada toma es una tarjeta numerada que muestra la miniatura
+   cuando ya tiene foto, para que el mensajero vea cual va. */
+.tomas { display: grid; gap: 8px; }
+.toma {
+  position: relative; display: flex; align-items: center; gap: 11px;
+  padding: 9px 11px; border: 1px dashed var(--line-strong);
+  border-radius: 11px; background: var(--card); cursor: pointer;
+}
+.toma input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.toma__img {
+  width: 46px; height: 46px; flex: none; border-radius: 9px;
+  background: var(--surface-2) center / cover no-repeat;
+  display: grid; place-items: center; color: var(--muted);
+}
+.toma__img svg { width: 21px; height: 21px; }
+.toma__txt { display: grid; min-width: 0; }
+.toma__txt b { font-size: 14.5px; color: var(--ink); }
+.toma__txt small { font-size: 11.5px; color: var(--muted); }
+.toma--lista { border-style: solid; border-color: var(--success); background: var(--success-soft); }
+.toma--lista .toma__img svg { display: none; }
+.toma--lista .toma__txt b::after { content: ' \2713'; color: var(--success); font-weight: 900; }
