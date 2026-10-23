@@ -1355,7 +1355,12 @@
         return { id_pregunta: idPregunta, nombre: file.name, tipo: file.type, dataUrl };
       }
       // La página comprime la foto SOLA antes de enviarla (el mensajero no hace nada).
-      const dataUrl = await comprimirImagen(file);
+      // La licencia hay que LEERLA: va con más resolución y calidad. Las
+      // evidencias se miran, no se leen, y son el grueso de lo que crece.
+      const c = idPregunta === 'DOC_LICENCIA_TRANSITO'
+        ? { lado: 1600, calidad: 0.78 }
+        : { lado: 1024, calidad: 0.62 };
+      const dataUrl = await comprimirImagen(file, c.lado, c.calidad);
       const nombre = /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)
         ? file.name.replace(/\.[^.]+$/, '.jpg')
         : file.name;
@@ -1473,36 +1478,46 @@
 
     // Reduce la imagen a máx 1280px y la reencoda como JPEG (~70%).
     // Si no es imagen o algo falla, devuelve el archivo original sin tocar.
-    function comprimirImagen(file, maxLado = 1280, calidad = 0.7) {
+    // Dos intentos para abrir la imagen, y el segundo no sobra: Chrome en
+    // Android no decodifica HEIC con <img>, que es como fotografía el iPhone
+    // de fábrica. Ese fallo caía en "subir el original" y por eso en el bucket
+    // hay HEIC de 1,6 MB al lado de JPEG de 142 kB. createImageBitmap abre
+    // varios de los formatos que <img> rechaza.
+    function abrirImagen(file) {
       return new Promise((resolve) => {
-        const leerOriginal = () => {
-          const r = new FileReader();
-          r.onload = () => resolve(r.result);
-          r.onerror = () => resolve('');
-          r.readAsDataURL(file);
-        };
-        if (!file || !/^image\//i.test(file.type)) return leerOriginal();
         const url = URL.createObjectURL(file);
         const img = new Image();
-        img.onload = () => {
-          try {
-            let { width: w, height: h } = img;
-            const escala = Math.min(1, maxLado / Math.max(w, h));
-            w = Math.round(w * escala); h = Math.round(h * escala);
-            const cv = document.createElement('canvas');
-            cv.width = w; cv.height = h;
-            cv.getContext('2d').drawImage(img, 0, 0, w, h);
-            URL.revokeObjectURL(url);
-            const out = cv.toDataURL('image/jpeg', calidad);
-            resolve(out && out.length > 24 ? out : '');
-          } catch (e) {
-            URL.revokeObjectURL(url);
-            leerOriginal();
-          }
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          if (typeof createImageBitmap !== 'function') return resolve(null);
+          createImageBitmap(file).then(resolve).catch(() => resolve(null));
         };
-        img.onerror = () => { URL.revokeObjectURL(url); leerOriginal(); };
         img.src = url;
       });
+    }
+
+    async function comprimirImagen(file, maxLado = 1024, calidad = 0.62) {
+      // Si no se puede comprimir, va el original: el mensajero nunca se
+      // queda sin poder subir su evidencia por culpa de esto.
+      const original = () => leerArchivo(file).catch(() => '');
+      if (!file || !/^image\//i.test(file.type || '')) return original();
+
+      const fuente = await abrirImagen(file);
+      if (!fuente) return original();
+      try {
+        const escala = Math.min(1, maxLado / Math.max(fuente.width, fuente.height));
+        const w = Math.round(fuente.width * escala);
+        const h = Math.round(fuente.height * escala);
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(fuente, 0, 0, w, h);
+        if (typeof fuente.close === 'function') fuente.close();
+        const out = cv.toDataURL('image/jpeg', calidad);
+        return out && out.length > 24 ? out : original();
+      } catch (e) {
+        return original();
+      }
     }
     /* ---------- Documentos del vehículo ---------- */
     function sinTildesF(s) {
