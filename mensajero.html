@@ -538,6 +538,22 @@
     // que encuentre.
     const EVIDENCIA_LIMPIEZA_MULTIPLE = ['LIM_012', 'LIV_007'];
 
+    // Las fotos adicionales van apareciendo de a una. Mostrar los cuatro
+    // campos desde el principio hace ver el formulario más largo de lo que es
+    // y confunde: parecen cuatro fotos obligatorias.
+    $('questions').addEventListener('change', (e) => {
+      const grupo = e.target && e.target.dataset && e.target.dataset.fotoDe;
+      if (!grupo) return;
+      const campos = Array.from(
+        $('questions').querySelectorAll(`input[data-foto-de="${cssEscape(grupo)}"]`));
+      campos.forEach((c, i) => {
+        if (i === 0) return;
+        const previoLleno = campos[i - 1].files && campos[i - 1].files.length;
+        const propioLleno = c.files && c.files.length;
+        c.classList.toggle('hidden', !(previoLleno || propioLleno));
+      });
+    });
+
     // "a", "a y b", "a, b y c". Tres elementos unidos con "y" dos veces
     // se leen mal.
     function listar(arr) {
@@ -970,11 +986,17 @@
                     <span class="auto-tag">Solo PDF. Es el archivo que te entregan al expedir el documento.</span>`;
           }
           if (EVIDENCIA_LIMPIEZA_MULTIPLE.includes(q.id_pregunta)) {
-            // capture="environment" hace que el celular abra la camara trasera
-            // en vez del selector de archivos: la evidencia de limpieza se toma
-            // en el momento, no se saca de la galeria.
-            return `<input name="${id}" type="file" accept="image/*" capture="environment" multiple ${req}>
-                    <span class="auto-tag">Se toma con la cámara en el momento. La primera foto es obligatoria; puedes agregar hasta 3 más para mostrar otros ángulos.</span>`;
+            // El navegador IGNORA capture cuando el input tiene multiple, y
+            // vuelve a ofrecer la galería. Por eso van cuatro campos de una
+            // sola foto cada uno: así cada toma abre la cámara. Los
+            // adicionales aparecen a medida que se llena el anterior.
+            const tomas = [0, 1, 2, 3].map((i) => {
+              const nid = i === 0 ? id : `${id}_${i + 1}`;
+              return `<input name="${nid}" type="file" accept="image/*" capture="environment"
+                        data-foto-de="${id}"${i === 0 ? ' ' + req : ' class="hidden"'}>`;
+            }).join('');
+            return `${tomas}
+                    <span class="auto-tag">Se toma con la cámara en el momento, no se puede elegir de la galería. La primera es obligatoria; al tomarla se abre el espacio para la siguiente, hasta 4.</span>`;
           }
           return `<input name="${id}" type="file" accept="image/*" ${req}>`;
         }
@@ -1027,17 +1049,25 @@
             } catch (err) {
               return showStatus(err.message, 'error');
             }
-          } else if (EVIDENCIA_LIMPIEZA_MULTIPLE.includes(q.id_pregunta) && files.length) {
-            if (files.length > 4) {
-              return showStatus(q.pregunta + ': selecciona como máximo 4 fotos (1 obligatoria y hasta 3 adicionales).', 'error');
-            }
-            try {
-              for (const f of files) await validarEvidencia(f);
-              for (let i = 0; i < files.length; i++) {
-                archivos.push(await fileToPayload(i === 0 ? q.id_pregunta : q.id_pregunta + '_' + (i + 1), files[i]));
+          } else if (EVIDENCIA_LIMPIEZA_MULTIPLE.includes(q.id_pregunta)) {
+            // Son cuatro campos distintos, uno por toma. Se recogen en orden
+            // y se compactan: si quedó un hueco, las fotos igual viajan como
+            // _2, _3, _4 seguidas, que es como las espera el servidor.
+            const tomadas = Array.from(
+              form.querySelectorAll(`input[data-foto-de="${cssEscape(q.id_pregunta)}"]`))
+              .map((c) => (c.files || [])[0]).filter(Boolean);
+            if (!tomadas.length) {
+              if (obligatoria) faltantes.push(q.pregunta);
+            } else {
+              try {
+                for (const f of tomadas) await validarEvidencia(f);
+                for (let i = 0; i < tomadas.length; i++) {
+                  archivos.push(await fileToPayload(
+                    i === 0 ? q.id_pregunta : q.id_pregunta + '_' + (i + 1), tomadas[i]));
+                }
+              } catch (err) {
+                return showStatus(q.pregunta + ': ' + err.message, 'error');
               }
-            } catch (err) {
-              return showStatus(q.pregunta + ': ' + err.message, 'error');
             }
           } else if (files[0]) {
             try {
