@@ -1483,6 +1483,46 @@
     // de fábrica. Ese fallo caía en "subir el original" y por eso en el bucket
     // hay HEIC de 1,6 MB al lado de JPEG de 142 kB. createImageBitmap abre
     // varios de los formatos que <img> rechaza.
+    // Las medidas salen de la cabecera del JPEG, leyendo solo los primeros
+    // 256 kB. Sirven para pedirle al navegador que decodifique YA PEQUENO:
+    // una foto de 12 MP ocupa 48 MB al decodificarse entera, y ese pico es
+    // lo que hace que Chrome mate la pestana en un celular con poca memoria.
+    function medidasJpeg(buf) {
+      try {
+        const d = new DataView(buf);
+        if (d.getUint16(0) !== 0xFFD8) return null;          // no es JPEG
+        let o = 2;
+        while (o < d.byteLength - 9) {
+          if (d.getUint8(o) !== 0xFF) { o++; continue; }
+          const marca = d.getUint8(o + 1);
+          // SOF0..SOF15, que son los que llevan el tamano. Se excluyen
+          // DHT (C4), JPG (C8) y DAC (CC), que caen en el mismo rango.
+          if (marca >= 0xC0 && marca <= 0xCF && marca !== 0xC4 && marca !== 0xC8 && marca !== 0xCC) {
+            return { alto: d.getUint16(o + 5), ancho: d.getUint16(o + 7) };
+          }
+          o += 2 + d.getUint16(o + 2);
+        }
+      } catch (e) { /* cabecera rara: se sigue por el camino normal */ }
+      return null;
+    }
+
+    // Decodifica a tamano reducido cuando se puede. Solo se fija UN lado y
+    // el navegador calcula el otro: asi no se deforma la foto aunque EXIF
+    // la tenga rotada.
+    async function abrirChiquito(file, maxLado) {
+      if (typeof createImageBitmap !== 'function' || !file.slice) return null;
+      try {
+        const m = medidasJpeg(await file.slice(0, 262144).arrayBuffer());
+        if (!m || !m.ancho || !m.alto) return null;
+        if (Math.max(m.ancho, m.alto) <= maxLado) return null;   // ya es chica
+        const opc = { resizeQuality: 'medium', imageOrientation: 'from-image' };
+        opc[m.ancho >= m.alto ? 'resizeWidth' : 'resizeHeight'] = maxLado;
+        return await createImageBitmap(file, opc);
+      } catch (e) {
+        return null;
+      }
+    }
+
     function abrirImagen(file) {
       return new Promise((resolve) => {
         const url = URL.createObjectURL(file);
@@ -1503,7 +1543,8 @@
       const original = () => leerArchivo(file).catch(() => '');
       if (!file || !/^image\//i.test(file.type || '')) return original();
 
-      const fuente = await abrirImagen(file);
+      // Primero el camino barato; si no se puede, el de siempre.
+      const fuente = (await abrirChiquito(file, maxLado)) || (await abrirImagen(file));
       if (!fuente) return original();
       try {
         const escala = Math.min(1, maxLado / Math.max(fuente.width, fuente.height));
